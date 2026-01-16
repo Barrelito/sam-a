@@ -1,41 +1,43 @@
 "use client"
 
-import { RecurringTask, TaskStatus } from "@/lib/types"
-import { getStationName, getUserName } from "@/lib/mock-data"
+import { useRouter } from "next/navigation"
+import { Task, TaskStatus, categoryLabels, statusLabels, statusColors, categoryColors } from "@/lib/types"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Clock, CheckCircle2, Circle, MessageSquare, RefreshCw, MapPin, User } from "lucide-react"
 
 interface TaskCardProps {
-    task: RecurringTask
+    task: Task
     onStatusChange?: (taskId: string, status: TaskStatus) => void
+    showStation?: boolean
 }
 
-const statusConfig = {
+const statusConfig: Record<TaskStatus, { label: string; icon: typeof Circle }> = {
     not_started: {
         label: "Ej Påbörjad",
         icon: Circle,
-        color: "not_started" as const,
     },
     in_progress: {
         label: "Pågående",
         icon: Clock,
-        color: "in_progress" as const,
     },
     done: {
         label: "Klar",
         icon: CheckCircle2,
-        color: "done" as const,
+    },
+    reported: {
+        label: "Rapporterad",
+        icon: CheckCircle2,
     },
 }
 
-export function TaskCard({ task, onStatusChange }: TaskCardProps) {
-    const status = statusConfig[task.status]
+export function TaskCard({ task, onStatusChange, showStation = true }: TaskCardProps) {
+    const router = useRouter()
+    const status = statusConfig[task.status] || statusConfig.not_started
     const StatusIcon = status.icon
-    const stationName = getStationName(task.station_id)
-    const assignedName = getUserName(task.assigned_to)
 
-    const cycleStatus = () => {
+    const cycleStatus = (e: React.MouseEvent) => {
+        e.stopPropagation()
         if (!onStatusChange) return
         const statusOrder: TaskStatus[] = ['not_started', 'in_progress', 'done']
         const currentIndex = statusOrder.indexOf(task.status)
@@ -43,8 +45,15 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
         onStatusChange(task.id, nextStatus)
     }
 
+    const handleClick = () => {
+        router.push(`/tasks/${task.id}`)
+    }
+
     return (
-        <Card className="group hover:shadow-md transition-shadow">
+        <Card
+            className="group hover:shadow-md transition-shadow cursor-pointer"
+            onClick={handleClick}
+        >
             <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
@@ -60,20 +69,24 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
                             )}
                         </div>
                     </div>
-                    <Badge variant={task.category}>{task.category}</Badge>
+                    <Badge variant="outline" className={categoryColors[task.category]}>
+                        {categoryLabels[task.category]}
+                    </Badge>
                 </div>
             </CardHeader>
             <CardContent className="pt-0 space-y-3">
                 {/* Station & Assigned Info */}
                 <div className="flex flex-wrap gap-2 text-xs">
-                    <span className="flex items-center gap-1 text-muted-foreground">
-                        <MapPin className="h-3 w-3" />
-                        {stationName}
-                    </span>
-                    {task.assigned_to && (
+                    {showStation && task.station?.name && (
+                        <span className="flex items-center gap-1 text-muted-foreground">
+                            <MapPin className="h-3 w-3" />
+                            {task.station.name}
+                        </span>
+                    )}
+                    {task.assigned_to_profile?.full_name && (
                         <span className="flex items-center gap-1 text-muted-foreground">
                             <User className="h-3 w-3" />
-                            {assignedName}
+                            {task.assigned_to_profile.full_name}
                         </span>
                     )}
                 </div>
@@ -85,7 +98,9 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
                         className="flex items-center gap-2 rounded-md px-2 py-1 hover:bg-secondary transition-colors"
                     >
                         <StatusIcon className="h-4 w-4" />
-                        <Badge variant={status.color}>{status.label}</Badge>
+                        <Badge className={statusColors[task.status]}>
+                            {statusLabels[task.status]}
+                        </Badge>
                     </button>
                     {task.notes && (
                         <div className="flex items-center gap-1 text-muted-foreground">
@@ -94,13 +109,14 @@ export function TaskCard({ task, onStatusChange }: TaskCardProps) {
                         </div>
                     )}
                 </div>
-                {task.notes && (
-                    <p className="text-sm text-muted-foreground bg-secondary/50 rounded-md p-2">
-                        {task.notes}
+
+                {/* Deadline info */}
+                {task.deadline_day && (
+                    <p className="text-xs text-muted-foreground">
+                        Deadline: dag {task.deadline_day}
                     </p>
                 )}
             </CardContent>
         </Card>
     )
 }
-

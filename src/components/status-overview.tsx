@@ -1,12 +1,12 @@
 "use client"
 
-import { RecurringTask } from "@/lib/types"
+import { Task } from "@/lib/types"
 import { Progress } from "@/components/ui/progress"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { CheckCircle2, Clock, Circle } from "lucide-react"
 
 interface StatusOverviewProps {
-    tasks: RecurringTask[]
+    tasks: Task[]
     title?: string
 }
 

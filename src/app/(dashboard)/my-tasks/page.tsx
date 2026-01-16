@@ -1,28 +1,68 @@
 "use client"
 
-import { useState } from "react"
-import { mockTasks } from "@/lib/mock-data"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { TaskCard } from "@/components/task-card"
 import { StatusOverview } from "@/components/status-overview"
-import { RecurringTask, TaskStatus } from "@/lib/types"
-import { User } from "lucide-react"
-
-// For now, simulating a logged-in user
-const CURRENT_USER_ID = "user-1"
+import { Task, TaskStatus } from "@/lib/types"
+import { User, Loader2 } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
 
 export default function MyTasksPage() {
-    const [tasks, setTasks] = useState<RecurringTask[]>(
-        // In real app, filter by assigned_to === currentUser.id
-        // For demo, show first 4 tasks as "my tasks"
-        mockTasks.slice(0, 4).map(t => ({ ...t, assigned_to: CURRENT_USER_ID }))
-    )
+    const router = useRouter()
+    const { profile, loading: authLoading } = useAuth()
+    const [tasks, setTasks] = useState<Task[]>([])
+    const [loading, setLoading] = useState(true)
 
-    const handleStatusChange = (taskId: string, newStatus: TaskStatus) => {
-        setTasks(prev => prev.map(task =>
-            task.id === taskId
-                ? { ...task, status: newStatus, updated_at: new Date().toISOString() }
-                : task
-        ))
+    useEffect(() => {
+        const fetchTasks = async () => {
+            if (authLoading || !profile) return
+
+            try {
+                const res = await fetch('/api/tasks')
+                if (res.ok) {
+                    const data = await res.json()
+                    // Filter tasks assigned to the current user
+                    const myTasks = (data.tasks || []).filter((task: Task) =>
+                        task.assigned_to === profile.id
+                    )
+                    setTasks(myTasks)
+                }
+            } catch (err) {
+                console.error('Error fetching tasks:', err)
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        fetchTasks()
+    }, [authLoading, profile])
+
+    const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
+        try {
+            const res = await fetch(`/api/tasks/${taskId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            })
+            if (res.ok) {
+                setTasks(prev => prev.map(task =>
+                    task.id === taskId
+                        ? { ...task, status: newStatus, updated_at: new Date().toISOString() }
+                        : task
+                ))
+            }
+        } catch (err) {
+            console.error('Error updating status:', err)
+        }
+    }
+
+    if (authLoading || loading) {
+        return (
+            <div className="flex items-center justify-center h-64">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </div>
+        )
     }
 
     return (

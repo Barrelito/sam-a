@@ -22,9 +22,18 @@ import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/co
 import { useState } from "react"
 import { useAuth } from "@/lib/auth-context"
 
-// Navigation for regular users (managers)
+// Navigation for regular users (station managers)
 const managerNavigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
+    { name: "Alla Uppgifter", href: "/tasks", icon: ListTodo },
+    { name: "Mina Uppgifter", href: "/my-tasks", icon: User },
+    { name: "Chefstöd", href: "/chefstod", icon: MessageSquare },
+    { name: "Inställningar", href: "/settings", icon: Settings },
+]
+
+// Navigation for VO chiefs
+const voChiefNavigation = [
+    { name: "VO Dashboard", href: "/vo", icon: Building2 },
     { name: "Alla Uppgifter", href: "/tasks", icon: ListTodo },
     { name: "Mina Uppgifter", href: "/my-tasks", icon: User },
     { name: "Chefstöd", href: "/chefstod", icon: MessageSquare },
@@ -67,7 +76,8 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
         await signOut()
     }
 
-    const navItems = isAdmin ? adminNavigation : managerNavigation
+    const isVOChief = profile?.role === 'vo_chief'
+    const navItems = isAdmin ? adminNavigation : (isVOChief ? voChiefNavigation : managerNavigation)
 
     return (
         <nav className="flex flex-col gap-1 h-full">
