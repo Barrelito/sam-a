@@ -213,7 +213,6 @@ export default function TaskDetailPage() {
                 category: mappedCategory,
                 owner_type: 'station', // Defaulting to station task for managers
                 station_id: stationId,
-                station_id: stationId,
                 // annual_cycle_item_id: REMOVED per user request to decouple from SQL fix
                 year: task.year || new Date().getFullYear(),
                 start_month: task.start_month,
