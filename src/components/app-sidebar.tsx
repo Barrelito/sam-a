@@ -14,7 +14,8 @@ import {
     LogOut,
     Building2,
     MapPin,
-    Users
+    Users,
+    DollarSign
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -27,6 +28,7 @@ const managerNavigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
     { name: "Alla Uppgifter", href: "/tasks", icon: ListTodo },
     { name: "Mina Uppgifter", href: "/my-tasks", icon: User },
+    { name: "Löneöversyn", href: "/salary-review", icon: DollarSign },
     { name: "Chefstöd", href: "/chefstod", icon: MessageSquare },
     { name: "Inställningar", href: "/settings", icon: Settings },
 ]
@@ -36,6 +38,7 @@ const voChiefNavigation = [
     { name: "VO Dashboard", href: "/vo", icon: Building2 },
     { name: "Alla Uppgifter", href: "/tasks", icon: ListTodo },
     { name: "Mina Uppgifter", href: "/my-tasks", icon: User },
+    { name: "Löneöversyn", href: "/salary-review", icon: DollarSign },
     { name: "Chefstöd", href: "/chefstod", icon: MessageSquare },
     { name: "Inställningar", href: "/settings", icon: Settings },
 ]
