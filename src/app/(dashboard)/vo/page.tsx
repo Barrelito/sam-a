@@ -239,15 +239,15 @@ export default function VODashboardPage() {
 
                             return (
                                 <Card key={item.id} className="overflow-hidden">
-                                    <div className={`h-1 w-full ${categoryColors[item.category as any]?.replace('text-', 'bg-') || 'bg-gray-200'}`} />
+                                    <div className={`h-1 w-full ${categoryColors[item.category as TaskCategory]?.replace('text-', 'bg-') || 'bg-gray-200'}`} />
                                     <CardContent className="pt-4">
                                         <div className="flex justify-between items-start mb-4">
                                             <div>
                                                 <h3 className="font-medium text-lg">{item.title}</h3>
                                                 <p className="text-sm text-muted-foreground line-clamp-1">{item.description}</p>
                                             </div>
-                                            <Badge variant="outline" className={categoryColors[item.category as any]}>
-                                                {categoryLabels[item.category as any]}
+                                            <Badge variant="outline" className={categoryColors[item.category as TaskCategory]}>
+                                                {categoryLabels[item.category as TaskCategory]}
                                             </Badge>
                                         </div>
 
