@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { Task, statusLabels, statusColors, categoryLabels, categoryColors } from "@/lib/types"
+import { Task, statusLabels, statusColors, categoryLabels, categoryColors, TaskCategory } from "@/lib/types"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -239,15 +239,15 @@ export default function VODashboardPage() {
 
                             return (
                                 <Card key={item.id} className="overflow-hidden">
-                                    <div className={`h-1 w-full ${categoryColors[item.category as TaskCategory]?.replace('text-', 'bg-') || 'bg-gray-200'}`} />
+                                    <div className={`h-1 w-full ${(categoryColors as Record<string, string>)[item.category]?.replace('text-', 'bg-') || 'bg-gray-200'}`} />
                                     <CardContent className="pt-4">
                                         <div className="flex justify-between items-start mb-4">
                                             <div>
                                                 <h3 className="font-medium text-lg">{item.title}</h3>
                                                 <p className="text-sm text-muted-foreground line-clamp-1">{item.description}</p>
                                             </div>
-                                            <Badge variant="outline" className={categoryColors[item.category as TaskCategory]}>
-                                                {categoryLabels[item.category as TaskCategory]}
+                                            <Badge variant="outline" className={(categoryColors as Record<string, string>)[item.category]}>
+                                                {(categoryLabels as Record<string, string>)[item.category]}
                                             </Badge>
                                         </div>
 
