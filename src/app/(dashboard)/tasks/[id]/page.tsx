@@ -195,7 +195,7 @@ export default function TaskDetailPage() {
             // We need to create a new task based on the virtual one + updates
             const stationId = profile?.user_stations?.[0]?.station?.id // Default to user's first station
 
-            if (!stationId && profile.role !== 'admin' && profile.role !== 'vo_chief') {
+            if (!stationId && profile?.role !== 'admin' && profile?.role !== 'vo_chief') {
                 setError("Du måste ha en station för att spara denna uppgift.")
                 return
             }
