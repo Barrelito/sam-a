@@ -1,12 +1,10 @@
-// Löneöversyn Dashboard
-// Huvudsida för löneöversynsmodulen
-
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Users, ClipboardList, Calendar, FileText } from 'lucide-react'
+import { Users, ClipboardList, Calendar, FileText, Banknote } from 'lucide-react'
+import VoChiefDashboard from '@/components/salary-review/VoChiefDashboard'
 
 export default async function SalaryReviewPage() {
     const supabase = await createClient()
@@ -40,11 +38,7 @@ export default async function SalaryReviewPage() {
         )
     }
 
-    // Fetch basic statistics
-    const { data: employees, count: employeeCount } = await supabase
-        .from('employees')
-        .select('*', { count: 'exact', head: true })
-
+    // Get active cycle
     const { data: cycles } = await supabase
         .from('salary_review_cycles')
         .select('*')
@@ -53,6 +47,43 @@ export default async function SalaryReviewPage() {
 
     const activeCycle = cycles?.[0]
     const canCreateCycle = ['admin', 'vo_chief'].includes(profile.role)
+
+    // VO CHIEF: Show VO-specific dashboard
+    if (profile.role === 'vo_chief') {
+        // Get user's VO
+        const { data: userProfile } = await supabase
+            .from('profiles')
+            .select(`
+                vo_id,
+                vo:verksamhetsomraden(id, name)
+            `)
+            .eq('id', user.id)
+            .single()
+
+        if (!userProfile || !userProfile.vo_id || !activeCycle) {
+            return (
+                <div className="container mx-auto py-8">
+                    <h1 className="text-2xl font-bold mb-4">Löneöversyn - VO-chef</h1>
+                    {!userProfile && <p className="text-muted-foreground">Inget VO kopplat till ditt konto.</p>}
+                    {!activeCycle && <p className="text-muted-foreground">Ingen aktiv löneöversynscykel.</p>}
+                </div>
+            )
+        }
+
+        return (
+            <VoChiefDashboard
+                vo={userProfile.vo}
+                cycle={activeCycle}
+                userName={profile.full_name || 'VO-chef'}
+            />
+        )
+    }
+
+    // STATION MANAGER: Show station-specific dashboard
+    // Fetch basic statistics
+    const { data: employees, count: employeeCount } = await supabase
+        .from('employees')
+        .select('*', { count: 'exact', head: true })
 
     return (
         <div className="container mx-auto py-8">
@@ -212,9 +243,36 @@ export default async function SalaryReviewPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <Button className="w-full" disabled>
-                            Hantera bedömningar
-                        </Button>
+                        <Link href="/salary-review/employees">
+                            <Button className="w-full">
+                                Hantera bedömningar
+                            </Button>
+                        </Link>
+                        <p className="text-xs text-muted-foreground mt-2">
+                            Välj medarbetare för att påbörja bedömning
+                        </p>
+                    </CardContent>
+                </Card>
+
+                <Card className="hover:shadow-lg transition-shadow border-blue-200 bg-blue-50/50">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2 text-blue-900">
+                            <Banknote className="h-5 w-5" />
+                            Lönefördelning
+                        </CardTitle>
+                        <CardDescription className="text-blue-700">
+                            Fördela budget baserat på betyg
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Link href="/salary-review/distribution">
+                            <Button className="w-full" variant="secondary">
+                                Gå till fördelning
+                            </Button>
+                        </Link>
+                        <p className="text-xs text-blue-700/70 mt-2">
+                            Kräver att bedömningar är gjorda
+                        </p>
                     </CardContent>
                 </Card>
 
@@ -229,9 +287,14 @@ export default async function SalaryReviewPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <Button className="w-full" disabled>
-                            Hantera lönesamtal
-                        </Button>
+                        <Link href="/salary-review/employees">
+                            <Button className="w-full">
+                                Hantera lönesamtal
+                            </Button>
+                        </Link>
+                        <p className="text-xs text-muted-foreground mt-2">
+                            Välj medarbetare för att förbereda eller genomföra samtal
+                        </p>
                     </CardContent>
                 </Card>
             </div>

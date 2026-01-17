@@ -88,8 +88,8 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
     }
 
     const CATEGORY_LABELS = {
-        VUB: 'VUB - Vårdare',
-        SSK: 'SSK - Sjuksköterska',
+        VUB: 'VUB - Specialistsjuksköterska',
+        SSK: 'SSK - Grundsjuksköterska',
         AMB: 'AMB - Ambulanssjukvårdare'
     }
 
@@ -258,17 +258,41 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                             </div>
 
                             {/* Meeting Preparation */}
-                            <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors">
+                            <div className={`flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors ${review.status === 'completed' ? 'border-l-4 border-l-green-500 bg-green-50/30' : ''
+                                }`}>
                                 <div className="flex-1">
-                                    <h3 className="font-medium mb-1">Lönesamtal</h3>
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <h3 className="font-medium">Lönesamtal</h3>
+                                        {review.status === 'completed' && (
+                                            <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                        )}
+                                    </div>
                                     <p className="text-sm text-muted-foreground">
-                                        Förbered och genomför lönesamtal
+                                        {review.status === 'completed'
+                                            ? `✅ Slutförd ${review.meeting_date ? new Date(review.meeting_date).toLocaleDateString('sv-SE') : ''}`
+                                            : criteriaCount >= totalCriteria
+                                                ? 'Förbered och genomför lönesamtal'
+                                                : 'Slutför bedömningar först'}
                                     </p>
                                 </div>
-                                <Button variant="outline" disabled>
-                                    <MessageSquare className="mr-2 h-4 w-4" />
-                                    Förbered (Kommer snart)
-                                </Button>
+                                {review.status === 'completed' ? (
+                                    <Link href={`/salary-review/employees/${employeeId}/meeting`}>
+                                        <Button variant="outline">
+                                            <MessageSquare className="mr-2 h-4 w-4" />
+                                            Visa samtal
+                                        </Button>
+                                    </Link>
+                                ) : (
+                                    <Link href={`/salary-review/employees/${employeeId}/meeting`}>
+                                        <Button
+                                            variant="outline"
+                                            disabled={criteriaCount < totalCriteria}
+                                        >
+                                            <MessageSquare className="mr-2 h-4 w-4" />
+                                            {criteriaCount >= totalCriteria ? 'Förbered samtal' : 'Slutför bedömningar'}
+                                        </Button>
+                                    </Link>
+                                )}
                             </div>
                         </CardContent>
                     </Card>

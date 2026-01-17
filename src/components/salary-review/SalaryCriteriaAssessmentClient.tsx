@@ -21,6 +21,8 @@ import { ArrowLeft, Save, Loader2, AlertCircle, ChevronDown, ChevronRight, Check
 import Link from 'next/link'
 import type { CategoryDefinition, CriteriaRating } from '@/lib/salary-review/types'
 import { RATING_DISPLAY_NAMES, RATING_DEFINITIONS, RATING_COLORS } from '@/lib/salary-review/salary-criteria'
+import { useToast } from '@/hooks/use-toast'
+import { LoadingButton } from '@/components/ui/loading-button'
 
 interface SalaryCriteriaAssessmentClientProps {
     employee: any
@@ -34,15 +36,12 @@ export default function SalaryCriteriaAssessmentClient({
     criteria
 }: SalaryCriteriaAssessmentClientProps) {
     const router = useRouter()
+    const { toast } = useToast()
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
     const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['1'])) // First category expanded by default
     const [assessments, setAssessments] = useState<Record<string, { rating: CriteriaRating, evidence: string, notes: string }>>({})
-    const [saveResult, setSaveResult] = useState<{
-        success: boolean,
-        assessed_count: number,
-        average_rating: number
-    } | null>(null)
+    const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
 
     // Ladda befintliga bedömningar
     useEffect(() => {
@@ -66,13 +65,18 @@ export default function SalaryCriteriaAssessmentClient({
                 }
             } catch (error) {
                 console.error('Error loading assessments:', error)
+                toast({
+                    variant: "destructive",
+                    title: "Fel vid laddning",
+                    description: "Kunde inte ladda bedömningar. Försök igen."
+                })
             } finally {
                 setLoading(false)
             }
         }
 
         loadAssessments()
-    }, [review.id])
+    }, [review.id, toast])
 
     const toggleCategory = (categoryId: string) => {
         setExpandedCategories(prev => {
@@ -86,35 +90,83 @@ export default function SalaryCriteriaAssessmentClient({
         })
     }
 
+    const validateAssessment = (subCriterionKey: string, data: { rating: CriteriaRating, evidence: string }) => {
+        // Validation: Evidence required for high ratings
+        if (['mycket_bra', 'utmarkt'].includes(data.rating)) {
+            if (!data.evidence || data.evidence.length < 10) {
+                setValidationErrors(prev => ({
+                    ...prev,
+                    [subCriterionKey]: 'För bedömningen "Mycket bra" eller "Utmärkt" krävs konkreta exempel (minst 10 tecken)'
+                }))
+                return false
+            }
+        }
+        // Clear error if valid
+        setValidationErrors(prev => {
+            const newErrors = { ...prev }
+            delete newErrors[subCriterionKey]
+            return newErrors
+        })
+        return true
+    }
+
     const handleRatingChange = (subCriterionKey: string, categoryKey: string, rating: CriteriaRating) => {
+        const newData = {
+            ...assessments[subCriterionKey],
+            rating,
+            evidence: assessments[subCriterionKey]?.evidence || '',
+            notes: assessments[subCriterionKey]?.notes || '',
+            category_key: categoryKey
+        }
         setAssessments(prev => ({
             ...prev,
-            [subCriterionKey]: {
-                ...prev[subCriterionKey],
-                rating,
-                evidence: prev[subCriterionKey]?.evidence || '',
-                notes: prev[subCriterionKey]?.notes || '',
-                category_key: categoryKey
-            }
+            [subCriterionKey]: newData
         }))
+
+        // Validate immediately
+        validateAssessment(subCriterionKey, newData)
     }
 
     const handleEvidenceChange = (subCriterionKey: string, value: string) => {
-        setAssessments(prev => ({
-            ...prev,
-            [subCriterionKey]: {
-                ...prev[subCriterionKey],
+        const assessment = assessments[subCriterionKey]
+        if (assessment) {
+            const newData = {
+                ...assessment,
                 evidence: value
             }
-        }))
+            setAssessments(prev => ({
+                ...prev,
+                [subCriterionKey]: newData
+            }))
+
+            // Validate if rating exists
+            if (assessment.rating) {
+                validateAssessment(subCriterionKey, newData)
+            }
+        }
     }
 
     const handleSave = async () => {
-        setSaving(true)
-        setSaveResult(null) // Reset previous result
-        try {
-            // Evidence är nu frivilligt - ingen validering
+        // Validate all assessments before saving
+        let hasErrors = false
+        Object.entries(assessments).forEach(([key, data]) => {
+            if (data.rating) {
+                const isValid = validateAssessment(key, data)
+                if (!isValid) hasErrors = true
+            }
+        })
 
+        if (hasErrors) {
+            toast({
+                variant: "destructive",
+                title: "Validering misslyckades",
+                description: "Kontrollera att alla bedömningar har tillräckligt med konkreta exempel."
+            })
+            return
+        }
+
+        setSaving(true)
+        try {
             // Konvertera till array format
             const assessmentArray = Object.entries(assessments)
                 .filter(([_, data]) => data.rating) // Endast de som har rating
@@ -127,7 +179,11 @@ export default function SalaryCriteriaAssessmentClient({
                 }))
 
             if (assessmentArray.length === 0) {
-                alert('Du måste bedöma minst ett kriterium!')
+                toast({
+                    variant: "destructive",
+                    title: "Ingen bedömning gjord",
+                    description: "Du måste bedöma minst ett kriterium!"
+                })
                 setSaving(false)
                 return
             }
@@ -144,17 +200,21 @@ export default function SalaryCriteriaAssessmentClient({
                 throw new Error(result.error || 'Failed to save')
             }
 
-            // Set result to show colored card
-            setSaveResult({
-                success: true,
-                assessed_count: result.assessed_count,
-                average_rating: result.average_rating
+            // Success toast
+            toast({
+                title: "✓ Bedömning sparad!",
+                description: `${result.assessed_count} kriterier bedömda. Genomsnitt: ${result.average_rating.toFixed(2)} / 4.0`,
+                variant: "default"
             })
 
             router.refresh()
         } catch (error) {
             console.error('Error saving:', error)
-            alert(`Fel: ${error instanceof Error ? error.message : 'Kunde inte spara'}`)
+            toast({
+                variant: "destructive",
+                title: "Fel vid sparande",
+                description: error instanceof Error ? error.message : 'Kunde inte spara. Försök igen.'
+            })
         } finally {
             setSaving(false)
         }
@@ -293,7 +353,7 @@ export default function SalaryCriteriaAssessmentClient({
 
                                                     <div>
                                                         <Label htmlFor={`${sub.id}-evidence`} className="text-sm">
-                                                            Konkreta exempel (frivilligt)
+                                                            Konkreta exempel {['mycket_bra', 'utmarkt'].includes(assessment.rating) && <span className="text-red-600">*</span>}
                                                         </Label>
                                                         <Textarea
                                                             id={`${sub.id}-evidence`}
@@ -301,8 +361,11 @@ export default function SalaryCriteriaAssessmentClient({
                                                             onChange={(e) => handleEvidenceChange(sub.id, e.target.value)}
                                                             placeholder="Beskriv konkreta exempel från medarbetarens arbete..."
                                                             rows={3}
-                                                            className="mt-1 resize-none"
+                                                            className={`mt-1 resize-none ${validationErrors[sub.id] ? 'border-red-500' : ''}`}
                                                         />
+                                                        {validationErrors[sub.id] && (
+                                                            <p className="text-sm text-red-600 mt-1">{validationErrors[sub.id]}</p>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -317,51 +380,19 @@ export default function SalaryCriteriaAssessmentClient({
 
             {/* Save Button */}
             <div className="sticky bottom-4 mt-8 flex justify-end">
-                <Button
+                <LoadingButton
                     size="lg"
                     onClick={handleSave}
-                    disabled={saving}
+                    isLoading={saving}
+                    loadingText="Sparar bedömning..."
                     className="shadow-lg"
                 >
-                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     <Save className="mr-2 h-4 w-4" />
                     Spara bedömning
-                </Button>
+                </LoadingButton>
             </div>
 
-            {/* Save Result */}
-            {saveResult && (
-                <Card className="mt-6 bg-green-50 border-green-200">
-                    <CardHeader>
-                        <CardTitle className="text-green-900 flex items-center gap-2">
-                            <CheckCircle2 className="h-6 w-6" />
-                            Bedömning sparad!
-                        </CardTitle>
-                        <CardDescription className="text-green-700">
-                            {saveResult.assessed_count} kriterier bedömda
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className="text-sm text-green-900">
-                        <div className="space-y-2">
-                            <p>
-                                <strong>Genomsnittlig rating:</strong> {saveResult.average_rating.toFixed(2)} / 4.00
-                            </p>
-                            <div className="w-full bg-green-200 rounded-full h-2 mt-2">
-                                <div
-                                    className="bg-green-600 h-2 rounded-full transition-all"
-                                    style={{ width: `${(saveResult.average_rating / 4) * 100}%` }}
-                                />
-                            </div>
-                            <p className="text-xs text-green-700 mt-2">
-                                {saveResult.average_rating >= 3.5 ? '✅ Utmärkt prestation!' :
-                                    saveResult.average_rating >= 2.5 ? '👍 Mycket bra prestation!' :
-                                        saveResult.average_rating >= 1.5 ? '✔️ Bra prestation' :
-                                            'ℹ️ Utvecklingsområden identifierade'}
-                            </p>
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
+
 
             {/* Help Card */}
             <Card className="mt-6 bg-blue-50 border-blue-200">
@@ -375,7 +406,7 @@ export default function SalaryCriteriaAssessmentClient({
                     <ul className="list-disc list-inside space-y-1">
                         <li>Bedöm alla {totalCriteria} kriterier för en komplett bedömning</li>
                         <li>Välj rating-nivå för varje kriterium</li>
-                        <li>Konkreta exempel är frivilligt men rekommenderas</li>
+                        <li><strong>OBS:</strong> Konkreta exempel är <strong>obligatoriskt</strong> för "Mycket bra" och "Utmärkt"</li>
                         <li>Klicka på en kategori för att expandera/minimera</li>
                         <li>Du kan spara och återkomma när som helst</li>
                     </ul>

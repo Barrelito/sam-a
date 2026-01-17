@@ -30,6 +30,14 @@ export const RATING_COLORS: Record<CriteriaRating, string> = {
     'utmarkt': 'text-green-600 bg-green-50 border-green-200'
 }
 
+// Numerisk mappning för enklare löneberäkning (Skala 1-5)
+export const NUMERIC_RATING_VALUES: Record<CriteriaRating, number> = {
+    'behover_utvecklas': 1,
+    'bra': 3,
+    'mycket_bra': 4,
+    'utmarkt': 5
+}
+
 // =============================================
 // Lönekriterier - Huvudkategorier
 // =============================================

@@ -103,17 +103,24 @@ export async function PUT(
         } = body
 
         // Uppdatera review (RLS hanterar behörigheter)
+        const updateData: any = {
+            status,
+            is_particularly_skilled,
+            proposed_salary,
+            final_salary,
+            meeting_date,
+            meeting_notes,
+            updated_at: new Date().toISOString()
+        }
+
+        // Sätt completed_at om status är 'completed'
+        if (status === 'completed') {
+            updateData.completed_at = new Date().toISOString()
+        }
+
         const { data: review, error } = await supabase
             .from('salary_reviews')
-            .update({
-                status,
-                is_particularly_skilled,
-                proposed_salary,
-                final_salary,
-                meeting_date,
-                meeting_notes,
-                updated_at: new Date().toISOString()
-            })
+            .update(updateData)
             .eq('id', reviewId)
             .select()
             .single()

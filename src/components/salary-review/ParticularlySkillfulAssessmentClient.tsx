@@ -13,6 +13,8 @@ import { Label } from '@/components/ui/label'
 import { ArrowLeft, Save, Loader2, CheckCircle2, AlertCircle } from 'lucide-react'
 import Link from 'next/link'
 import type { ParticularlySkillfulCriterion } from '@/lib/salary-review/particularly-skilled-criteria'
+import { useToast } from '@/hooks/use-toast'
+import { LoadingButton } from '@/components/ui/loading-button'
 
 interface ParticularlySkillfulAssessmentPageProps {
     employee: any
@@ -26,15 +28,11 @@ export default function ParticularlySkillfulAssessmentClient({
     criteria
 }: ParticularlySkillfulAssessmentPageProps) {
     const router = useRouter()
+    const { toast } = useToast()
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
     const [assessments, setAssessments] = useState<Record<string, { is_met: boolean, evidence: string, notes: string }>>({})
-    const [saveResult, setSaveResult] = useState<{
-        success: boolean,
-        is_particularly_skilled: boolean,
-        met_count: number,
-        total_count: number
-    } | null>(null)
+    const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
 
     // Ladda befintliga bedömningar
     useEffect(() => {
@@ -57,41 +55,94 @@ export default function ParticularlySkillfulAssessmentClient({
                 }
             } catch (error) {
                 console.error('Error loading assessments:', error)
+                toast({
+                    variant: "destructive",
+                    title: "Fel vid laddning",
+                    description: "Kunde inte ladda bedömningar. Försök igen."
+                })
             } finally {
                 setLoading(false)
             }
         }
 
         loadAssessments()
-    }, [review.id])
+    }, [review.id, toast])
+
+    const validateAssessment = (criterionKey: string, data: { is_met: boolean, evidence: string }) => {
+        // Validation: Evidence required if is_met is true
+        if (data.is_met) {
+            if (!data.evidence || data.evidence.length < 10) {
+                setValidationErrors(prev => ({
+                    ...prev,
+                    [criterionKey]: 'När kriteriet är uppfyllt krävs konkreta exempel (minst 10 tecken)'
+                }))
+                return false
+            }
+        }
+        // Clear error if valid
+        setValidationErrors(prev => {
+            const newErrors = { ...prev }
+            delete newErrors[criterionKey]
+            return newErrors
+        })
+        return true
+    }
 
     const handleToggle = (criterionKey: string, checked: boolean) => {
+        const newData = {
+            ...assessments[criterionKey],
+            is_met: checked,
+            evidence: assessments[criterionKey]?.evidence || '',
+            notes: assessments[criterionKey]?.notes || ''
+        }
         setAssessments(prev => ({
             ...prev,
-            [criterionKey]: {
-                ...prev[criterionKey],
-                is_met: checked,
-                evidence: prev[criterionKey]?.evidence || '',
-                notes: prev[criterionKey]?.notes || ''
-            }
+            [criterionKey]: newData
         }))
+
+        // Validate immediately
+        validateAssessment(criterionKey, newData)
     }
 
     const handleEvidenceChange = (criterionKey: string, value: string) => {
-        setAssessments(prev => ({
-            ...prev,
-            [criterionKey]: {
-                ...prev[criterionKey],
-                is_met: prev[criterionKey]?.is_met || false,
-                evidence: value,
-                notes: prev[criterionKey]?.notes || ''
+        const assessment = assessments[criterionKey]
+        if (assessment) {
+            const newData = {
+                ...assessment,
+                evidence: value
             }
-        }))
+            setAssessments(prev => ({
+                ...prev,
+                [criterionKey]: newData
+            }))
+
+            // Validate if is_met
+            if (assessment.is_met) {
+                validateAssessment(criterionKey, newData)
+            }
+        }
     }
 
     const handleSave = async () => {
+        // Validate all checked assessments before saving
+        let hasErrors = false
+        Object.entries(assessments).forEach(([key, data]) => {
+            if (data.is_met) {
+                const isValid = validateAssessment(key, data)
+                if (!isValid) hasErrors = true
+            }
+        })
+
+        if (hasErrors) {
+            toast({
+                variant: "destructive",
+                title: "Validering misslyckades",
+                description: "Kontrollera att alla uppfyllda kriterier har konkreta exempel."
+            })
+            return
+        }
+
         setSaving(true)
-        setSaveResult(null) // Reset previous result
         try {
             // Konvertera till array format för API
             const assessmentArray = Object.entries(assessments).map(([criterion_key, data]) => ({
@@ -113,18 +164,22 @@ export default function ParticularlySkillfulAssessmentClient({
                 throw new Error(result.error || 'Failed to save')
             }
 
-            // Set result to show colored card
-            setSaveResult({
-                success: true,
-                is_particularly_skilled: result.is_particularly_skilled,
-                met_count: result.met_count,
-                total_count: result.total_count
+            // Success toast
+            const percentage = Math.round((result.met_count / result.total_count) * 100)
+            toast({
+                title: result.is_particularly_skilled ? "✓ Särskilt yrkesskicklig!" : "✓ Bedömning sparad!",
+                description: `${result.met_count} av ${result.total_count} kriterier uppfyllda (${percentage}%)`,
+                variant: "default"
             })
 
             router.refresh()
         } catch (error) {
             console.error('Error saving:', error)
-            alert(`Fel: ${error instanceof Error ? error.message : 'Kunde inte spara'}`)
+            toast({
+                variant: "destructive",
+                title: "Fel vid sparande",
+                description: error instanceof Error ? error.message : 'Kunde inte spara. Försök igen.'
+            })
         } finally {
             setSaving(false)
         }
@@ -215,7 +270,7 @@ export default function ParticularlySkillfulAssessmentClient({
                                         {assessment.is_met && (
                                             <div className="ml-8 space-y-2">
                                                 <Label htmlFor={`${sub.id}-evidence`} className="text-sm font-medium">
-                                                    Konkreta exempel och bevis
+                                                    Konkreta exempel och bevis <span className="text-red-600">*</span>
                                                 </Label>
                                                 <Textarea
                                                     id={`${sub.id}-evidence`}
@@ -223,8 +278,11 @@ export default function ParticularlySkillfulAssessmentClient({
                                                     onChange={(e) => handleEvidenceChange(sub.id, e.target.value)}
                                                     placeholder="Beskriv konkreta exempel som visar att detta kriterium är uppfyllt..."
                                                     rows={3}
-                                                    className="resize-none"
+                                                    className={`resize-none ${validationErrors[sub.id] ? 'border-red-500' : ''}`}
                                                 />
+                                                {validationErrors[sub.id] && (
+                                                    <p className="text-sm text-red-600 mt-1">{validationErrors[sub.id]}</p>
+                                                )}
                                             </div>
                                         )}
                                     </div>
@@ -237,65 +295,18 @@ export default function ParticularlySkillfulAssessmentClient({
 
             {/* Save Button */}
             <div className="sticky bottom-4 mt-8 flex justify-end">
-                <Button
+                <LoadingButton
                     size="lg"
                     onClick={handleSave}
-                    disabled={saving}
+                    isLoading={saving}
+                    loadingText="Sparar bedömning..."
                     className="shadow-lg"
                 >
-                    {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     <Save className="mr-2 h-4 w-4" />
                     Spara bedömning
-                </Button>
+                </LoadingButton>
             </div>
 
-            {/* Save Result */}
-            {saveResult && (
-                <Card className={`mt-6 ${saveResult.is_particularly_skilled
-                        ? 'bg-green-50 border-green-200'
-                        : 'bg-yellow-50 border-yellow-200'
-                    }`}>
-                    <CardHeader>
-                        <CardTitle className={
-                            saveResult.is_particularly_skilled
-                                ? 'text-green-900 flex items-center gap-2'
-                                : 'text-yellow-900 flex items-center gap-2'
-                        }>
-                            {saveResult.is_particularly_skilled ? (
-                                <>
-                                    <CheckCircle2 className="h-6 w-6" />
-                                    Särskilt yrkesskicklig
-                                </>
-                            ) : (
-                                <>
-                                    <AlertCircle className="h-6 w-6" />
-                                    Inte särskilt yrkesskicklig
-                                </>
-                            )}
-                        </CardTitle>
-                        <CardDescription className={
-                            saveResult.is_particularly_skilled ? 'text-green-700' : 'text-yellow-700'
-                        }>
-                            Bedömning sparad: {saveResult.met_count} av {saveResult.total_count} kriterier uppfyllda
-                            ({Math.round((saveResult.met_count / saveResult.total_count) * 100)}%)
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent className={
-                        saveResult.is_particularly_skilled ? 'text-sm text-green-900' : 'text-sm text-yellow-900'
-                    }>
-                        {saveResult.is_particularly_skilled ? (
-                            <p>
-                                ✅ Medarbetaren uppfyller kriterierna för särskild yrkesskicklighet (minst 80% krävs).
-                            </p>
-                        ) : (
-                            <p>
-                                ℹ️ Medarbetaren uppfyller inte kriterierna för särskild yrkesskicklighet ännu.
-                                Minst {Math.ceil(saveResult.total_count * 0.8)} kriterier krävs (80%).
-                            </p>
-                        )}
-                    </CardContent>
-                </Card>
-            )}
 
             {/* Help Card */}
             <Card className="mt-6 bg-blue-50 border-blue-200">
@@ -308,8 +319,8 @@ export default function ParticularlySkillfulAssessmentClient({
                 <CardContent className="text-sm text-blue-900">
                     <ul className="list-disc list-inside space-y-1">
                         <li>Bocka i de kriterier som medarbetaren uppfyller</li>
-                        <li>För varje ibockat kriterium, ange konkreta exempel</li>
-                        <li>Bedömningen sparas automatiskt när du klickar på "Spara bedömning"</li>
+                        <li><strong>OBS:</strong> Konkreta exempel är <strong>obligatoriskt</strong> för alla uppfyllda kriterier</li>
+                        <li>Bedömningen sparas när du klickar på "Spara bedömning"</li>
                         <li>Du kan återkomma och ändra bedömningen när som helst</li>
                     </ul>
                 </CardContent>

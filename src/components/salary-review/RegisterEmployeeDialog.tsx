@@ -47,6 +47,13 @@ export default function RegisterEmployeeDialog({ stations }: RegisterEmployeeDia
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
+
+        // Client-side validering
+        if (!formData.first_name || !formData.last_name || !formData.category || !formData.station_id) {
+            alert('Du måste fylla i alla obligatoriska fält (Förnamn, Efternamn, Kategori, Station)')
+            return
+        }
+
         setLoading(true)
 
         try {
@@ -56,7 +63,13 @@ export default function RegisterEmployeeDialog({ stations }: RegisterEmployeeDia
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    ...formData,
+                    first_name: formData.first_name,
+                    last_name: formData.last_name,
+                    category: formData.category,
+                    station_id: formData.station_id,
+                    employee_number: formData.employee_number || null,
+                    email: formData.email || null,
+                    employment_date: formData.employment_date || null,
                     current_salary: formData.current_salary ? parseFloat(formData.current_salary) : null
                 }),
             })
@@ -162,8 +175,8 @@ export default function RegisterEmployeeDialog({ stations }: RegisterEmployeeDia
                                         <SelectValue placeholder="Välj kategori" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="VUB">VUB - Vårdare</SelectItem>
-                                        <SelectItem value="SSK">SSK - Sjuksköterska</SelectItem>
+                                        <SelectItem value="VUB">VUB - Specialistsjuksköterska</SelectItem>
+                                        <SelectItem value="SSK">SSK - Grundsjuksköterska</SelectItem>
                                         <SelectItem value="AMB">AMB - Ambulanssjukvårdare</SelectItem>
                                     </SelectContent>
                                 </Select>

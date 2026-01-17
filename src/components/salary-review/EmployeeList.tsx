@@ -23,8 +23,8 @@ interface EmployeeListProps {
 }
 
 const CATEGORY_LABELS = {
-    VUB: 'VUB - Vårdare',
-    SSK: 'SSK - Sjuksköterska',
+    VUB: 'VUB - Specialistsjuksköterska',
+    SSK: 'SSK - Grundsjuksköterska',
     AMB: 'AMB - Ambulanssjukvårdare'
 }
 

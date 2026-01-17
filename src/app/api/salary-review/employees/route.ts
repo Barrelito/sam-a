@@ -85,7 +85,9 @@ export async function POST(request: Request) {
         } = body
 
         // Validera required fields
-        if (!first_name || !last_name || !category || !station_id) {
+        if (!first_name || !last_name || !category || !station_id ||
+            first_name.trim() === '' || last_name.trim() === '' ||
+            category.trim() === '' || station_id.trim() === '') {
             return NextResponse.json(
                 { error: 'Missing required fields: first_name, last_name, category, station_id' },
                 { status: 400 }
@@ -141,8 +143,9 @@ export async function POST(request: Request) {
 
         if (error) {
             console.error('Error creating employee:', error)
+            console.error('Error details:', JSON.stringify(error, null, 2))
             return NextResponse.json(
-                { error: 'Failed to create employee' },
+                { error: `Failed to create employee: ${error.message || 'Unknown error'}` },
                 { status: 500 }
             )
         }

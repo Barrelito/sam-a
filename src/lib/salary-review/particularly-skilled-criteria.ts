@@ -259,3 +259,19 @@ export function getAllSubCriteriaIds(category: EmployeeCategory): string[] {
 export function hasParticularlySkillfulCriteria(category: EmployeeCategory): boolean {
     return category === 'VUB' || category === 'SSK'
 }
+
+/**
+ * Hitta ett specifikt kriterium baserat på dess nyckel (t.ex. "vub_5_a" eller "ssk_3_b")
+ */
+export function findCriterionByKey(key: string): ParticularlySkillfulSubCriterion | null {
+    const allCriteria = [...VUB_CRITERIA, ...SSK_CRITERIA]
+
+    for (const criterion of allCriteria) {
+        const found = criterion.subcriteria.find(sub => sub.id === key)
+        if (found) {
+            return found
+        }
+    }
+
+    return null
+}
