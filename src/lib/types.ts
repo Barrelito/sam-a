@@ -109,6 +109,11 @@ export interface Task {
     attachments?: TaskAttachment[];
     comments_count?: number;
     attachments_count?: number;
+
+    // Annual Cycle Integration
+    is_annual_cycle?: boolean;
+    action_link?: string | null;
+    annual_cycle_item_id?: string | null;
 }
 
 export interface TaskComment {

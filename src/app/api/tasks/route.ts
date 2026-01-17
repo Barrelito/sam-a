@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     const stationId = searchParams.get('station_id')
     const voId = searchParams.get('vo_id')
 
-    // Build query
+    // --- 1. Fetch Regular Tasks ---
     let query = supabase
         .from('tasks')
         .select(`
@@ -68,38 +68,123 @@ export async function GET(request: NextRequest) {
         query = query.eq('vo_id', voId)
     }
 
-    // Role-based filtering
+    // Role-based filtering for Tasks
+    let userStationIds: string[] = []
     if (profile.role === 'station_manager' || profile.role === 'assistant_manager') {
-        // Get user's stations
         const { data: userStations } = await supabase
             .from('user_stations')
             .select('station_id')
             .eq('user_id', user.id)
 
-        const stationIds = userStations?.map(us => us.station_id) || []
+        userStationIds = userStations?.map(us => us.station_id) || []
 
-        // Show tasks for their stations + VO tasks for their VO
-        if (stationIds.length > 0) {
-            query = query.or(`station_id.in.(${stationIds.join(',')}),vo_id.eq.${profile.vo_id}`)
+        if (userStationIds.length > 0) {
+            query = query.or(`station_id.in.(${userStationIds.join(',')}),vo_id.eq.${profile.vo_id}`)
         } else if (profile.vo_id) {
             query = query.eq('vo_id', profile.vo_id)
         }
     } else if (profile.role === 'vo_chief') {
-        // VO chiefs see all tasks in their VO + their personal tasks
         if (profile.vo_id) {
             query = query.or(`vo_id.eq.${profile.vo_id},created_by.eq.${user.id}`)
         }
     }
-    // Admins see all tasks (no additional filter)
 
-    const { data: tasks, error } = await query
+    const { data: regularTasks, error } = await query
 
     if (error) {
         console.error('Error fetching tasks:', error)
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ tasks })
+    // --- 2. Fetch Annual Cycle "Virtual" Tasks ---
+    // Only if not filtering by non-matching ownerType (cycle items are 'annual_cycle' conceptually)
+    let virtualTasks: any[] = []
+    if (!ownerType || ownerType === 'annual_cycle') {
+
+        // Fetch items matching filters
+        let itemsQuery = supabase
+            .from('annual_cycle_items')
+            .select('*')
+
+        if (month) {
+            itemsQuery = itemsQuery.eq('month', month)
+        }
+        if (category) {
+            itemsQuery = itemsQuery.eq('category', category)
+        }
+
+        const { data: cycleItems } = await itemsQuery
+
+        if (cycleItems && cycleItems.length > 0) {
+            // Fetch completions
+            let completionsQuery = supabase
+                .from('annual_task_completions')
+                .select('*')
+                .eq('year', year)
+                .in('annual_cycle_item_id', cycleItems.map(i => i.id))
+
+            if (userStationIds.length > 0) {
+                completionsQuery = completionsQuery.or(`station_id.in.(${userStationIds.join(',')}),user_id.eq.${user.id}`)
+            } else {
+                completionsQuery = completionsQuery.eq('user_id', user.id)
+            }
+
+            const { data: completions } = await completionsQuery
+
+            // Map to Task format
+            virtualTasks = cycleItems.map(item => {
+                // Check if a real task already exists for this cycle item
+                // This prevents duplication in the UI
+                const existingRealTask = regularTasks?.find(t =>
+                    t.annual_cycle_item_id === item.id ||
+                    (t.title === item.title && t.start_month === item.month) // Legacy support for older manual tasks
+                )
+
+                if (existingRealTask) return null
+
+                const completion = completions?.find(c => c.annual_cycle_item_id === item.id)
+                const isCompleted = !!completion
+
+                // If filtering by status, skip if mismatch
+                if (status && status === 'completed' && !isCompleted) return null
+                if (status && status !== 'completed' && isCompleted) return null
+
+                return {
+                    id: `annual-${item.id}`, // Custom ID prefix
+                    original_id: item.id,
+                    title: item.title,
+                    description: item.description,
+                    status: isCompleted ? 'completed' : 'todo',
+                    category: item.category,
+                    owner_type: 'annual_cycle', // Virtual owner type
+                    year: year,
+                    start_month: item.month,
+                    end_month: item.month,
+                    deadline_day: 25, // Default deadlind
+                    is_recurring_monthly: false,
+                    is_annual_cycle: true,
+                    action_link: item.action_link,
+
+                    // Add mock Profile/Station data structure to avoid frontend crashes if it expects objects
+                    created_by_profile: { full_name: 'Årshjulet', email: 'system@aisab.se' },
+                    station: null, // Global item usually
+                    verksamhetsomraden: null
+                }
+            }).filter(Boolean)
+        }
+    }
+
+    // Combine and Sort
+    const allTasks = [...(regularTasks || []), ...virtualTasks]
+
+    // Sort logic (Deadline ASC, Title ASC)
+    // Here simplifying to Title for now, or maybe month/deadline
+    allTasks.sort((a, b) => {
+        if (a.start_month !== b.start_month) return (a.start_month || 0) - (b.start_month || 0)
+        return a.title.localeCompare(b.title)
+    })
+
+    return NextResponse.json({ tasks: allTasks })
 }
 
 export async function POST(request: NextRequest) {

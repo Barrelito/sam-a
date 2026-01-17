@@ -10,6 +10,7 @@ interface TaskCardProps {
     task: Task
     onStatusChange?: (taskId: string, status: TaskStatus) => void
     showStation?: boolean
+    onClick?: () => void
 }
 
 const statusConfig: Record<TaskStatus, { label: string; icon: typeof Circle }> = {
@@ -31,7 +32,7 @@ const statusConfig: Record<TaskStatus, { label: string; icon: typeof Circle }> =
     },
 }
 
-export function TaskCard({ task, onStatusChange, showStation = true }: TaskCardProps) {
+export function TaskCard({ task, onStatusChange, showStation = true, onClick }: TaskCardProps) {
     const router = useRouter()
     const status = statusConfig[task.status] || statusConfig.not_started
     const StatusIcon = status.icon
@@ -46,7 +47,16 @@ export function TaskCard({ task, onStatusChange, showStation = true }: TaskCardP
     }
 
     const handleClick = () => {
-        router.push(`/tasks/${task.id}`)
+        if (onClick) {
+            onClick()
+            return
+        }
+
+        if (task.is_annual_cycle && task.action_link) {
+            router.push(task.action_link)
+        } else {
+            router.push(`/tasks/${task.id}`)
+        }
     }
 
     return (

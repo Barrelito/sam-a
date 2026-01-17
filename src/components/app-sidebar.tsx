@@ -15,7 +15,8 @@ import {
     Building2,
     MapPin,
     Users,
-    DollarSign
+    DollarSign,
+    Calendar
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -26,6 +27,7 @@ import { useAuth } from "@/lib/auth-context"
 // Navigation for regular users (station managers)
 const managerNavigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
+    { name: "Årshjul", href: "/annual-cycle", icon: Calendar },
     { name: "Alla Uppgifter", href: "/tasks", icon: ListTodo },
     { name: "Mina Uppgifter", href: "/my-tasks", icon: User },
     { name: "Löneöversyn", href: "/salary-review", icon: DollarSign },
@@ -36,6 +38,7 @@ const managerNavigation = [
 // Navigation for VO chiefs
 const voChiefNavigation = [
     { name: "VO Dashboard", href: "/vo", icon: Building2 },
+    { name: "Årshjul", href: "/annual-cycle", icon: Calendar },
     { name: "Alla Uppgifter", href: "/tasks", icon: ListTodo },
     { name: "Mina Uppgifter", href: "/my-tasks", icon: User },
     { name: "Löneöversyn", href: "/salary-review", icon: DollarSign },

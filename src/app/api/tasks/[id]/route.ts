@@ -28,6 +28,90 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         .eq('id', id)
         .single()
 
+    // 2. FETCH VIRTUAL ANNUAL TASK if not found as real task
+    if (error && id.startsWith('annual-')) {
+        const itemUuid = id.replace('annual-', '')
+
+        // Fetch the cycle item
+        const { data: item } = await supabase
+            .from('annual_cycle_items')
+            .select('*')
+            .eq('id', itemUuid)
+            .single()
+
+        if (item) {
+            // Check completion status
+            const { data: completions } = await supabase
+                .from('annual_task_completions')
+                .select('*')
+                .eq('year', new Date().getFullYear()) // Assumption: current year context for detail view unless passed
+                .eq('annual_cycle_item_id', itemUuid)
+                .eq('user_id', user.id) // Or station logic if needed, simplify to user for now
+
+            const isCompleted = completions && completions.length > 0
+
+            // Get user profile for role check
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('id, role, vo_id')
+                .eq('id', user.id)
+                .single()
+
+            // Determine context for "Virtual" station assignment (Force Recompile)
+            let virtualStation = null
+            let virtualOwnerType: 'annual_cycle' | 'station' = 'annual_cycle'
+            let virtualStationId = null
+
+            // If user is a station manager, we present this as THEIR station task
+            if (profile && (profile.role === 'station_manager' || profile.role === 'assistant_manager')) {
+                const { data: userStation } = await supabase
+                    .from('user_stations')
+                    .select('station:stations(id, name, vo_id)')
+                    .eq('user_id', user.id)
+                    .single()
+
+                if (userStation?.station) {
+                    const station = Array.isArray(userStation.station) ? userStation.station[0] : userStation.station
+                    if (station) {
+                        virtualStation = station
+                        virtualStationId = station.id
+                        virtualOwnerType = 'station'
+                    }
+                }
+            }
+
+            const virtualTask = {
+                id: `annual-${item.id}`,
+                original_id: item.id,
+                title: item.title,
+                description: item.description,
+                status: isCompleted ? 'completed' : 'todo',
+                category: item.category,
+                owner_type: virtualOwnerType,
+                station_id: virtualStationId,
+                station: virtualStation,
+                year: new Date().getFullYear(),
+                start_month: item.month,
+                end_month: item.month,
+                deadline_day: 25,
+                is_recurring_monthly: false,
+                is_annual_cycle: true,
+                annual_cycle_item_id: item.id,
+                action_link: item.action_link,
+
+                // Mock profiles
+                created_by_profile: { full_name: 'Årshjulet', email: 'system@aisab.se' },
+                assigned_to_profile: null,
+                comments: [],
+                attachments: []
+            }
+
+            return NextResponse.json({
+                task: virtualTask
+            })
+        }
+    }
+
     if (error) {
         console.error('Error fetching task:', error)
         return NextResponse.json({ error: 'Task not found' }, { status: 404 })
