@@ -54,7 +54,8 @@ export default async function EmployeesPage() {
     `)
         .eq('user_id', user.id)
 
-    const stations = userStations?.map(us => us.station).filter(Boolean) || []
+    // Fix type error: us.station can be inferred as array by TS, force it to be treated correctly
+    const stations = userStations?.map(us => us.station as any).filter(Boolean) || []
 
     return (
         <div className="container mx-auto py-8">

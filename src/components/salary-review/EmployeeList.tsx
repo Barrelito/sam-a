@@ -57,7 +57,7 @@ export default function EmployeeList({ employees }: EmployeeListProps) {
         }
         acc[employee.category].push(employee)
         return acc
-    }, {} as Record<string, any[]>)
+    }, {} as Record<string, EmployeeWithDetails[]>)
 
     return (
         <div className="space-y-6">
@@ -110,14 +110,14 @@ export default function EmployeeList({ employees }: EmployeeListProps) {
                                 <CardTitle className="text-xl flex items-center gap-2">
                                     {CATEGORY_LABELS[category as keyof typeof CATEGORY_LABELS]}
                                     <Badge variant="outline" className="ml-2">
-                                        {categoryEmployees.length}
+                                        {(categoryEmployees as EmployeeWithDetails[])?.length || 0}
                                     </Badge>
                                 </CardTitle>
                             </div>
                         </CardHeader>
                         <CardContent>
                             <div className="grid gap-3">
-                                {categoryEmployees.map((employee) => (
+                                {(categoryEmployees as EmployeeWithDetails[]).map((employee) => (
                                     <div
                                         key={employee.id}
                                         className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
