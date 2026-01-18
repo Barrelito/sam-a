@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { useAuth } from "@/lib/auth-context"
+import { StationFilter } from "@/components/station-filter"
 import { ListFilter, Plus, Loader2, ChevronRight, MapPin } from "lucide-react"
 
 const months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
@@ -26,6 +27,7 @@ export default function TasksPage() {
     const [selectedMonth, setSelectedMonth] = useState<number | null>(null)
     const [selectedCategory, setSelectedCategory] = useState<TaskCategory | null>(null)
     const [selectedStatus, setSelectedStatus] = useState<TaskStatus | null>(null)
+    const [selectedStationId, setSelectedStationId] = useState<string | null>(null)
 
     // Load tasks function separated for re-use
     async function fetchTasks() {
@@ -116,8 +118,15 @@ export default function TasksPage() {
         router.push(`/tasks/${task.id}`)
     }
 
-    // Client-side filtering
+    // Get user's stations for the filter
+    const userStations = profile?.user_stations?.map(us => us.station) || []
+    const showStationFilter = userStations.length > 1
+
+    // Client-side filtering (including station filter)
     const filteredTasks = tasks.filter(task => {
+        // Station filter
+        if (selectedStationId && task.station_id !== selectedStationId) return false
+
         if (selectedMonth !== null) {
             if (task.is_recurring_monthly) {
                 // include
@@ -137,6 +146,7 @@ export default function TasksPage() {
         setSelectedMonth(null)
         setSelectedCategory(null)
         setSelectedStatus(null)
+        setSelectedStationId(null)
     }
 
     const tasksByMonth = filteredTasks.reduce((acc, task) => {
@@ -156,17 +166,26 @@ export default function TasksPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex items-start justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Alla Uppgifter</h1>
                     <p className="text-muted-foreground mt-1">
                         Komplett översikt av årshjulets uppgifter
                     </p>
                 </div>
-                <Button onClick={() => router.push('/tasks/new')} className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Ny uppgift
-                </Button>
+                <div className="flex items-center gap-2">
+                    {showStationFilter && (
+                        <StationFilter
+                            stations={userStations}
+                            selectedStationId={selectedStationId}
+                            onStationChange={setSelectedStationId}
+                        />
+                    )}
+                    <Button onClick={() => router.push('/tasks/new')} className="gap-2">
+                        <Plus className="h-4 w-4" />
+                        Ny uppgift
+                    </Button>
+                </div>
             </div>
 
             {/* Filters (preserved same structure) */}
@@ -224,7 +243,7 @@ export default function TasksPage() {
                     </div>
                 </div>
 
-                {(selectedMonth || selectedCategory || selectedStatus) && (
+                {(selectedMonth || selectedCategory || selectedStatus || selectedStationId) && (
                     <Button variant="ghost" size="sm" onClick={clearFilters}>
                         Rensa filter
                     </Button>

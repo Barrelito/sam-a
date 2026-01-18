@@ -70,7 +70,7 @@ export default async function EmployeesPage() {
             </div>
 
             {employees && employees.length > 0 ? (
-                <EmployeeList employees={employees} />
+                <EmployeeList employees={employees} stations={stations} />
             ) : (
                 <Card>
                     <CardHeader>

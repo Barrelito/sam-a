@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { getMonthName, getCurrentMonth, getTertial } from "@/lib/utils"
 import { TaskCard } from "@/components/task-card"
 import { StatusOverview } from "@/components/status-overview"
+import { StationFilter } from "@/components/station-filter"
 import { Task, TaskStatus } from "@/lib/types"
 import { CalendarDays, TrendingUp, Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
@@ -15,6 +16,7 @@ export default function DashboardPage() {
 
     const [tasks, setTasks] = useState<Task[]>([])
     const [loading, setLoading] = useState(true)
+    const [selectedStationId, setSelectedStationId] = useState<string | null>(null)
 
     const currentMonth = getCurrentMonth()
     const currentTertial = getTertial(currentMonth)
@@ -86,8 +88,17 @@ export default function DashboardPage() {
         )
     }
 
+    // Get user's stations for the filter
+    const userStations = profile?.user_stations?.map(us => us.station) || []
+    const showStationFilter = userStations.length > 1
+
+    // Apply station filter to tasks
+    const stationFilteredTasks = selectedStationId
+        ? tasks.filter(task => task.station_id === selectedStationId)
+        : tasks
+
     // Filter tasks for current month
-    const monthTasks = tasks.filter(task => {
+    const monthTasks = stationFilteredTasks.filter(task => {
         // Match tasks for current month
         if (task.is_recurring_monthly) return true
         if (task.start_month === currentMonth) return true
@@ -105,7 +116,7 @@ export default function DashboardPage() {
         : currentTertial === 2 ? [5, 6, 7, 8]
             : [9, 10, 11, 12]
 
-    const tertialTasks = tasks.filter(task => {
+    const tertialTasks = stationFilteredTasks.filter(task => {
         if (task.is_recurring_monthly) return true
         if (task.start_month && tertialMonths.includes(task.start_month)) return true
         return false
@@ -142,13 +153,22 @@ export default function DashboardPage() {
     return (
         <div className="space-y-8">
             {/* Header */}
-            <div>
-                <h1 className="text-3xl font-bold tracking-tight">
-                    {dashboardTitle}
-                </h1>
-                <p className="text-muted-foreground mt-1">
-                    Digitalt årshjul och uppgiftshantering
-                </p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">
+                        {dashboardTitle}
+                    </h1>
+                    <p className="text-muted-foreground mt-1">
+                        Digitalt årshjul och uppgiftshantering
+                    </p>
+                </div>
+                {showStationFilter && (
+                    <StationFilter
+                        stations={userStations}
+                        selectedStationId={selectedStationId}
+                        onStationChange={setSelectedStationId}
+                    />
+                )}
             </div>
 
             {/* Current Focus Section */}

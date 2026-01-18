@@ -20,6 +20,7 @@ import Link from 'next/link'
 
 interface EmployeeListProps {
     employees: any[] // TODO: Type this properly once we have the full type from Supabase
+    stations?: { id: string; name: string }[]
 }
 
 const CATEGORY_LABELS = {
@@ -34,9 +35,12 @@ const CATEGORY_COLORS = {
     AMB: 'bg-purple-100 text-purple-800 border-purple-200'
 }
 
-export default function EmployeeList({ employees }: EmployeeListProps) {
+export default function EmployeeList({ employees, stations = [] }: EmployeeListProps) {
     const [searchTerm, setSearchTerm] = useState('')
     const [categoryFilter, setCategoryFilter] = useState<string>('all')
+    const [stationFilter, setStationFilter] = useState<string>('all')
+
+    const showStationFilter = stations.length > 1
 
     // Filter employees
     const filteredEmployees = employees.filter(employee => {
@@ -46,8 +50,9 @@ export default function EmployeeList({ employees }: EmployeeListProps) {
             employee.employee_number?.toLowerCase().includes(searchTerm.toLowerCase())
 
         const matchesCategory = categoryFilter === 'all' || employee.category === categoryFilter
+        const matchesStation = stationFilter === 'all' || employee.station_id === stationFilter
 
-        return matchesSearch && matchesCategory
+        return matchesSearch && matchesCategory && matchesStation
     })
 
     // Group by category
@@ -88,6 +93,21 @@ export default function EmployeeList({ employees }: EmployeeListProps) {
                                 <SelectItem value="AMB">AMB</SelectItem>
                             </SelectContent>
                         </Select>
+                        {showStationFilter && (
+                            <Select value={stationFilter} onValueChange={setStationFilter}>
+                                <SelectTrigger className="w-[200px]">
+                                    <SelectValue placeholder="Station" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">Alla stationer</SelectItem>
+                                    {stations.map(station => (
+                                        <SelectItem key={station.id} value={station.id}>
+                                            {station.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        )}
                     </div>
                     <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
                         <span>Visar {filteredEmployees.length} av {employees.length} medarbetare</span>
