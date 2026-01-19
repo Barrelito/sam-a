@@ -3,7 +3,7 @@
 // Medarbetare - Lista och hantering
 // /salary-review/employees
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -14,7 +14,7 @@ import RegisterEmployeeDialog from '@/components/salary-review/RegisterEmployeeD
 import { StationFilter } from '@/components/station-filter'
 import { createClient } from '@/lib/supabase/client'
 
-export default function EmployeesPage() {
+function EmployeesContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
     const defaultTab = searchParams.get('tab') || 'all'
@@ -203,6 +203,14 @@ export default function EmployeesPage() {
     )
 }
 
+export default function EmployeesPage() {
+    return (
+        <Suspense fallback={<div className="container mx-auto py-8"><p>Laddar sida...</p></div>}>
+            <EmployeesContent />
+        </Suspense>
+    )
+}
+
 function EmptyState({ selectedStation, stations }: { selectedStation: string | null, stations: any[] }) {
     return (
         <Card>
@@ -228,3 +236,4 @@ function EmptyState({ selectedStation, stations }: { selectedStation: string | n
         </Card>
     )
 }
+
