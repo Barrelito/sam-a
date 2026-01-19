@@ -236,18 +236,35 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                         <CardContent className="space-y-4">
                             {/* Particularly Skillful (only for VUB/SSK) */}
                             {hasParticularlySkillful && (
-                                <div className={`flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors ${particularlySkillfulCount > 0 ? 'border-l-4 border-l-green-500 bg-green-50/30' : ''
+                                <div className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${particularlySkillfulCount > 0 ? (review.is_particularly_skilled ? 'border-l-4 border-l-green-500 bg-green-50/30' : 'border-l-4 border-l-yellow-500 bg-yellow-50/30') : ''
                                     }`}>
                                     <div className="flex-1">
                                         <div className="flex items-center gap-2 mb-1">
                                             <h3 className="font-medium">Särskild yrkesskicklighet</h3>
                                             {particularlySkillfulCount > 0 && (
-                                                <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                                review.is_particularly_skilled ? (
+                                                    <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200 ml-2">
+                                                        Ja
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200 ml-2">
+                                                        Nej
+                                                    </Badge>
+                                                )
                                             )}
                                         </div>
                                         <p className="text-sm text-muted-foreground">
                                             {particularlySkillfulCount > 0
-                                                ? `✅ ${particularlySkillfulCount} kriterier bedömda`
+                                                ? (
+                                                    <span>
+                                                        {review.is_particularly_skilled
+                                                            ? '✅ Uppfyller kraven för särskild yrkesskicklighet'
+                                                            : '⚠️ Uppnår ej kraven för särskild yrkesskicklighet'}
+                                                        <span className="ml-1 text-xs">
+                                                            ({particularlySkillfulCount} kriterier uppfyllda)
+                                                        </span>
+                                                    </span>
+                                                )
                                                 : 'Bedömning ej påbörjad'}
                                         </p>
                                     </div>
