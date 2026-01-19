@@ -45,7 +45,7 @@ export default function EmployeesPage() {
             }
 
             // Fetch employees for this manager
-            const { data: employeesData } = await supabase
+            const { data: employeesData, error: employeesError } = await supabase
                 .from('employees')
                 .select(`
                     *,
@@ -54,16 +54,20 @@ export default function EmployeesPage() {
                         name,
                         vo_id
                     ),
-                    managers:employee_managers (
-                        manager:profiles (
+                    employee_managers (
+                        role,
+                        manager:manager_id (
                             id,
                             full_name,
                             email
-                        ),
-                        role
+                        )
                     )
                 `)
                 .order('last_name', { ascending: true })
+
+            if (employeesError) {
+                console.error('Error fetching employees:', employeesError)
+            }
 
             // Fetch stations for this user
             const { data: userStations } = await supabase
@@ -90,6 +94,11 @@ export default function EmployeesPage() {
     const filteredEmployees = selectedStation
         ? employees.filter(e => e.station_id === selectedStation)
         : employees
+
+    // Handle employee deletion
+    const handleEmployeeDeleted = (employeeId: string) => {
+        setEmployees(prev => prev.filter(e => e.id !== employeeId))
+    }
 
     if (loading) {
         return (
@@ -123,7 +132,11 @@ export default function EmployeesPage() {
             )}
 
             {filteredEmployees && filteredEmployees.length > 0 ? (
-                <EmployeeList employees={filteredEmployees} stations={stations} />
+                <EmployeeList
+                    employees={filteredEmployees}
+                    stations={stations}
+                    onEmployeeDeleted={handleEmployeeDeleted}
+                />
             ) : (
                 <Card>
                     <CardHeader>

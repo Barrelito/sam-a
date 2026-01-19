@@ -29,6 +29,7 @@ import DeleteEmployeeDialog from './DeleteEmployeeDialog'
 interface EmployeeListProps {
     employees: any[] // TODO: Type this properly once we have the full type from Supabase
     stations?: { id: string; name: string }[]
+    onEmployeeDeleted?: (employeeId: string) => void
 }
 
 const CATEGORY_LABELS = {
@@ -43,7 +44,7 @@ const CATEGORY_COLORS = {
     AMB: 'bg-purple-100 text-purple-800 border-purple-200'
 }
 
-export default function EmployeeList({ employees, stations = [] }: EmployeeListProps) {
+export default function EmployeeList({ employees, stations = [], onEmployeeDeleted }: EmployeeListProps) {
     const [searchTerm, setSearchTerm] = useState('')
     const [categoryFilter, setCategoryFilter] = useState<string>('all')
     const [stationFilter, setStationFilter] = useState<string>('all')
@@ -196,32 +197,29 @@ export default function EmployeeList({ employees, stations = [] }: EmployeeListP
                                                             Visa detaljer
                                                         </Link>
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem asChild>
-                                                        <div>
-                                                            <EditEmployeeDialog
-                                                                employee={employee}
-                                                                stations={stations}
-                                                                trigger={
-                                                                    <Button variant="ghost" size="sm" className="w-full justify-start p-2">
-                                                                        <Pencil className="mr-2 h-4 w-4" />
-                                                                        Redigera
-                                                                    </Button>
-                                                                }
-                                                            />
-                                                        </div>
+                                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                                        <EditEmployeeDialog
+                                                            employee={employee}
+                                                            stations={stations}
+                                                            trigger={
+                                                                <div className="flex items-center w-full cursor-pointer">
+                                                                    <Pencil className="mr-2 h-4 w-4" />
+                                                                    Redigera
+                                                                </div>
+                                                            }
+                                                        />
                                                     </DropdownMenuItem>
-                                                    <DropdownMenuItem asChild>
-                                                        <div>
-                                                            <DeleteEmployeeDialog
-                                                                employee={employee}
-                                                                trigger={
-                                                                    <Button variant="ghost" size="sm" className="w-full justify-start p-2 text-destructive">
-                                                                        <Trash2 className="mr-2 h-4 w-4" />
-                                                                        Ta bort
-                                                                    </Button>
-                                                                }
-                                                            />
-                                                        </div>
+                                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                                        <DeleteEmployeeDialog
+                                                            employee={employee}
+                                                            onDeleteSuccess={() => onEmployeeDeleted?.(employee.id)}
+                                                            trigger={
+                                                                <div className="flex items-center w-full cursor-pointer text-destructive">
+                                                                    <Trash2 className="mr-2 h-4 w-4" />
+                                                                    Ta bort
+                                                                </div>
+                                                            }
+                                                        />
                                                     </DropdownMenuItem>
                                                 </DropdownMenuContent>
                                             </DropdownMenu>
