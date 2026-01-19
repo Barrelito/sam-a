@@ -48,6 +48,7 @@ export default function EmployeeList({ employees, stations = [], onEmployeeDelet
     const [searchTerm, setSearchTerm] = useState('')
     const [categoryFilter, setCategoryFilter] = useState<string>('all')
     const [stationFilter, setStationFilter] = useState<string>('all')
+    const [sortBy, setSortBy] = useState<'name' | 'salary_asc' | 'salary_desc'>('name')
 
     const showStationFilter = stations.length > 1
 
@@ -64,7 +65,7 @@ export default function EmployeeList({ employees, stations = [], onEmployeeDelet
         return matchesSearch && matchesCategory && matchesStation
     })
 
-    // Group by category
+    // Group by category and sort within each group
     const groupedEmployees = filteredEmployees.reduce((acc, employee) => {
         if (!acc[employee.category]) {
             acc[employee.category] = []
@@ -72,6 +73,24 @@ export default function EmployeeList({ employees, stations = [], onEmployeeDelet
         acc[employee.category].push(employee)
         return acc
     }, {} as Record<string, EmployeeWithDetails[]>)
+
+    // Sort each category group
+    Object.keys(groupedEmployees).forEach(category => {
+        groupedEmployees[category].sort((a: any, b: any) => {
+            if (sortBy === 'salary_asc') {
+                const salaryA = a.current_salary || 0
+                const salaryB = b.current_salary || 0
+                return salaryA - salaryB
+            } else if (sortBy === 'salary_desc') {
+                const salaryA = a.current_salary || 0
+                const salaryB = b.current_salary || 0
+                return salaryB - salaryA
+            } else {
+                // Sort by name (default)
+                return `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`)
+            }
+        })
+    })
 
     return (
         <div className="space-y-6">
@@ -81,8 +100,8 @@ export default function EmployeeList({ employees, stations = [], onEmployeeDelet
                     <CardTitle className="text-lg">Filter och sök</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="flex gap-4">
-                        <div className="flex-1 relative">
+                    <div className="flex gap-4 flex-wrap">
+                        <div className="flex-1 min-w-[200px] relative">
                             <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                             <Input
                                 placeholder="Sök medarbetare..."
@@ -117,6 +136,16 @@ export default function EmployeeList({ employees, stations = [], onEmployeeDelet
                                 </SelectContent>
                             </Select>
                         )}
+                        <Select value={sortBy} onValueChange={(value) => setSortBy(value as 'name' | 'salary_asc' | 'salary_desc')}>
+                            <SelectTrigger className="w-[200px]">
+                                <SelectValue placeholder="Sortering" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="name">Namn (A-Ö)</SelectItem>
+                                <SelectItem value="salary_asc">Lön (låg → hög)</SelectItem>
+                                <SelectItem value="salary_desc">Lön (hög → låg)</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                     <div className="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
                         <span>Visar {filteredEmployees.length} av {employees.length} medarbetare</span>
