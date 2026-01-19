@@ -68,7 +68,29 @@ export async function PUT(
             )
         }
 
-        // Upsert alla bedömningar (insert or update)
+        // 1. Hämta review för att få employee_id
+        const { data: reviewInfo, error: reviewError } = await supabase
+            .from('salary_reviews')
+            .select('employee_id')
+            .eq('id', reviewId)
+            .single()
+
+        if (reviewError || !reviewInfo) {
+            return NextResponse.json({ error: 'Review not found' }, { status: 404 })
+        }
+
+        // 2. Hämta employee för att få category
+        const { data: employee, error: employeeError } = await supabase
+            .from('employees')
+            .select('category')
+            .eq('id', reviewInfo.employee_id)
+            .single()
+
+        if (employeeError || !employee) {
+            return NextResponse.json({ error: 'Employee not found' }, { status: 404 })
+        }
+
+        // 3. Upsert alla bedömningar
         const upsertPromises = assessments.map(assessment =>
             supabase
                 .from('particularly_skilled_assessments')
@@ -85,22 +107,29 @@ export async function PUT(
         )
 
         const results = await Promise.all(upsertPromises)
-
-        // Kontrollera om något gick fel
         const errors = results.filter(r => r.error)
+
         if (errors.length > 0) {
             console.error('Errors upserting assessments:', errors)
-            return NextResponse.json(
-                { error: 'Failed to save some assessments' },
-                { status: 500 }
-            )
+            // Vi fortsätter ändå för att göra bästa möjliga beräkning
         }
 
-        // Beräkna om medarbetaren är särskilt yrkesskicklig
-        // (kan vara mer komplext beroende på regler)
-        const metCount = assessments.filter(a => a.is_met).length
-        const totalCount = assessments.length
-        const isParticularlySkilled = metCount >= (totalCount * 0.8) // 80% kriterier måste vara uppfyllda
+        // 4. Hämta alla aktuella bedömningar från databasen för att vara säker
+        const { data: allAssessments } = await supabase
+            .from('particularly_skilled_assessments')
+            .select('*')
+            .eq('salary_review_id', reviewId)
+
+        // 5. Beräkna poäng baserat på GILTIGA kriterier
+        const { getAllSubCriteriaIds } = await import('@/lib/salary-review/particularly-skilled-criteria')
+        const validIds = getAllSubCriteriaIds(employee.category as any)
+        const totalCount = validIds.length
+
+        // Filtrera bedömningar så att vi bara räknar de som finns i kriterielistan
+        const validAssessments = (allAssessments || []).filter(a => validIds.includes(a.criterion_key))
+        const metCount = validAssessments.filter(a => a.is_met).length
+
+        const isParticularlySkilled = totalCount > 0 && metCount >= (totalCount * 0.8)
 
         // Uppdatera review med bedömningen
         await supabase

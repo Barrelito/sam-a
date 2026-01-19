@@ -69,17 +69,7 @@ export default function ParticularlySkillfulAssessmentClient({
     }, [review.id, toast])
 
     const validateAssessment = (criterionKey: string, data: { is_met: boolean, evidence: string }) => {
-        // Validation: Evidence required if is_met is true
-        if (data.is_met) {
-            if (!data.evidence || data.evidence.length < 10) {
-                setValidationErrors(prev => ({
-                    ...prev,
-                    [criterionKey]: 'När kriteriet är uppfyllt krävs konkreta exempel (minst 10 tecken)'
-                }))
-                return false
-            }
-        }
-        // Clear error if valid
+        // Validation removed as per user request
         setValidationErrors(prev => {
             const newErrors = { ...prev }
             delete newErrors[criterionKey]
@@ -99,9 +89,6 @@ export default function ParticularlySkillfulAssessmentClient({
             ...prev,
             [criterionKey]: newData
         }))
-
-        // Validate immediately
-        validateAssessment(criterionKey, newData)
     }
 
     const handleEvidenceChange = (criterionKey: string, value: string) => {
@@ -115,33 +102,10 @@ export default function ParticularlySkillfulAssessmentClient({
                 ...prev,
                 [criterionKey]: newData
             }))
-
-            // Validate if is_met
-            if (assessment.is_met) {
-                validateAssessment(criterionKey, newData)
-            }
         }
     }
 
     const handleSave = async () => {
-        // Validate all checked assessments before saving
-        let hasErrors = false
-        Object.entries(assessments).forEach(([key, data]) => {
-            if (data.is_met) {
-                const isValid = validateAssessment(key, data)
-                if (!isValid) hasErrors = true
-            }
-        })
-
-        if (hasErrors) {
-            toast({
-                variant: "destructive",
-                title: "Validering misslyckades",
-                description: "Kontrollera att alla uppfyllda kriterier har konkreta exempel."
-            })
-            return
-        }
-
         setSaving(true)
         try {
             // Konvertera till array format för API
@@ -185,9 +149,14 @@ export default function ParticularlySkillfulAssessmentClient({
         }
     }
 
-    // Räkna statistik
-    const totalSubcriteria = criteria.reduce((sum, c) => sum + c.subcriteria.length, 0)
-    const metCount = Object.values(assessments).filter(a => a.is_met).length
+    // Räkna statistik - Endast för kriterier som faktiskt finns i den aktuella uppsättningen
+    const allCriteriaIds = criteria.flatMap(c => c.subcriteria.map(s => s.id))
+    const totalSubcriteria = allCriteriaIds.length
+
+    const metCount = Object.entries(assessments)
+        .filter(([key, data]) => data.is_met && allCriteriaIds.includes(key))
+        .length
+
     const completionPercentage = totalSubcriteria > 0 ? Math.round((metCount / totalSubcriteria) * 100) : 0
 
     if (loading) {
@@ -270,7 +239,7 @@ export default function ParticularlySkillfulAssessmentClient({
                                         {assessment.is_met && (
                                             <div className="ml-8 space-y-2">
                                                 <Label htmlFor={`${sub.id}-evidence`} className="text-sm font-medium">
-                                                    Konkreta exempel och bevis <span className="text-red-600">*</span>
+                                                    Konkreta exempel och bevis (valfritt)
                                                 </Label>
                                                 <Textarea
                                                     id={`${sub.id}-evidence`}
@@ -319,7 +288,7 @@ export default function ParticularlySkillfulAssessmentClient({
                 <CardContent className="text-sm text-blue-900">
                     <ul className="list-disc list-inside space-y-1">
                         <li>Bocka i de kriterier som medarbetaren uppfyller</li>
-                        <li><strong>OBS:</strong> Konkreta exempel är <strong>obligatoriskt</strong> för alla uppfyllda kriterier</li>
+                        <li>Konkreta exempel är valfritt men rekommenderas för att stärka bedömningen</li>
                         <li>Bedömningen sparas när du klickar på "Spara bedömning"</li>
                         <li>Du kan återkomma och ändra bedömningen när som helst</li>
                     </ul>

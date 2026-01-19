@@ -29,33 +29,33 @@ export const VUB_CRITERIA: ParticularlySkillfulCriterion[] = [
         subcriteria: [
             {
                 id: 'vub_1_a',
-                text: 'Att vara ansvarstagna, ta initiativ och aktivt bidra till kvalitetsutveckling och förbättringsarbeten genom att omsätta kunskap inhämtad från utbildning, den egna verksamheten samt omvärldsbevakning'
+                text: 'Att vara ansvarstagande, ta initiativ och aktivt bidra till kvalitetsutveckling och förbättringsarbeten genom att omsätta kunskap inhämtad från utbildning, den egna verksamheten samt omvärldsbevakning'
             }
         ]
     },
     {
         id: 'vub_2',
         title: 'Medarbetaren har förvärvat sin särskilda yrkesskicklighet genom erfarenhet av kliniskt arbete',
-        description: 'Medarbetaren har förvärvat sin särskilda yrkesskicklighet genom erfarenhet av kliniskt arbete och formlig på att överföra kunskap till kollegor, studenter och patienter',
+        description: 'Medarbetaren har förvärvat sin särskilda yrkesskicklighet genom erfarenhet av kliniskt arbete och förmåga att dela med sig av sin verksamhetsnära kunskap till kollegor, studenter och patienter, dessa medarbetare har därför sannolikt en längre tids yrkeserfarenhet',
         subcriteria: [
             {
                 id: 'vub_2_a',
-                text: 'Har kunskap och relevant klinisk erfarenhet kombineras med förmågan att användas vid rätt tillfälle och på rätt sätt'
+                text: 'När kunskap och relevant klinisk erfarenhet kombineras med förmågan att användas vid rätt tillfälle och på rätt sätt'
             },
             {
                 id: 'vub_2_b',
-                text: 'Har en hög pedagogisk förmåga och handleder regelbrundet studenter och kollegor'
+                text: 'Har en hög pedagogisk förmåga och handleder regelbundet studenter och kollegor'
             }
         ]
     },
     {
         id: 'vub_3',
         title: 'Medarbetaren är en verksamhetsbärare som arbetar interprofessionellt och coachande',
-        description: 'Medarbetaren är en verksamhetsbärare som arbetar interprofessionellt och coachande och stärker andra resurser och förmågor',
+        description: 'Medarbetaren är en verksamhetsbärare som arbetar interprofessionellt och coachande och stärker andras resurser och förmågor',
         subcriteria: [
             {
                 id: 'vub_3_a',
-                text: 'En verksamhetsbärare bidrar till ökad tillgänglighet och arbetar för att uppnå verksamhetens mål och har en god helhets syn'
+                text: 'En verksamhetsbärare bidrar till ökad tillgänglighet och arbetar för att uppnå verksamhetens mål och har en god helhetssyn'
             },
             {
                 id: 'vub_3_b',
@@ -63,41 +63,41 @@ export const VUB_CRITERIA: ParticularlySkillfulCriterion[] = [
             },
             {
                 id: 'vub_3_c',
-                text: 'Visa att arbetsplatsen med andra utvecklas, kan vara en god förebild och vara en ambassadör'
+                text: 'Visa på arbetssätt så att andra utvecklas, vara en god förebild och vara en ambassadör'
             }
         ]
     },
     {
         id: 'vub_4',
-        title: 'Medarbetarens handlingar och agerande typer på kompetens baserat på erfarenheter, färdigheter och djupt kunnande',
-        description: 'Medarbetarens handlingar och agerande typer på kompetens baserat på erfarenheter, färdigheter och djupt kunnande',
+        title: 'Medarbetarens handlingar och agerande tyder på kompetens baserat på erfarenheter, färdigheter och djupt kunnande',
+        description: 'Medarbetarens handlingar och agerande tyder på kompetens baserat på erfarenheter, färdigheter och djupt kunnande',
         subcriteria: [
             {
                 id: 'vub_4_a',
-                text: 'Det är den medarbetare kollega eller chef vänder sig till för råd och stöd'
+                text: 'Det är den medarbetaren kollegan eller chef vänder sig till för råd och stöd'
             },
             {
                 id: 'vub_4_b',
-                text: 'Är trygg i sin roll och ska kunna samarbete med alla kollegor, på alla stationer och i alla situationer'
+                text: 'Är trygg i sin roll och ska kunna samarbeta med alla kollegor, på alla stationer och i alla situationer'
             },
             {
                 id: 'vub_4_c',
-                text: 'Arbetar utifrån ett helhetsperspektiv, kan omsätta sin fler åriga erfarenhet och agera frivillighet'
+                text: 'Arbetar utifrån ett helhetsperspektiv, kan omsätta sin fleråriga erfarenhet och agera flexibelt'
             }
         ]
     },
     {
         id: 'vub_5',
-        title: 'Medarbetaren kan arbete självständigt, vilket innebär förmågan att se, upptäcka, bedöma, analysera, ta beslut och agera',
-        description: 'Medarbetaren kan arbete självständigt, vilket innebär förmågan att se, upptäcka, bedöma, analysera, ta beslut och agera bekvmt även i komplexa situationer, och arbetar framåtsyftande till nytta för patienten och verksamheten',
+        title: 'Medarbetaren kan arbeta självständigt, vilket innebär förmågan att se, upptäcka, bedöma, analysera, ta beslut och agera',
+        description: 'Medarbetaren kan arbeta självständigt, vilket innebär förmågan att se, upptäcka, bedöma, analysera, ta beslut och agera bekvämt även i komplexa situationer, och arbetar framåtsyftande till nytta för patienten och verksamheten',
         subcriteria: [
             {
                 id: 'vub_5_a',
-                text: 'Medarbetaren ska vara effektiv, proaktiv, stabil och lugn även i så/län händelser'
+                text: 'Medarbetaren ska vara effektiv, proaktiv, stabil och lugn även i sällan händelser'
             },
             {
                 id: 'vub_5_b',
-                text: 'Se till och agera utifrån patientens framtida vårdbehov'
+                text: 'Ser till och agerar utifrån patientens framtida vårdbehov'
             }
         ]
     },
@@ -126,33 +126,33 @@ export const SSK_CRITERIA: ParticularlySkillfulCriterion[] = [
         subcriteria: [
             {
                 id: 'ssk_1_a',
-                text: 'Att vara ansvarstagna, ta initiativ och aktivt bidra till kvalitetsutveckling och förbättringsarbeten genom att omsätta kunskap inhämtad från utbildning, den egna verksamheten samt omvärldsbevakning'
+                text: 'Att vara ansvarstagande, ta initiativ och aktivt bidra till kvalitetsutveckling och förbättringsarbeten genom att omsätta kunskap inhämtad från utbildning, den egna verksamheten samt omvärldsbevakning'
             }
         ]
     },
     {
         id: 'ssk_2',
         title: 'Medarbetaren har förvärvat sin särskilda yrkesskicklighet genom erfarenhet av kliniskt arbete',
-        description: 'Medarbetaren har förvärvat sin särskilda yrkesskicklighet genom erfarenhet av kliniskt arbete och formlig på att överföra kunskap till kollegor, studenter och patienter',
+        description: 'Medarbetaren har förvärvat sin särskilda yrkesskicklighet genom erfarenhet av kliniskt arbete och förmåga att dela med sig av sin verksamhetsnära kunskap till kollegor, studenter och patienter, dessa medarbetare har därför sannolikt en längre tids yrkeserfarenhet',
         subcriteria: [
             {
                 id: 'ssk_2_a',
-                text: 'Har kunskap och relevant klinisk erfarenhet kombineras med förmågan att användas vid rätt tillfälle och på rätt sätt'
+                text: 'När kunskap och relevant klinisk erfarenhet kombineras med förmågan att användas vid rätt tillfälle och på rätt sätt'
             },
             {
                 id: 'ssk_2_b',
-                text: 'Har en hög pedagogisk förmåga och handleder regelbruden studenter och kollegor'
+                text: 'Har en hög pedagogisk förmåga och handleder regelbundet studenter och kollegor'
             }
         ]
     },
     {
         id: 'ssk_3',
         title: 'Medarbetaren är en verksamhetsbärare som arbetar interprofessionellt och coachande',
-        description: 'Medarbetaren är en verksamhetsbärare som arbetar interprofessionellt och coachande och stärker andra resurser och förmågor',
+        description: 'Medarbetaren är en verksamhetsbärare som arbetar interprofessionellt och coachande och stärker andras resurser och förmågor',
         subcriteria: [
             {
                 id: 'ssk_3_a',
-                text: 'En verksamhetsbärare bidrar till ökad tillgänglighet och arbetar för att uppnå verksamhetens mål och har en god helhets syn'
+                text: 'En verksamhetsbärare bidrar till ökad tillgänglighet och arbetar för att uppnå verksamhetens mål och har en god helhetssyn'
             },
             {
                 id: 'ssk_3_b',
@@ -160,41 +160,41 @@ export const SSK_CRITERIA: ParticularlySkillfulCriterion[] = [
             },
             {
                 id: 'ssk_3_c',
-                text: 'Visa att arbetsplatsen med andra utvecklas, kan vara en god förebild och vara en ambassadör'
+                text: 'Visa på arbetssätt så att andra utvecklas, vara en god förebild och vara en ambassadör'
             }
         ]
     },
     {
         id: 'ssk_4',
-        title: 'Medarbetarens handlingar och agerande typer på kompetens baserat på erfarenheter, färdigheter och djupt kunnande',
-        description: 'Medarbetarens handlingar och agerande typer på kompetens baserat på erfarenheter, färdigheter och djupt kunnande',
+        title: 'Medarbetarens handlingar och agerande tyder på kompetens baserat på erfarenheter, färdigheter och djupt kunnande',
+        description: 'Medarbetarens handlingar och agerande tyder på kompetens baserat på erfarenheter, färdigheter och djupt kunnande',
         subcriteria: [
             {
                 id: 'ssk_4_a',
-                text: 'Det är den medarbetare kollega eller chef vänder sig till för råd och stöd'
+                text: 'Det är den medarbetaren kollegan eller chef vänder sig till för råd och stöd'
             },
             {
                 id: 'ssk_4_b',
-                text: 'Är trygg i sin roll och ska kunna samarbete med alla kollegor, på alla stationer och i alla situationer'
+                text: 'Är trygg i sin roll och ska kunna samarbeta med alla kollegor, på alla stationer och i alla situationer'
             },
             {
                 id: 'ssk_4_c',
-                text: 'Arbetar utifrån ett helhetsperspektiv, kan omsätta sin fleråriga erfarenhet och agera frivillighet'
+                text: 'Arbetar utifrån ett helhetsperspektiv, kan omsätta sin fleråriga erfarenhet och agera flexibelt'
             }
         ]
     },
     {
         id: 'ssk_5',
-        title: 'Medarbetaren kan arbete självständigt, vilket innebär förmågan att se, upptäcka, bedöma, analysera, ta beslut och agera',
-        description: 'Medarbetaren kan arbete självständigt, vilket innebär förmågan att se, upptäcka, bedöma, analysera, ta beslut och agera bekvmt även i komplexa situationer, och arbetar framåtsyftande till nytta för patienten och verksamheten',
+        title: 'Medarbetaren kan arbeta självständigt, vilket innebär förmågan att se, upptäcka, bedöma, analysera, ta beslut och agera',
+        description: 'Medarbetaren kan arbeta självständigt, vilket innebär förmågan att se, upptäcka, bedöma, analysera, ta beslut och agera bekvämt även i komplexa situationer, och arbetar framåtsyftande till nytta för patienten och verksamheten',
         subcriteria: [
             {
                 id: 'ssk_5_a',
-                text: 'Medarbetaren ska vara effektiv, proaktiv, stabil och lugn även i så/län händelser'
+                text: 'Medarbetaren ska vara effektiv, proaktiv, stabil och lugn även i sällan händelser'
             },
             {
                 id: 'ssk_5_b',
-                text: 'Se till och agera utifrån patientens framtida vårdbehov'
+                text: 'Ser till och agerar utifrån patientens framtida vårdbehov'
             }
         ]
     },
