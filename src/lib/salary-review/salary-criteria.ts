@@ -10,10 +10,10 @@ import type { CriteriaRating, CategoryDefinition } from './types'
 // =============================================
 
 export const RATING_DEFINITIONS: Record<CriteriaRating, string> = {
-    'behover_utvecklas': 'Medarbetaren nå nått de uppställda målen eller inte mots varat det eftersträvade beteendet',
-    'bra': 'Medarbetaren når de uppställda målen samt motsvarar det eftersträvade beteendet',
-    'mycket_bra': 'Medarbetaren relativt konsekvent överträffar de uppställda målen med marginal samt också överträffar det eftersträvade beteendet',
-    'utmarkt': 'Medarbetaren konsekvent och med stor marginal överträffar uppställda mål och är en tydlig förebild för andra vad gäller eftersträvat beteende'
+    'behover_utvecklas': 'Innebär att medarbetaren ej nått de uppställda målen eller inte motsvarar det eftersträvade beteendet.',
+    'bra': 'Innebär att medarbetaren når de uppställda målen samt motsvarar det eftersträvade beteendet, dvs man har nått ett bra resultat.',
+    'mycket_bra': 'Innebär att medarbetaren relativt konsekvent överträffar uppställda målen med marginal samt också överträffar det eftersträvade beteendet.',
+    'utmarkt': 'Innebär att medarbetaren konsekvent och med stor marginal överträffar uppställda mål och är en tydlig förebild för andra vad gäller eftersträvat beteende.'
 }
 
 export const RATING_DISPLAY_NAMES: Record<CriteriaRating, string> = {
@@ -51,13 +51,15 @@ export const SALARY_CRITERIA: CategoryDefinition[] = [
         subcriteria: [
             {
                 id: '1a',
-                text: 'Visar öppenhet, förståelse och bidrar konstruktivt till verksamhetsförändringar',
-                description: 'Medverkar aktivt till att utveckla verksamheten genom att vara initiativtagande och bidrar med nya idéer'
+                text: 'Visar öppenhet, förståelse och bidrar konstruktivt till verksamhetsförändringar'
             },
             {
                 id: '1b',
-                text: 'Medverkar aktivt till att utveckla verksamheten genom att vara initiativtagande och bidrar med nya idéer',
-                description: 'Hålla sig uppdaterad inom sitt arbetsområde genom att aktivt söka, ta till sig och tillämpa nya kunskaper och erfarenheter'
+                text: 'Medverkar aktivt till att utveckla verksamheten genom att vara initiativtagande och bidrar med nya idéer'
+            },
+            {
+                id: '1c',
+                text: 'Hålla sig uppdaterad inom sitt arbetsområde genom att aktivt söka, ta till sig och tillämpa nya kunskaper och erfarenheter'
             }
         ]
     },
@@ -77,7 +79,7 @@ export const SALARY_CRITERIA: CategoryDefinition[] = [
             },
             {
                 id: '2c',
-                text: 'Är pålitlig och lojalare mot fattade beslut, policys och riktlinjer'
+                text: 'Är pålitlig och lojal mot fattade beslut, policys och riktlinjer'
             }
         ]
     },
@@ -93,7 +95,7 @@ export const SALARY_CRITERIA: CategoryDefinition[] = [
             },
             {
                 id: '3b',
-                text: 'Har ett bra bemötande till patienter/kunder/samverkansnartners'
+                text: 'Har ett bra bemötande till patienten/kunden/samverkanspartners'
             },
             {
                 id: '3c',
@@ -122,6 +124,10 @@ export const SALARY_CRITERIA: CategoryDefinition[] = [
             {
                 id: '4c',
                 text: 'Har ett inkluderande förhållningssätt där alla får komma till tals och olika åsikter välkomnas'
+            },
+            {
+                id: '4d',
+                text: 'Du har en professionell och positiv inställning till verksamheten, arbetsuppgifterna och kollegorna'
             }
         ]
     }
@@ -136,27 +142,31 @@ export const MANAGER_ADDITIONAL_CRITERIA: CategoryDefinition[] = [
         id: '5',
         category_number: 5,
         name: 'Ledarskap för enhetschef/stationschef',
-        description: 'Ytterligare kriterier för chefer',
+        description: 'Tillkommande bedömningskriterier för enhetschef/stationschef/biträdande stationschef',
         subcriteria: [
             {
                 id: '5a',
-                text: 'Arbetar att sätta uppnå verksamhetens mål'
+                text: 'Arbetar för att uppnå verksamhetens mål'
             },
             {
                 id: '5b',
-                text: 'Planerar och kommunicerar mål och krav på resultat till arbetsgivarna'
+                text: 'Prioriterar och kommunicerar mål och krav på resultat till medarbetarna'
             },
             {
                 id: '5c',
-                text: 'Leder arbetet så att verksamheten utvecklas och effektiviseras'
+                text: 'Arbetar aktivt med resultatuppföljning av verksamheten och medarbetarna'
             },
             {
                 id: '5d',
-                text: 'Gör medarbetarna möjlighet till utveckling och brände i arbetet utifrån verksamhetens möjlighet och krav'
+                text: 'Leder arbetet så att verksamheten utvecklas och effektiviseras'
             },
             {
                 id: '5e',
-                text: 'Skapar förutsättningar för dialog, medinnytande, samverkan och trivsel'
+                text: 'Ger medarbetarna möjlighet till utveckling och lärande i arbetet utifrån verksamhetens behov'
+            },
+            {
+                id: '5f',
+                text: 'Skapar förutsättningar för dialog, medinflytande, samverkan och trivsel'
             }
         ]
     }

@@ -91,17 +91,7 @@ export default function SalaryCriteriaAssessmentClient({
     }
 
     const validateAssessment = (subCriterionKey: string, data: { rating: CriteriaRating, evidence: string }) => {
-        // Validation: Evidence required for high ratings
-        if (['mycket_bra', 'utmarkt'].includes(data.rating)) {
-            if (!data.evidence || data.evidence.length < 10) {
-                setValidationErrors(prev => ({
-                    ...prev,
-                    [subCriterionKey]: 'För bedömningen "Mycket bra" eller "Utmärkt" krävs konkreta exempel (minst 10 tecken)'
-                }))
-                return false
-            }
-        }
-        // Clear error if valid
+        // Validation removed as per user request
         setValidationErrors(prev => {
             const newErrors = { ...prev }
             delete newErrors[subCriterionKey]
@@ -122,9 +112,6 @@ export default function SalaryCriteriaAssessmentClient({
             ...prev,
             [subCriterionKey]: newData
         }))
-
-        // Validate immediately
-        validateAssessment(subCriterionKey, newData)
     }
 
     const handleEvidenceChange = (subCriterionKey: string, value: string) => {
@@ -138,33 +125,10 @@ export default function SalaryCriteriaAssessmentClient({
                 ...prev,
                 [subCriterionKey]: newData
             }))
-
-            // Validate if rating exists
-            if (assessment.rating) {
-                validateAssessment(subCriterionKey, newData)
-            }
         }
     }
 
     const handleSave = async () => {
-        // Validate all assessments before saving
-        let hasErrors = false
-        Object.entries(assessments).forEach(([key, data]) => {
-            if (data.rating) {
-                const isValid = validateAssessment(key, data)
-                if (!isValid) hasErrors = true
-            }
-        })
-
-        if (hasErrors) {
-            toast({
-                variant: "destructive",
-                title: "Validering misslyckades",
-                description: "Kontrollera att alla bedömningar har tillräckligt med konkreta exempel."
-            })
-            return
-        }
-
         setSaving(true)
         try {
             // Konvertera till array format
@@ -234,20 +198,51 @@ export default function SalaryCriteriaAssessmentClient({
     }
 
     return (
-        <div className="container mx-auto py-8 max-w-4xl">
+        <div className="container mx-auto py-8 max-w-4xl relative">
             {/* Header */}
-            <Link href={`/salary-review/employees/${employee.id}`}>
-                <Button variant="ghost" className="mb-4">
-                    <ArrowLeft className="mr-2 h-4 w-4" />
-                    Tillbaka
-                </Button>
-            </Link>
+            <div className="flex justify-between items-start mb-6">
+                <div>
+                    <Link href={`/salary-review/employees/${employee.id}`}>
+                        <Button variant="ghost" className="mb-4">
+                            <ArrowLeft className="mr-2 h-4 w-4" />
+                            Tillbaka
+                        </Button>
+                    </Link>
 
-            <div className="mb-6">
-                <h1 className="text-3xl font-bold mb-2">Bedömning av lönekriterier</h1>
-                <p className="text-muted-foreground">
-                    {employee.first_name} {employee.last_name}
-                </p>
+                    <div>
+                        <h1 className="text-3xl font-bold mb-2">Bedömning av lönekriterier</h1>
+                        <p className="text-muted-foreground">
+                            {employee.first_name} {employee.last_name}
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Rating Legend - Prominent */}
+            <div className="sticky top-4 z-10 mb-8 shadow-md">
+                <Card className="border-l-4 border-l-blue-500 bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
+                    <CardHeader className="pb-3">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                            <AlertCircle className="h-5 w-5 text-blue-500" />
+                            Bedömningsskala
+                        </CardTitle>
+                        <CardDescription>
+                            Används för att bedöma måluppfyllelse och beteende
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent className="grid gap-3 sm:grid-cols-2">
+                        {(Object.keys(RATING_DEFINITIONS) as CriteriaRating[]).map(rating => (
+                            <div key={rating} className="flex flex-col gap-1 p-2 rounded-md hover:bg-slate-50 transition-colors">
+                                <span className={`px-2 py-0.5 rounded text-xs font-semibold w-fit ${RATING_COLORS[rating]}`}>
+                                    {RATING_DISPLAY_NAMES[rating]}
+                                </span>
+                                <p className="text-sm text-slate-600 leading-snug">
+                                    {RATING_DEFINITIONS[rating]}
+                                </p>
+                            </div>
+                        ))}
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Progress */}
@@ -263,25 +258,6 @@ export default function SalaryCriteriaAssessmentClient({
                             style={{ width: `${completionPercentage}%` }}
                         />
                     </div>
-                </CardContent>
-            </Card>
-
-            {/* Rating Legend */}
-            <Card className="mb-6">
-                <CardHeader>
-                    <CardTitle className="text-base">Bedömningsskala</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                    {(Object.keys(RATING_DEFINITIONS) as CriteriaRating[]).map(rating => (
-                        <div key={rating} className="flex items-start gap-3">
-                            <div className={`px-3 py-1 rounded-md text-sm font-medium ${RATING_COLORS[rating]}`}>
-                                {RATING_DISPLAY_NAMES[rating]}
-                            </div>
-                            <p className="text-sm text-muted-foreground flex-1">
-                                {RATING_DEFINITIONS[rating]}
-                            </p>
-                        </div>
-                    ))}
                 </CardContent>
             </Card>
 
@@ -353,7 +329,7 @@ export default function SalaryCriteriaAssessmentClient({
 
                                                     <div>
                                                         <Label htmlFor={`${sub.id}-evidence`} className="text-sm">
-                                                            Konkreta exempel {['mycket_bra', 'utmarkt'].includes(assessment.rating) && <span className="text-red-600">*</span>}
+                                                            Konkreta exempel
                                                         </Label>
                                                         <Textarea
                                                             id={`${sub.id}-evidence`}
@@ -406,7 +382,7 @@ export default function SalaryCriteriaAssessmentClient({
                     <ul className="list-disc list-inside space-y-1">
                         <li>Bedöm alla {totalCriteria} kriterier för en komplett bedömning</li>
                         <li>Välj rating-nivå för varje kriterium</li>
-                        <li><strong>OBS:</strong> Konkreta exempel är <strong>obligatoriskt</strong> för "Mycket bra" och "Utmärkt"</li>
+                        <li>Konkreta exempel är valfria men rekommenderas för att stärka motiveringen</li>
                         <li>Klicka på en kategori för att expandera/minimera</li>
                         <li>Du kan spara och återkomma när som helst</li>
                     </ul>
