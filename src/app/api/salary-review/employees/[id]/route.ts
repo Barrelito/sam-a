@@ -92,7 +92,7 @@ export async function PATCH(
             email,
             category,
             station_id,
-            employment_date,
+            experience_level,
             current_salary,
             manager_ids // Array of manager IDs: [{ id: string, role: 'primary' | 'secondary' }]
         } = body
@@ -123,7 +123,7 @@ export async function PATCH(
                 email,
                 category,
                 station_id,
-                employment_date,
+                experience_level,
                 current_salary
             })
             .eq('id', id)

@@ -83,7 +83,7 @@ export async function POST(request: Request) {
             email,
             category,
             station_id,
-            employment_date,
+            experience_level,
             current_salary
         } = body
 
@@ -131,7 +131,7 @@ export async function POST(request: Request) {
                 category,
                 station_id,
                 manager_id: user.id, // Keep for backwards compatibility
-                employment_date,
+                experience_level,
                 current_salary
             })
             .select(`

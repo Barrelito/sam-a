@@ -41,7 +41,7 @@ export default function RegisterEmployeeDialog({ stations }: RegisterEmployeeDia
         email: '',
         category: '',
         station_id: '',
-        employment_date: '',
+        experience_level: '',
         current_salary: ''
     })
 
@@ -69,7 +69,7 @@ export default function RegisterEmployeeDialog({ stations }: RegisterEmployeeDia
                     station_id: formData.station_id,
                     employee_number: formData.employee_number || null,
                     email: formData.email || null,
-                    employment_date: formData.employment_date || null,
+                    experience_level: formData.experience_level || null,
                     current_salary: formData.current_salary ? parseFloat(formData.current_salary) : null
                 }),
             })
@@ -90,7 +90,7 @@ export default function RegisterEmployeeDialog({ stations }: RegisterEmployeeDia
                 email: '',
                 category: '',
                 station_id: '',
-                employment_date: '',
+                experience_level: '',
                 current_salary: ''
             })
 
@@ -208,13 +208,21 @@ export default function RegisterEmployeeDialog({ stations }: RegisterEmployeeDia
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label htmlFor="employment_date">Anställningsdatum</Label>
-                                <Input
-                                    id="employment_date"
-                                    type="date"
-                                    value={formData.employment_date}
-                                    onChange={(e) => setFormData({ ...formData, employment_date: e.target.value })}
-                                />
+                                <Label htmlFor="experience_level">Erfarenhet</Label>
+                                <Select
+                                    value={formData.experience_level}
+                                    onValueChange={(value) => setFormData({ ...formData, experience_level: value })}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Välj erfarenhet" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="0-3">0-3 år</SelectItem>
+                                        <SelectItem value="3-5">3-5 år</SelectItem>
+                                        <SelectItem value="5-10">5-10 år</SelectItem>
+                                        <SelectItem value="10+">10+ år</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="current_salary">Nuvarande lön (kr/mån)</Label>
