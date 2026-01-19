@@ -15,8 +15,16 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
-import { Search, UserCircle } from 'lucide-react'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Search, UserCircle, MoreHorizontal, Pencil, Trash2, Eye } from 'lucide-react'
 import Link from 'next/link'
+import EditEmployeeDialog from './EditEmployeeDialog'
+import DeleteEmployeeDialog from './DeleteEmployeeDialog'
 
 interface EmployeeListProps {
     employees: any[] // TODO: Type this properly once we have the full type from Supabase
@@ -170,11 +178,53 @@ export default function EmployeeList({ employees, stations = [] }: EmployeeListP
                                             >
                                                 {employee.category}
                                             </Badge>
-                                            <Link href={`/salary-review/employees/${employee.id}`}>
-                                                <Button variant="outline" size="sm">
-                                                    Hantera
-                                                </Button>
-                                            </Link>
+
+                                            {/* Dropdown Menu */}
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="outline" size="sm">
+                                                        <MoreHorizontal className="h-4 w-4" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    <DropdownMenuItem asChild>
+                                                        <Link
+                                                            href={`/salary-review/employees/${employee.id}`}
+                                                            className="flex items-center cursor-pointer"
+                                                        >
+                                                            <Eye className="mr-2 h-4 w-4" />
+                                                            Visa detaljer
+                                                        </Link>
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem asChild>
+                                                        <div>
+                                                            <EditEmployeeDialog
+                                                                employee={employee}
+                                                                stations={stations}
+                                                                trigger={
+                                                                    <Button variant="ghost" size="sm" className="w-full justify-start p-2">
+                                                                        <Pencil className="mr-2 h-4 w-4" />
+                                                                        Redigera
+                                                                    </Button>
+                                                                }
+                                                            />
+                                                        </div>
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem asChild>
+                                                        <div>
+                                                            <DeleteEmployeeDialog
+                                                                employee={employee}
+                                                                trigger={
+                                                                    <Button variant="ghost" size="sm" className="w-full justify-start p-2 text-destructive">
+                                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                                        Ta bort
+                                                                    </Button>
+                                                                }
+                                                            />
+                                                        </div>
+                                                    </DropdownMenuItem>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
                                         </div>
                                     </div>
                                 ))}

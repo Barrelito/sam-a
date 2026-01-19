@@ -1,61 +1,103 @@
+'use client'
+
 // Medarbetare - Lista och hantering
 // /salary-review/employees
 
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
 import EmployeeList from '@/components/salary-review/EmployeeList'
 import RegisterEmployeeDialog from '@/components/salary-review/RegisterEmployeeDialog'
+import { StationFilter } from '@/components/station-filter'
+import { createClient } from '@/lib/supabase/client'
 
-export default async function EmployeesPage() {
-    const supabase = await createClient()
+export default function EmployeesPage() {
+    const router = useRouter()
+    const [loading, setLoading] = useState(true)
+    const [employees, setEmployees] = useState<any[]>([])
+    const [stations, setStations] = useState<Array<{ id: string; name: string }>>([])
+    const [selectedStation, setSelectedStation] = useState<string | null>(null)
 
-    // Check authentication
-    const { data: { user } } = await supabase.auth.getUser()
+    useEffect(() => {
+        async function loadData() {
+            const supabase = createClient()
 
-    if (!user) {
-        redirect('/login')
+            // Check authentication
+            const { data: { user } } = await supabase.auth.getUser()
+
+            if (!user) {
+                router.push('/login')
+                return
+            }
+
+            // Check user role
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('role')
+                .eq('id', user.id)
+                .single()
+
+            if (!profile || !['station_manager', 'assistant_manager', 'vo_chief', 'admin'].includes(profile.role)) {
+                router.push('/salary-review')
+                return
+            }
+
+            // Fetch employees for this manager
+            const { data: employeesData } = await supabase
+                .from('employees')
+                .select(`
+                    *,
+                    station:stations (
+                        id,
+                        name,
+                        vo_id
+                    ),
+                    managers:employee_managers (
+                        manager:profiles (
+                            id,
+                            full_name,
+                            email
+                        ),
+                        role
+                    )
+                `)
+                .order('last_name', { ascending: true })
+
+            // Fetch stations for this user
+            const { data: userStations } = await supabase
+                .from('user_stations')
+                .select(`
+                    station:stations (
+                        id,
+                        name
+                    )
+                `)
+                .eq('user_id', user.id)
+
+            const stationsData = userStations?.map(us => us.station as any).filter(Boolean) || []
+
+            setEmployees(employeesData || [])
+            setStations(stationsData)
+            setLoading(false)
+        }
+
+        loadData()
+    }, [router])
+
+    // Filter employees by selected station
+    const filteredEmployees = selectedStation
+        ? employees.filter(e => e.station_id === selectedStation)
+        : employees
+
+    if (loading) {
+        return (
+            <div className="container mx-auto py-8">
+                <p>Laddar medarbetare...</p>
+            </div>
+        )
     }
-
-    // Check user role
-    const { data: profile } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', user.id)
-        .single()
-
-    if (!profile || !['station_manager', 'assistant_manager', 'vo_chief', 'admin'].includes(profile.role)) {
-        redirect('/salary-review')
-    }
-
-    // Fetch employees for this manager
-    const { data: employees } = await supabase
-        .from('employees')
-        .select(`
-      *,
-      station:stations (
-        id,
-        name,
-        vo_id
-      )
-    `)
-        .order('last_name', { ascending: true })
-
-    // Fetch stations for this user (for the create form)
-    const { data: userStations } = await supabase
-        .from('user_stations')
-        .select(`
-      station:stations (
-        id,
-        name
-      )
-    `)
-        .eq('user_id', user.id)
-
-    // Fix type error: us.station can be inferred as array by TS, force it to be treated correctly
-    const stations = userStations?.map(us => us.station as any).filter(Boolean) || []
 
     return (
         <div className="container mx-auto py-8">
@@ -69,22 +111,40 @@ export default async function EmployeesPage() {
                 <RegisterEmployeeDialog stations={stations} />
             </div>
 
-            {employees && employees.length > 0 ? (
-                <EmployeeList employees={employees} stations={stations} />
+            {/* Station Filter */}
+            {stations.length > 1 && (
+                <div className="mb-6">
+                    <StationFilter
+                        stations={stations}
+                        selectedStationId={selectedStation}
+                        onStationChange={setSelectedStation}
+                    />
+                </div>
+            )}
+
+            {filteredEmployees && filteredEmployees.length > 0 ? (
+                <EmployeeList employees={filteredEmployees} stations={stations} />
             ) : (
                 <Card>
                     <CardHeader>
-                        <CardTitle>Inga medarbetare registrerade</CardTitle>
+                        <CardTitle>
+                            {selectedStation ? 'Inga medarbetare på denna station' : 'Inga medarbetare registrerade'}
+                        </CardTitle>
                         <CardDescription>
-                            Börja med att registrera dina medarbetare för att kunna påbörja löneöversynen.
+                            {selectedStation
+                                ? 'Det finns inga medarbetare registrerade på den valda stationen.'
+                                : 'Börja med att registrera dina medarbetare för att kunna påbörja löneöversynen.'
+                            }
                         </CardDescription>
                     </CardHeader>
-                    <CardContent>
-                        <p className="text-sm text-muted-foreground mb-4">
-                            Du behöver registrera medarbetare i kategorierna VUB (Vårdare), SSK (Sjuksköterska) eller AMB (Ambulanssjukvårdare).
-                        </p>
-                        <RegisterEmployeeDialog stations={stations} />
-                    </CardContent>
+                    {!selectedStation && (
+                        <CardContent>
+                            <p className="text-sm text-muted-foreground mb-4">
+                                Du behöver registrera medarbetare i kategorierna VUB (Vårdare), SSK (Sjuksköterska) eller AMB (Ambulanssjukvårdare).
+                            </p>
+                            <RegisterEmployeeDialog stations={stations} />
+                        </CardContent>
+                    )}
                 </Card>
             )}
         </div>

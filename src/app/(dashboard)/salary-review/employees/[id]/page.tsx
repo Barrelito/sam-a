@@ -11,6 +11,8 @@ import { ArrowLeft, ClipboardList, MessageSquare, CheckCircle2, Circle, Clock } 
 import Link from 'next/link'
 import { hasParticularlySkillfulCriteria } from '@/lib/salary-review/particularly-skilled-criteria'
 import { getTotalCriteriaCount } from '@/lib/salary-review/salary-criteria'
+import EditEmployeeDialog from '@/components/salary-review/EditEmployeeDialog'
+import DeleteEmployeeDialog from '@/components/salary-review/DeleteEmployeeDialog'
 
 export default async function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient()
@@ -24,7 +26,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
 
     const { id: employeeId } = await params
 
-    // Hämta medarbetare
+    // Hämta medarbetare med managers
     const { data: employee, error: employeeError } = await supabase
         .from('employees')
         .select(`
@@ -33,6 +35,14 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
         id,
         name,
         vo_id
+      ),
+      managers:employee_managers (
+        manager:profiles (
+          id,
+          full_name,
+          email
+        ),
+        role
       )
     `)
         .eq('id', employeeId)
@@ -41,6 +51,19 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
     if (employeeError || !employee) {
         notFound()
     }
+
+    // Hämta stations för edit dialog
+    const { data: userStations } = await supabase
+        .from('user_stations')
+        .select(`
+      station:stations (
+        id,
+        name
+      )
+    `)
+        .eq('user_id', user.id)
+
+    const stations = userStations?.map(us => us.station as any).filter(Boolean) || []
 
     // Hämta eller skapa review för aktiv cykel
     const { data: activeCycle } = await supabase
@@ -149,6 +172,10 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                                 {statusInfo.label}
                             </Badge>
                         )}
+                        <div className="flex gap-2 mt-2">
+                            <EditEmployeeDialog employee={employee} stations={stations} />
+                            <DeleteEmployeeDialog employee={employee} />
+                        </div>
                     </div>
                 </div>
             </div>

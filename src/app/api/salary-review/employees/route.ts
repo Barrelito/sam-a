@@ -29,10 +29,13 @@ export async function GET() {
           name,
           vo_id
         ),
-        manager:profiles!employees_manager_id_fkey (
-          id,
-          full_name,
-          email
+        managers:employee_managers (
+          manager:profiles (
+            id,
+            full_name,
+            email
+          ),
+          role
         )
       `)
             .order('last_name', { ascending: true })
@@ -127,7 +130,7 @@ export async function POST(request: Request) {
                 email,
                 category,
                 station_id,
-                manager_id: user.id,
+                manager_id: user.id, // Keep for backwards compatibility
                 employment_date,
                 current_salary
             })
@@ -148,6 +151,20 @@ export async function POST(request: Request) {
                 { error: `Failed to create employee: ${error.message || 'Unknown error'}` },
                 { status: 500 }
             )
+        }
+
+        // Create entry in employee_managers junction table
+        const { error: managerError } = await supabase
+            .from('employee_managers')
+            .insert({
+                employee_id: employee.id,
+                manager_id: user.id,
+                role: 'primary'
+            })
+
+        if (managerError) {
+            console.error('Error creating employee manager relationship:', managerError)
+            // Don't fail the whole request, employee is already created
         }
 
         return NextResponse.json({ employee }, { status: 201 })
