@@ -148,7 +148,7 @@ export default function MeetingDocumentationForm({
             </Alert>
 
             {/* Distribution Proposal Display */}
-            {distributionIncrease !== undefined && currentSalary && (
+            {typeof distributionIncrease === 'number' && currentSalary && (
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-100 shadow-sm">
                     <h3 className="text-sm font-semibold text-blue-900 mb-3">Förslag från lönefördelning</h3>
                     <div className="grid grid-cols-2 gap-4">
