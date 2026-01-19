@@ -1,9 +1,10 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { MessageSquare, Send, Sparkles, FileText, Users, Calendar } from "lucide-react"
+import { MessageSquare, Send, Sparkles, FileText, Users, Calendar, TrendingUp } from "lucide-react"
 
 const suggestedPrompts = [
     {
@@ -61,6 +62,33 @@ export default function ChefstodPage() {
                 </div>
             </div>
 
+            {/* AI Modules / Tools */}
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                <Link href="/salary-review/analysis" className="block">
+                    <Card className="h-full hover:shadow-lg transition-all border-l-4 border-l-yellow-500 cursor-pointer">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <TrendingUp className="h-5 w-5 text-yellow-500" />
+                                Löneanalys
+                            </CardTitle>
+                            <CardDescription>
+                                Analysera lönespridning och hitta avvikelser baserat på erfarenhet
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Button variant="secondary" className="w-full">
+                                Öppna verktyg
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </Link>
+            </div>
+
+            <div className="flex items-center gap-2 mt-8 mb-4">
+                <MessageSquare className="h-5 w-5 text-primary" />
+                <h2 className="text-xl font-semibold">Generell Assistent</h2>
+            </div>
+
             {/* Suggested Prompts */}
             {messages.length === 0 && (
                 <div className="grid gap-4 md:grid-cols-3">
@@ -106,8 +134,8 @@ export default function ChefstodPage() {
                             >
                                 <div
                                     className={`max-w-[80%] rounded-lg px-4 py-2 ${message.role === 'user'
-                                            ? 'bg-primary text-primary-foreground'
-                                            : 'bg-secondary'
+                                        ? 'bg-primary text-primary-foreground'
+                                        : 'bg-secondary'
                                         }`}
                                 >
                                     <p className="text-sm whitespace-pre-wrap">{message.content}</p>
