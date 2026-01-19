@@ -80,10 +80,50 @@ export default async function SalaryReviewPage() {
     }
 
     // STATION MANAGER: Show station-specific dashboard
-    // Fetch basic statistics
-    const { data: employees, count: employeeCount } = await supabase
+    // Fetch employees with their reviews for the active cycle to calculate stats
+    const { data: employeesData } = await supabase
         .from('employees')
-        .select('*', { count: 'exact', head: true })
+        .select(`
+            id,
+            salary_reviews (
+                status,
+                cycle_id,
+                salary_criteria_assessments(id)
+            )
+        `)
+
+    // Calculate Stats
+    const totalEmployees = employeesData?.length || 0
+
+    let completedReviews = 0
+    let ongoingReviews = 0
+
+    if (activeCycle && employeesData) {
+        employeesData.forEach(emp => {
+            const review = emp.salary_reviews?.find((r: any) => r.cycle_id === activeCycle.id)
+
+            if (review) {
+                if (review.status === 'completed') {
+                    completedReviews++
+                } else {
+                    // Check if started (has assessments)
+                    // Robust check for array or count object (legacy)
+                    const r = review as any
+                    const assessmentCount = Array.isArray(r.salary_criteria_assessments)
+                        ? r.salary_criteria_assessments.length
+                        : (r.salary_criteria_assessments?.[0]?.count || 0)
+
+                    if (assessmentCount > 0) {
+                        ongoingReviews++
+                    }
+                }
+            }
+        })
+    }
+
+    const completionPercentage = totalEmployees > 0
+        ? Math.round((completedReviews / totalEmployees) * 100)
+        : 0
 
     return (
         <div className="container mx-auto py-8">
@@ -130,7 +170,7 @@ export default async function SalaryReviewPage() {
 
             {/* Active Cycle Info */}
             {activeCycle && (
-                <Card className="mb-6 border-primary">
+                <Card className="mb-6 border-primary bg-primary/5">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <Calendar className="h-5 w-5" />
@@ -158,7 +198,7 @@ export default async function SalaryReviewPage() {
                         <Users className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">{employeeCount || 0}</div>
+                        <div className="text-2xl font-bold">{totalEmployees}</div>
                         <p className="text-xs text-muted-foreground">
                             Registrerade medarbetare
                         </p>
@@ -173,7 +213,7 @@ export default async function SalaryReviewPage() {
                         <ClipboardList className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">0</div>
+                        <div className="text-2xl font-bold">{ongoingReviews}</div>
                         <p className="text-xs text-muted-foreground">
                             Under bearbetning
                         </p>
@@ -188,7 +228,7 @@ export default async function SalaryReviewPage() {
                         <FileText className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">0</div>
+                        <div className="text-2xl font-bold">{completedReviews}</div>
                         <p className="text-xs text-muted-foreground">
                             Klara löneöversyner
                         </p>
@@ -203,10 +243,13 @@ export default async function SalaryReviewPage() {
                         <Calendar className="h-4 w-4 text-muted-foreground" />
                     </CardHeader>
                     <CardContent>
-                        <div className="text-2xl font-bold">0%</div>
-                        <p className="text-xs text-muted-foreground">
-                            Av löneöversynen klar
-                        </p>
+                        <div className="text-2xl font-bold">{completionPercentage}%</div>
+                        <div className="w-full bg-secondary h-2 mt-2 rounded-full overflow-hidden">
+                            <div
+                                className="bg-primary h-full transition-all duration-500 ease-in-out"
+                                style={{ width: `${completionPercentage}%` }}
+                            />
+                        </div>
                     </CardContent>
                 </Card>
             </div>
@@ -300,7 +343,7 @@ export default async function SalaryReviewPage() {
             </div>
 
             {/* Getting Started Guide */}
-            {(!employeeCount || employeeCount === 0) && (
+            {(!totalEmployees || totalEmployees === 0) && (
                 <Card className="mt-8 bg-blue-50 border-blue-200">
                     <CardHeader>
                         <CardTitle>Kom igång med Löneöversyn</CardTitle>
