@@ -100,7 +100,6 @@ function EmployeesContent() {
                         status,
                         cycle_id,
                         final_salary,
-                        payment_date,
                         salary_criteria_assessments(id)
                     )
                 `)
