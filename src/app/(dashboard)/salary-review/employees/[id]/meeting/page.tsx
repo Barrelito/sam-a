@@ -180,6 +180,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
                                     meeting_date: review.meeting_date,
                                     meeting_notes: review.meeting_notes
                                 }}
+                                distributionIncrease={review.final_increase}
                             />
                         </CardContent>
                     </Card>

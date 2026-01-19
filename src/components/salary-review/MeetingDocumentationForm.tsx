@@ -45,13 +45,15 @@ interface MeetingDocumentationFormProps {
         meeting_date?: string
         meeting_notes?: string
     }
+    distributionIncrease?: number
 }
 
 export default function MeetingDocumentationForm({
     reviewId,
     employee,
     currentSalary,
-    initialData
+    initialData,
+    distributionIncrease
 }: MeetingDocumentationFormProps) {
     const router = useRouter()
     const [isSaving, setIsSaving] = useState(false)
@@ -72,6 +74,9 @@ export default function MeetingDocumentationForm({
     // Räkna ut ökning
     const salaryIncrease = currentSalary && finalSalary ? finalSalary - currentSalary : 0
     const salaryIncreasePercent = currentSalary && finalSalary ? ((finalSalary - currentSalary) / currentSalary) * 100 : 0
+
+    // Beräkna värden från lönefördelning
+    const distributionNewSalary = (currentSalary && distributionIncrease) ? currentSalary + distributionIncrease : null
 
     const onSave = async (data: DocumentationFormData) => {
         setIsSaving(true)
@@ -141,6 +146,25 @@ export default function MeetingDocumentationForm({
                     Dokumentera resultatet från lönesamtalet. När du är klar, slutför löneöversynen genom att klicka på "Slutför löneöversyn" längst ned.
                 </AlertDescription>
             </Alert>
+
+            {/* Distribution Proposal Display */}
+            {distributionIncrease !== undefined && currentSalary && (
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-100 shadow-sm">
+                    <h3 className="text-sm font-semibold text-blue-900 mb-3">Förslag från lönefördelning</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                        <div>
+                            <p className="text-xs text-blue-700 uppercase tracking-wider font-medium">Föreslaget påslag</p>
+                            <p className="text-xl font-bold text-blue-900">+{distributionIncrease.toLocaleString('sv-SE')} kr</p>
+                        </div>
+                        <div>
+                            <p className="text-xs text-blue-700 uppercase tracking-wider font-medium">Ny lön enl. förslag</p>
+                            <p className="text-xl font-bold text-blue-900">
+                                {distributionNewSalary?.toLocaleString('sv-SE')} kr/mån
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Current Salary Reference */}
             {currentSalary && (

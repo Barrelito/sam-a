@@ -47,6 +47,8 @@ export interface SalaryReview {
     is_particularly_skilled?: boolean
     proposed_salary?: number
     final_salary?: number
+    proposed_increase?: number
+    final_increase?: number
     meeting_date?: string
     meeting_notes?: string
     created_at: string
