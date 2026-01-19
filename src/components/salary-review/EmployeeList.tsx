@@ -175,104 +175,176 @@ export default function EmployeeList({ employees, stations = [], onEmployeeDelet
                         </CardHeader>
                         <CardContent>
                             <div className="grid gap-3">
-                                {(categoryEmployees as EmployeeWithDetails[]).map((employee) => (
-                                    <div
-                                        key={employee.id}
-                                        className="flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors"
-                                    >
-                                        <div className="flex items-center gap-4 flex-1">
-                                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                                                <UserCircle className="h-6 w-6 text-primary" />
-                                            </div>
-                                            <div className="flex-1">
-                                                <div className="font-medium">
-                                                    {employee.first_name} {employee.last_name}
-                                                </div>
-                                                <div className="text-sm text-muted-foreground flex items-center gap-4">
-                                                    {employee.employee_number && (
-                                                        <span>#{employee.employee_number}</span>
-                                                    )}
-                                                    {employee.station && (
-                                                        <span>• {employee.station.name}</span>
-                                                    )}
-                                                    {employee.current_salary && (
-                                                        <span>• {employee.current_salary.toLocaleString('sv-SE')} kr/mån</span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <Badge
-                                                variant="outline"
-                                                className={CATEGORY_COLORS[employee.category as keyof typeof CATEGORY_COLORS]}
-                                            >
-                                                {employee.category}
-                                            </Badge>
+                                <div className="grid grid-cols-12 gap-4 text-sm font-medium text-muted-foreground border-b pb-2 px-4">
+                                    <div className="col-span-4">Medarbetare</div>
+                                    <div className="col-span-2 text-center">Bedömning</div>
+                                    <div className="col-span-2 text-center">Lönesamtal</div>
+                                    <div className="col-span-2 text-right">Ny Lön</div>
+                                    <div className="col-span-2"></div>
+                                </div>
+                                {(categoryEmployees as any[]).map((employee) => {
+                                    const review = employee.active_review
+                                    const assessmentCount = review?.salary_criteria_assessments?.[0]?.count || 0
+                                    const isAssessed = assessmentCount > 0
+                                    const isMeetingDone = review?.status === 'completed'
+                                    const newSalary = review?.final_salary
 
-                                            {/* Dropdown Menu */}
-                                            <DropdownMenu>
-                                                <DropdownMenuTrigger asChild>
-                                                    <Button variant="outline" size="sm">
-                                                        <MoreHorizontal className="h-4 w-4" />
-                                                    </Button>
-                                                </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end">
-                                                    <DropdownMenuItem asChild>
-                                                        <Link
-                                                            href={`/salary-review/employees/${employee.id}`}
-                                                            className="flex items-center cursor-pointer"
-                                                        >
-                                                            <Eye className="mr-2 h-4 w-4" />
-                                                            Visa detaljer
-                                                        </Link>
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem asChild>
-                                                        <Link
-                                                            href={`/salary-review/employees/${employee.id}/criteria`}
-                                                            className="flex items-center cursor-pointer"
-                                                        >
-                                                            <ClipboardCheck className="mr-2 h-4 w-4" />
-                                                            Gör bedömning
-                                                        </Link>
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem asChild>
-                                                        <Link
-                                                            href={`/salary-review/employees/${employee.id}/meeting`}
-                                                            className="flex items-center cursor-pointer"
-                                                        >
-                                                            <MessageSquare className="mr-2 h-4 w-4" />
-                                                            Förbered samtal
-                                                        </Link>
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                                        <EditEmployeeDialog
-                                                            employee={employee}
-                                                            stations={stations}
-                                                            trigger={
-                                                                <div className="flex items-center w-full cursor-pointer">
-                                                                    <Pencil className="mr-2 h-4 w-4" />
-                                                                    Redigera
-                                                                </div>
-                                                            }
-                                                        />
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                                        <DeleteEmployeeDialog
-                                                            employee={employee}
-                                                            onDeleteSuccess={() => onEmployeeDeleted?.(employee.id)}
-                                                            trigger={
-                                                                <div className="flex items-center w-full cursor-pointer text-destructive">
-                                                                    <Trash2 className="mr-2 h-4 w-4" />
-                                                                    Ta bort
-                                                                </div>
-                                                            }
-                                                        />
-                                                    </DropdownMenuItem>
-                                                </DropdownMenuContent>
-                                            </DropdownMenu>
+                                    return (
+                                        <div
+                                            key={employee.id}
+                                            className="grid grid-cols-12 gap-4 items-center p-4 border rounded-lg hover:bg-slate-50 transition-colors"
+                                        >
+                                            {/* Name & Basic Info */}
+                                            <div className="col-span-4 flex items-center gap-3">
+                                                <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                                                    <UserCircle className="h-6 w-6 text-slate-500" />
+                                                </div>
+                                                <div>
+                                                    <Link href={`/salary-review/employees/${employee.id}`} className="font-medium hover:underline">
+                                                        {employee.first_name} {employee.last_name}
+                                                    </Link>
+                                                    <div className="text-xs text-muted-foreground flex items-center gap-2">
+                                                        {employee.station && (
+                                                            <span>{employee.station.name}</span>
+                                                        )}
+                                                        {employee.current_salary && (
+                                                            <span>• {employee.current_salary.toLocaleString('sv-SE')} kr</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Status: Assessment */}
+                                            <div className="col-span-2 flex justify-center">
+                                                {isAssessed ? (
+                                                    <div className="flex flex-col items-center">
+                                                        <Badge variant="default" className="bg-green-100 text-green-700 hover:bg-green-200 border-green-200">
+                                                            <ClipboardCheck className="w-3 h-3 mr-1" />
+                                                            Klar
+                                                        </Badge>
+                                                        <span className="text-[10px] text-muted-foreground mt-1">{assessmentCount} kriterier</span>
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex flex-col items-center">
+                                                        <Badge variant="outline" className="text-muted-foreground border-dashed">
+                                                            Ej påbörjad
+                                                        </Badge>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Status: Meeting */}
+                                            <div className="col-span-2 flex justify-center">
+                                                {isMeetingDone ? (
+                                                    <Badge variant="default" className="bg-green-100 text-green-700 hover:bg-green-200 border-green-200">
+                                                        <MessageSquare className="w-3 h-3 mr-1" />
+                                                        Genomfört
+                                                    </Badge>
+                                                ) : (
+                                                    <Badge variant="outline" className="text-muted-foreground border-dashed">
+                                                        Ej klart
+                                                    </Badge>
+                                                )}
+                                            </div>
+
+                                            {/* New Salary */}
+                                            <div className="col-span-2 text-right font-medium">
+                                                {newSalary ? (
+                                                    <span className="text-green-700">
+                                                        {newSalary.toLocaleString('sv-SE')} kr
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-muted-foreground text-sm">-</span>
+                                                )}
+                                            </div>
+
+                                            {/* Actions */}
+                                            <div className="col-span-2 flex justify-end gap-2">
+                                                {!isAssessed ? (
+                                                    <Link href={`/salary-review/employees/${employee.id}/criteria`}>
+                                                        <Button size="sm" variant="default" className="h-8">
+                                                            Betygsätt
+                                                        </Button>
+                                                    </Link>
+                                                ) : !isMeetingDone ? (
+                                                    <Link href={`/salary-review/employees/${employee.id}/meeting`}>
+                                                        <Button size="sm" variant="outline" className="h-8 border-blue-200 text-blue-700 hover:bg-blue-50">
+                                                            Lönesamtal
+                                                        </Button>
+                                                    </Link>
+                                                ) : (
+                                                    <Link href={`/salary-review/employees/${employee.id}`}>
+                                                        <Button size="sm" variant="ghost" className="h-8">
+                                                            <Eye className="w-4 h-4" />
+                                                        </Button>
+                                                    </Link>
+                                                )}
+
+                                                {/* Dropdown Menu */}
+                                                <DropdownMenu>
+                                                    <DropdownMenuTrigger asChild>
+                                                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                                                            <MoreHorizontal className="h-4 w-4" />
+                                                        </Button>
+                                                    </DropdownMenuTrigger>
+                                                    <DropdownMenuContent align="end">
+                                                        <DropdownMenuItem asChild>
+                                                            <Link
+                                                                href={`/salary-review/employees/${employee.id}`}
+                                                                className="flex items-center cursor-pointer"
+                                                            >
+                                                                <Eye className="mr-2 h-4 w-4" />
+                                                                Visa detaljer
+                                                            </Link>
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem asChild>
+                                                            <Link
+                                                                href={`/salary-review/employees/${employee.id}/criteria`}
+                                                                className="flex items-center cursor-pointer"
+                                                            >
+                                                                <ClipboardCheck className="mr-2 h-4 w-4" />
+                                                                Hantera bedömning
+                                                            </Link>
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem asChild>
+                                                            <Link
+                                                                href={`/salary-review/employees/${employee.id}/meeting`}
+                                                                className="flex items-center cursor-pointer"
+                                                            >
+                                                                <MessageSquare className="mr-2 h-4 w-4" />
+                                                                Hantera lönesamtal
+                                                            </Link>
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                                            <EditEmployeeDialog
+                                                                employee={employee}
+                                                                stations={stations}
+                                                                trigger={
+                                                                    <div className="flex items-center w-full cursor-pointer">
+                                                                        <Pencil className="mr-2 h-4 w-4" />
+                                                                        Redigera
+                                                                    </div>
+                                                                }
+                                                            />
+                                                        </DropdownMenuItem>
+                                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                                            <DeleteEmployeeDialog
+                                                                employee={employee}
+                                                                onDeleteSuccess={() => onEmployeeDeleted?.(employee.id)}
+                                                                trigger={
+                                                                    <div className="flex items-center w-full cursor-pointer text-destructive">
+                                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                                        Ta bort
+                                                                    </div>
+                                                                }
+                                                            />
+                                                        </DropdownMenuItem>
+                                                    </DropdownMenuContent>
+                                                </DropdownMenu>
+                                            </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    )
+                                })}
                             </div>
                         </CardContent>
                     </Card>

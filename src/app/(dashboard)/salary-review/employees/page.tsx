@@ -4,10 +4,11 @@
 // /salary-review/employees
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Plus } from 'lucide-react'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import EmployeeList from '@/components/salary-review/EmployeeList'
 import RegisterEmployeeDialog from '@/components/salary-review/RegisterEmployeeDialog'
 import { StationFilter } from '@/components/station-filter'
@@ -15,6 +16,9 @@ import { createClient } from '@/lib/supabase/client'
 
 export default function EmployeesPage() {
     const router = useRouter()
+    const searchParams = useSearchParams()
+    const defaultTab = searchParams.get('tab') || 'all'
+
     const [loading, setLoading] = useState(true)
     const [employees, setEmployees] = useState<any[]>([])
     const [stations, setStations] = useState<Array<{ id: string; name: string }>>([])
@@ -44,6 +48,13 @@ export default function EmployeesPage() {
                 return
             }
 
+            // Fetch active cycle
+            const { data: activeCycle } = await supabase
+                .from('salary_review_cycles')
+                .select('id')
+                .eq('status', 'active')
+                .single()
+
             // Fetch employees for this manager
             const { data: employeesData, error: employeesError } = await supabase
                 .from('employees')
@@ -61,6 +72,14 @@ export default function EmployeesPage() {
                             full_name,
                             email
                         )
+                    ),
+                    salary_reviews (
+                        id,
+                        status,
+                        cycle_id,
+                        final_salary,
+                        payment_date,
+                        salary_criteria_assessments(count)
                     )
                 `)
                 .order('last_name', { ascending: true })
@@ -68,6 +87,12 @@ export default function EmployeesPage() {
             if (employeesError) {
                 console.error('Error fetching employees:', employeesError)
             }
+
+            // Filter reviews to match active cycle
+            const enrichedEmployees = employeesData?.map(emp => ({
+                ...emp,
+                active_review: emp.salary_reviews?.find((r: any) => r.cycle_id === activeCycle?.id) || null
+            })) || []
 
             // Fetch stations for this user
             const { data: userStations } = await supabase
@@ -82,7 +107,7 @@ export default function EmployeesPage() {
 
             const stationsData = userStations?.map(us => us.station as any).filter(Boolean) || []
 
-            setEmployees(employeesData || [])
+            setEmployees(enrichedEmployees)
             setStations(stationsData)
             setLoading(false)
         }
@@ -131,35 +156,75 @@ export default function EmployeesPage() {
                 </div>
             )}
 
-            {filteredEmployees && filteredEmployees.length > 0 ? (
-                <EmployeeList
-                    employees={filteredEmployees}
-                    stations={stations}
-                    onEmployeeDeleted={handleEmployeeDeleted}
-                />
-            ) : (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>
-                            {selectedStation ? 'Inga medarbetare på denna station' : 'Inga medarbetare registrerade'}
-                        </CardTitle>
-                        <CardDescription>
-                            {selectedStation
-                                ? 'Det finns inga medarbetare registrerade på den valda stationen.'
-                                : 'Börja med att registrera dina medarbetare för att kunna påbörja löneöversynen.'
-                            }
-                        </CardDescription>
-                    </CardHeader>
-                    {!selectedStation && (
-                        <CardContent>
-                            <p className="text-sm text-muted-foreground mb-4">
-                                Du behöver registrera medarbetare i kategorierna VUB (Vårdare), SSK (Sjuksköterska) eller AMB (Ambulanssjukvårdare).
-                            </p>
-                            <RegisterEmployeeDialog stations={stations} />
-                        </CardContent>
+            <Tabs defaultValue={defaultTab} className="space-y-6">
+                <TabsList>
+                    <TabsTrigger value="all">Översikt</TabsTrigger>
+                    <TabsTrigger value="todo">Att göra</TabsTrigger>
+                    <TabsTrigger value="completed">Slutförda</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="all" className="space-y-4">
+                    {filteredEmployees && filteredEmployees.length > 0 ? (
+                        <EmployeeList
+                            employees={filteredEmployees}
+                            stations={stations}
+                            onEmployeeDeleted={handleEmployeeDeleted}
+                        />
+                    ) : (
+                        <EmptyState selectedStation={selectedStation} stations={stations} />
                     )}
-                </Card>
-            )}
+                </TabsContent>
+
+                <TabsContent value="todo" className="space-y-4">
+                    <EmployeeList
+                        employees={filteredEmployees?.filter(e => {
+                            const review = e.active_review
+                            const isAssessed = (review?.salary_criteria_assessments?.[0]?.count || 0) > 0
+                            const isCompleted = review?.status === 'completed'
+                            return !isAssessed || !isCompleted
+                        }) || []}
+                        stations={stations}
+                        onEmployeeDeleted={handleEmployeeDeleted}
+                    />
+                </TabsContent>
+
+                <TabsContent value="completed" className="space-y-4">
+                    <EmployeeList
+                        employees={filteredEmployees?.filter(e => {
+                            const review = e.active_review
+                            return review?.status === 'completed'
+                        }) || []}
+                        stations={stations}
+                        onEmployeeDeleted={handleEmployeeDeleted}
+                    />
+                </TabsContent>
+            </Tabs>
         </div>
+    )
+}
+
+function EmptyState({ selectedStation, stations }: { selectedStation: string | null, stations: any[] }) {
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle>
+                    {selectedStation ? 'Inga medarbetare på denna station' : 'Inga medarbetare registrerade'}
+                </CardTitle>
+                <CardDescription>
+                    {selectedStation
+                        ? 'Det finns inga medarbetare registrerade på den valda stationen.'
+                        : 'Börja med att registrera dina medarbetare för att kunna påbörja löneöversynen.'
+                    }
+                </CardDescription>
+            </CardHeader>
+            {!selectedStation && (
+                <CardContent>
+                    <p className="text-sm text-muted-foreground mb-4">
+                        Du behöver registrera medarbetare i kategorierna VUB (Vårdare), SSK (Sjuksköterska) eller AMB (Ambulanssjukvårdare).
+                    </p>
+                    <RegisterEmployeeDialog stations={stations} />
+                </CardContent>
+            )}
+        </Card>
     )
 }

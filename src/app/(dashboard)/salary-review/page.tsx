@@ -243,7 +243,7 @@ export default async function SalaryReviewPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <Link href="/salary-review/employees">
+                        <Link href="/salary-review/employees?tab=todo">
                             <Button className="w-full">
                                 Hantera bedömningar
                             </Button>
@@ -287,7 +287,7 @@ export default async function SalaryReviewPage() {
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <Link href="/salary-review/employees">
+                        <Link href="/salary-review/employees?tab=todo">
                             <Button className="w-full">
                                 Hantera lönesamtal
                             </Button>
