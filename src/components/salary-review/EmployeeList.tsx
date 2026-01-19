@@ -21,7 +21,7 @@ import {
     DropdownMenuItem,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { Search, UserCircle, MoreHorizontal, Pencil, Trash2, Eye } from 'lucide-react'
+import { Search, UserCircle, MoreHorizontal, Pencil, Trash2, Eye, ClipboardCheck, MessageSquare } from 'lucide-react'
 import Link from 'next/link'
 import EditEmployeeDialog from './EditEmployeeDialog'
 import DeleteEmployeeDialog from './DeleteEmployeeDialog'
@@ -224,6 +224,24 @@ export default function EmployeeList({ employees, stations = [], onEmployeeDelet
                                                         >
                                                             <Eye className="mr-2 h-4 w-4" />
                                                             Visa detaljer
+                                                        </Link>
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem asChild>
+                                                        <Link
+                                                            href={`/salary-review/employees/${employee.id}/criteria`}
+                                                            className="flex items-center cursor-pointer"
+                                                        >
+                                                            <ClipboardCheck className="mr-2 h-4 w-4" />
+                                                            Gör bedömning
+                                                        </Link>
+                                                    </DropdownMenuItem>
+                                                    <DropdownMenuItem asChild>
+                                                        <Link
+                                                            href={`/salary-review/employees/${employee.id}/meeting`}
+                                                            className="flex items-center cursor-pointer"
+                                                        >
+                                                            <MessageSquare className="mr-2 h-4 w-4" />
+                                                            Förbered samtal
                                                         </Link>
                                                     </DropdownMenuItem>
                                                     <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
