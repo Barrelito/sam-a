@@ -13,19 +13,40 @@ import EmployeeList from '@/components/salary-review/EmployeeList'
 import RegisterEmployeeDialog from '@/components/salary-review/RegisterEmployeeDialog'
 import { StationFilter } from '@/components/station-filter'
 import { createClient } from '@/lib/supabase/client'
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
+import { AlertCircle } from 'lucide-react'
 
 function EmployeesContent() {
     const router = useRouter()
     const searchParams = useSearchParams()
+
+    // Controlled Tab State synced with URL
     const defaultTab = searchParams.get('tab') || 'all'
+    const [currentTab, setCurrentTab] = useState(defaultTab)
+
+    useEffect(() => {
+        const tab = searchParams.get('tab')
+        if (tab && tab !== currentTab) {
+            setCurrentTab(tab)
+        }
+    }, [searchParams])
+
+    const handleTabChange = (value: string) => {
+        setCurrentTab(value)
+        const params = new URLSearchParams(searchParams.toString())
+        params.set('tab', value)
+        router.push(`/salary-review/employees?${params.toString()}`)
+    }
 
     const [loading, setLoading] = useState(true)
     const [employees, setEmployees] = useState<any[]>([])
     const [stations, setStations] = useState<Array<{ id: string; name: string }>>([])
     const [selectedStation, setSelectedStation] = useState<string | null>(null)
+    const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
         async function loadData() {
+            setLoading(true)
             const supabase = createClient()
 
             // Check authentication
@@ -56,6 +77,7 @@ function EmployeesContent() {
                 .single()
 
             // Fetch employees for this manager
+            // Removed 'count' aggregation which might be problematic, using generic select
             const { data: employeesData, error: employeesError } = await supabase
                 .from('employees')
                 .select(`
@@ -79,13 +101,16 @@ function EmployeesContent() {
                         cycle_id,
                         final_salary,
                         payment_date,
-                        salary_criteria_assessments(count)
+                        salary_criteria_assessments(id)
                     )
                 `)
                 .order('last_name', { ascending: true })
 
             if (employeesError) {
                 console.error('Error fetching employees:', employeesError)
+                setError(employeesError.message)
+                setLoading(false)
+                return
             }
 
             // Filter reviews to match active cycle
@@ -133,6 +158,18 @@ function EmployeesContent() {
         )
     }
 
+    if (error) {
+        return (
+            <div className="container mx-auto py-8">
+                <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Ett fel uppstod</AlertTitle>
+                    <AlertDescription>Kunde inte hämta medarbetare: {error}</AlertDescription>
+                </Alert>
+            </div>
+        )
+    }
+
     return (
         <div className="container mx-auto py-8">
             <div className="flex justify-between items-center mb-6">
@@ -156,7 +193,7 @@ function EmployeesContent() {
                 </div>
             )}
 
-            <Tabs defaultValue={defaultTab} className="space-y-6">
+            <Tabs value={currentTab} onValueChange={handleTabChange} className="space-y-6">
                 <TabsList>
                     <TabsTrigger value="all">Översikt</TabsTrigger>
                     <TabsTrigger value="todo">Att göra</TabsTrigger>
@@ -179,7 +216,8 @@ function EmployeesContent() {
                     <EmployeeList
                         employees={filteredEmployees?.filter(e => {
                             const review = e.active_review
-                            const isAssessed = (review?.salary_criteria_assessments?.[0]?.count || 0) > 0
+                            // Check if assessment array has length > 0 instead of count
+                            const isAssessed = (review?.salary_criteria_assessments?.length || 0) > 0
                             const isCompleted = review?.status === 'completed'
                             return !isAssessed || !isCompleted
                         }) || []}
@@ -236,4 +274,3 @@ function EmptyState({ selectedStation, stations }: { selectedStation: string | n
         </Card>
     )
 }
-

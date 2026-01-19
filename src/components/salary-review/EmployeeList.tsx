@@ -184,7 +184,11 @@ export default function EmployeeList({ employees, stations = [], onEmployeeDelet
                                 </div>
                                 {(categoryEmployees as any[]).map((employee) => {
                                     const review = employee.active_review
-                                    const assessmentCount = review?.salary_criteria_assessments?.[0]?.count || 0
+                                    // Robust check: if it's an array (from new query) use length, if object (legacy) try count
+                                    const assessmentCount = Array.isArray(review?.salary_criteria_assessments)
+                                        ? review.salary_criteria_assessments.length
+                                        : (review?.salary_criteria_assessments?.[0]?.count || 0)
+
                                     const isAssessed = assessmentCount > 0
                                     const isMeetingDone = review?.status === 'completed'
                                     const newSalary = review?.final_salary
