@@ -1,5 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient as createAdminSupabaseClient } from '@supabase/supabase-js'
 
 // Create admin client with service role
 function createAdminClient() {
@@ -10,7 +11,7 @@ function createAdminClient() {
         throw new Error('Missing Supabase admin credentials')
     }
 
-    return createClient(url, serviceKey, {
+    return createAdminSupabaseClient(url, serviceKey, {
         auth: {
             autoRefreshToken: false,
             persistSession: false
@@ -31,7 +32,13 @@ function generatePassword(length = 12) {
 // GET - List all users with profiles
 export async function GET() {
     try {
-        const supabase = createAdminClient()
+        const supabase = await createClient()
+
+        // Check authentication
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
 
         const { data: profiles, error } = await supabase
             .from('profiles')

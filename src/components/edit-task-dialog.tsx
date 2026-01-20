@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Task, TaskCategory, TaskOwnerType, categoryLabels, ownerTypeLabels } from "@/lib/types"
+import { Task, TaskCategory, TaskOwnerType, categoryLabels, ownerTypeLabels, Profile } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -25,7 +25,7 @@ import {
     SelectLabel,
 } from "@/components/ui/select"
 import { Switch } from "@/components/ui/switch"
-import { Loader2, MapPin, FolderOpen } from "lucide-react"
+import { Loader2, MapPin, FolderOpen, User } from "lucide-react"
 
 interface Station {
     id: string
@@ -69,11 +69,13 @@ export function EditTaskDialog({
     const [loading, setLoading] = useState(false)
     const [stations, setStations] = useState<Station[]>([])
     const [stationGroups, setStationGroups] = useState<StationGroup[]>([])
+    const [users, setUsers] = useState<Profile[]>([])
 
     // Form state
     const [title, setTitle] = useState(task.title)
     const [description, setDescription] = useState(task.description || '')
     const [category, setCategory] = useState<TaskCategory>(task.category)
+    const [assignedTo, setAssignedTo] = useState(task.assigned_to || 'unassigned') // 'unassigned' for null handling
     const [stationId, setStationId] = useState(task.station_id || '')
     const [stationGroupId, setStationGroupId] = useState(task.station_group_id || '')
     const [assignmentType, setAssignmentType] = useState<'station' | 'group'>(
@@ -103,10 +105,17 @@ export function EditTaskDialog({
                 .then(data => setStationGroups(data.station_groups || []))
                 .catch(err => console.error('Failed to load station groups:', err))
 
+            // Load users
+            fetch('/api/admin/users')
+                .then(res => res.json())
+                .then(data => setUsers(data.profiles || []))
+                .catch(err => console.error('Failed to load users:', err))
+
             // Reset form to task values
             setTitle(task.title)
             setDescription(task.description || '')
             setCategory(task.category)
+            setAssignedTo(task.assigned_to || 'unassigned')
             setStationId(task.station_id || '')
             setStationGroupId(task.station_group_id || '')
             setAssignmentType(task.station_group_id ? 'group' : 'station')
@@ -126,6 +135,7 @@ export function EditTaskDialog({
                 title,
                 description: description || null,
                 category,
+                assigned_to: assignedTo === 'unassigned' ? null : assignedTo,
                 station_id: assignmentType === 'station' ? stationId || null : null,
                 station_group_id: assignmentType === 'group' ? stationGroupId || null : null,
                 start_month: isRecurringMonthly ? null : (startMonth ? parseInt(startMonth) : null),
@@ -190,6 +200,34 @@ export function EditTaskDialog({
                                 {categories.map(cat => (
                                     <SelectItem key={cat} value={cat}>
                                         {categoryLabels[cat]}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    {/* Assigned To */}
+                    <div className="space-y-2">
+                        <Label>Tilldelad</Label>
+                        <Select value={assignedTo} onValueChange={setAssignedTo}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Välj person" />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-[200px]">
+                                <SelectItem value="unassigned">
+                                    <span className="text-muted-foreground italic">Ej tilldelad</span>
+                                </SelectItem>
+                                {users.map(user => (
+                                    <SelectItem key={user.id} value={user.id}>
+                                        <div className="flex items-center gap-2">
+                                            <User className="h-4 w-4 text-muted-foreground" />
+                                            <span>{user.full_name}</span>
+                                            {user.role === 'station_manager' && (
+                                                <span className="text-xs text-muted-foreground">
+                                                    (Chef)
+                                                </span>
+                                            )}
+                                        </div>
                                     </SelectItem>
                                 ))}
                             </SelectContent>
