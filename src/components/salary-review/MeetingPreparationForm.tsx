@@ -3,7 +3,7 @@
 // Förberedelsefas för lönesamtal
 // Används för att samla dokumentation och förbereda sig inför samtalet
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -12,7 +12,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, CheckCircle2, Info } from 'lucide-react'
+import { Loader2, CheckCircle2, Info, Save } from 'lucide-react'
 import { MEETING_PREPARATION, IMPORTANT_DOCUMENTS } from '@/lib/salary-review/meeting-guide'
 import type { EmployeeCategory } from '@/lib/salary-review/types'
 
@@ -42,7 +42,7 @@ export default function MeetingPreparationForm({
     const [isSaving, setIsSaving] = useState(false)
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
-    const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<PreparationFormData>({
+    const { register, handleSubmit, watch, setValue, formState: { errors, isDirty } } = useForm<PreparationFormData>({
         resolver: zodResolver(preparationSchema),
         defaultValues: {
             previous_agreements: initialData?.previous_agreements || '',
@@ -55,20 +55,7 @@ export default function MeetingPreparationForm({
 
     const goalsAchieved = watch('goals_achieved')
 
-    // Auto-save with debounce
-    useEffect(() => {
-        const subscription = watch((value) => {
-            const timer = setTimeout(() => {
-                handleSave(value as PreparationFormData)
-            }, 2000)
-
-            return () => clearTimeout(timer)
-        })
-
-        return () => subscription.unsubscribe()
-    }, [watch])
-
-    const handleSave = async (data: PreparationFormData) => {
+    const onSubmit = async (data: PreparationFormData) => {
         setIsSaving(true)
         setSaveStatus('saving')
 
@@ -82,11 +69,13 @@ export default function MeetingPreparationForm({
             })
 
             if (!response.ok) {
-                throw new Error('Failed to save preparation')
+                const errorData = await response.json()
+                console.error('Save error:', errorData)
+                throw new Error(errorData.error || 'Failed to save preparation')
             }
 
             setSaveStatus('saved')
-            setTimeout(() => setSaveStatus('idle'), 2000)
+            setTimeout(() => setSaveStatus('idle'), 3000)
         } catch (error) {
             console.error('Error saving preparation:', error)
             setSaveStatus('error')
@@ -126,7 +115,7 @@ export default function MeetingPreparationForm({
             </div>
 
             {/* Form */}
-            <form className="space-y-6">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 {/* Previous Agreements */}
                 <div className="space-y-2">
                     <Label htmlFor="previous_agreements">
@@ -148,7 +137,7 @@ export default function MeetingPreparationForm({
                     <Checkbox
                         id="goals_achieved"
                         checked={goalsAchieved}
-                        onCheckedChange={(checked) => setValue('goals_achieved', checked as boolean)}
+                        onCheckedChange={(checked) => setValue('goals_achieved', checked as boolean, { shouldDirty: true })}
                     />
                     <Label htmlFor="goals_achieved" className="cursor-pointer">
                         Medarbetaren har uppnått de uppsatta målen
@@ -190,15 +179,9 @@ export default function MeetingPreparationForm({
                     />
                 </div>
 
-                {/* Save Status */}
+                {/* Save Button and Status */}
                 <div className="flex items-center justify-between pt-4 border-t">
                     <div className="flex items-center gap-2">
-                        {saveStatus === 'saving' && (
-                            <>
-                                <Loader2 className="h-4 w-4 animate-spin text-blue-600" />
-                                <span className="text-sm text-muted-foreground">Sparar...</span>
-                            </>
-                        )}
                         {saveStatus === 'saved' && (
                             <>
                                 <CheckCircle2 className="h-4 w-4 text-green-600" />
@@ -209,11 +192,22 @@ export default function MeetingPreparationForm({
                             <span className="text-sm text-red-600">Kunde inte spara. Försök igen.</span>
                         )}
                     </div>
-                    <p className="text-sm text-muted-foreground">
-                        Dina ändringar sparas automatiskt
-                    </p>
+                    <Button type="submit" disabled={isSaving}>
+                        {isSaving ? (
+                            <>
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                Sparar...
+                            </>
+                        ) : (
+                            <>
+                                <Save className="h-4 w-4 mr-2" />
+                                Spara ändringar
+                            </>
+                        )}
+                    </Button>
                 </div>
             </form>
         </div>
     )
 }
+
