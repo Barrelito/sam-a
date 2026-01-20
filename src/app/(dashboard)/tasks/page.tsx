@@ -28,6 +28,8 @@ export default function TasksPage() {
     const [selectedCategory, setSelectedCategory] = useState<TaskCategory | null>(null)
     const [selectedStatus, setSelectedStatus] = useState<TaskStatus | null>(null)
     const [selectedStationId, setSelectedStationId] = useState<string | null>(null)
+    const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
+    const [stationGroups, setStationGroups] = useState<{ id: string; name: string; stations?: { id: string }[] }[]>([])
 
     // Load tasks function separated for re-use
     async function fetchTasks() {
@@ -62,6 +64,18 @@ export default function TasksPage() {
     useEffect(() => {
         if (!authLoading && profile) {
             fetchTasks()
+            // Load station groups for the filter
+            fetch('/api/admin/station-groups')
+                .then(res => res.json())
+                .then(data => {
+                    const userStationIds = profile.user_stations?.map(us => us.station.id) || []
+                    // Filter groups to only show those that include user's stations
+                    const relevantGroups = (data.station_groups || []).filter((group: any) =>
+                        group.stations?.some((s: any) => userStationIds.includes(s.id))
+                    )
+                    setStationGroups(relevantGroups)
+                })
+                .catch(err => console.error('Failed to load station groups:', err))
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [authLoading, profile])
@@ -120,12 +134,25 @@ export default function TasksPage() {
 
     // Get user's stations for the filter
     const userStations = profile?.user_stations?.map(us => us.station) || []
-    const showStationFilter = userStations.length > 1
+    const showStationFilter = userStations.length > 1 || stationGroups.length > 0
+
+    // Get station IDs from selected group
+    const selectedGroupStationIds = selectedGroupId
+        ? stationGroups.find(g => g.id === selectedGroupId)?.stations?.map(s => s.id) || []
+        : []
 
     // Client-side filtering (including station filter)
     const filteredTasks = tasks.filter(task => {
-        // Station filter
-        if (selectedStationId && task.station_id !== selectedStationId) return false
+        // Station group filter - show tasks from any station in the group
+        if (selectedGroupId) {
+            if (!task.station_id || !selectedGroupStationIds.includes(task.station_id)) {
+                return false
+            }
+        }
+        // Single station filter
+        else if (selectedStationId && task.station_id !== selectedStationId) {
+            return false
+        }
 
         if (selectedMonth !== null) {
             if (task.is_recurring_monthly) {
@@ -147,6 +174,7 @@ export default function TasksPage() {
         setSelectedCategory(null)
         setSelectedStatus(null)
         setSelectedStationId(null)
+        setSelectedGroupId(null)
     }
 
     const tasksByMonth = filteredTasks.reduce((acc, task) => {
@@ -177,8 +205,11 @@ export default function TasksPage() {
                     {showStationFilter && (
                         <StationFilter
                             stations={userStations}
+                            stationGroups={stationGroups}
                             selectedStationId={selectedStationId}
+                            selectedGroupId={selectedGroupId}
                             onStationChange={setSelectedStationId}
+                            onGroupChange={setSelectedGroupId}
                         />
                     )}
                     <Button onClick={() => router.push('/tasks/new')} className="gap-2">
@@ -243,7 +274,7 @@ export default function TasksPage() {
                     </div>
                 </div>
 
-                {(selectedMonth || selectedCategory || selectedStatus || selectedStationId) && (
+                {(selectedMonth || selectedCategory || selectedStatus || selectedStationId || selectedGroupId) && (
                     <Button variant="ghost" size="sm" onClick={clearFilters}>
                         Rensa filter
                     </Button>

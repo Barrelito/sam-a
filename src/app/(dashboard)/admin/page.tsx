@@ -4,9 +4,10 @@ import { useState, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Shield, Building2, MapPin, Users, UserPlus, Edit, Loader2 } from "lucide-react"
+import { Shield, Building2, MapPin, Users, UserPlus, Edit, Loader2, FolderOpen, Plus, Trash2 } from "lucide-react"
 import { roleLabels, UserRole } from "@/lib/types"
 import { CreateUserDialog } from "@/components/create-user-dialog"
+import { StationGroupDialog } from "@/components/station-group-dialog"
 
 interface Profile {
     id: string
@@ -33,7 +34,16 @@ interface Station {
     verksamhetsomraden?: { id: string; name: string }
 }
 
-type TabType = 'vo' | 'stations' | 'users'
+interface StationGroup {
+    id: string
+    name: string
+    description: string | null
+    vo_id: string
+    verksamhetsomraden?: { id: string; name: string }
+    stations?: Station[]
+}
+
+type TabType = 'vo' | 'station_groups' | 'stations' | 'users'
 
 const roleColors: Record<UserRole, string> = {
     admin: "bg-purple-100 text-purple-700",
@@ -50,6 +60,12 @@ export default function AdminPage() {
     const [users, setUsers] = useState<Profile[]>([])
     const [voList, setVoList] = useState<VO[]>([])
     const [stations, setStations] = useState<Station[]>([])
+    const [stationGroups, setStationGroups] = useState<StationGroup[]>([])
+
+    // Station Group Dialog state
+    const [groupDialogOpen, setGroupDialogOpen] = useState(false)
+    const [editingGroup, setEditingGroup] = useState<StationGroup | null>(null)
+    const [deletingGroupId, setDeletingGroupId] = useState<string | null>(null)
 
     // Dialog state
     const [createDialogOpen, setCreateDialogOpen] = useState(false)
@@ -66,21 +82,24 @@ export default function AdminPage() {
     const loadData = async () => {
         setLoading(true)
         try {
-            const [usersRes, voRes, stationsRes] = await Promise.all([
+            const [usersRes, voRes, stationsRes, groupsRes] = await Promise.all([
                 fetch('/api/admin/users'),
                 fetch('/api/admin/vo'),
-                fetch('/api/admin/stations')
+                fetch('/api/admin/stations'),
+                fetch('/api/admin/station-groups')
             ])
 
-            const [usersData, voData, stationsData] = await Promise.all([
+            const [usersData, voData, stationsData, groupsData] = await Promise.all([
                 usersRes.json(),
                 voRes.json(),
-                stationsRes.json()
+                stationsRes.json(),
+                groupsRes.json()
             ])
 
             setUsers(usersData.profiles || [])
             setVoList(voData.verksamhetsomraden || [])
             setStations(stationsData.stations || [])
+            setStationGroups(groupsData.station_groups || [])
         } catch (error) {
             console.error('Failed to load admin data:', error)
         } finally {
@@ -109,8 +128,39 @@ export default function AdminPage() {
         setCreateDialogOpen(false)
     }
 
+    const handleEditGroup = (group: StationGroup) => {
+        setEditingGroup(group)
+        setGroupDialogOpen(true)
+    }
+
+    const handleCloseGroupDialog = () => {
+        setEditingGroup(null)
+        setGroupDialogOpen(false)
+    }
+
+    const handleDeleteGroup = async (groupId: string) => {
+        if (!confirm('Är du säker på att du vill ta bort detta stationsområde?')) {
+            return
+        }
+        setDeletingGroupId(groupId)
+        try {
+            const res = await fetch(`/api/admin/station-groups/${groupId}`, {
+                method: 'DELETE'
+            })
+            if (!res.ok) {
+                throw new Error('Kunde inte ta bort stationsområdet')
+            }
+            loadData()
+        } catch (error) {
+            console.error('Failed to delete station group:', error)
+        } finally {
+            setDeletingGroupId(null)
+        }
+    }
+
     const tabs = [
         { id: 'vo' as const, label: 'Verksamhetsområden', icon: Building2 },
+        { id: 'station_groups' as const, label: 'Stationsområden', icon: FolderOpen },
         { id: 'stations' as const, label: 'Stationer', icon: MapPin },
         { id: 'users' as const, label: 'Användare', icon: Users },
     ]
@@ -206,6 +256,100 @@ export default function AdminPage() {
                             )
                         })}
                     </div>
+                </div>
+            )}
+
+            {/* Station Groups Tab */}
+            {activeTab === 'station_groups' && (
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-xl font-semibold">Stationsområden</h2>
+                        <Button onClick={() => setGroupDialogOpen(true)} className="gap-2">
+                            <Plus className="h-4 w-4" />
+                            Nytt Stationsområde
+                        </Button>
+                    </div>
+
+                    {stationGroups.length === 0 ? (
+                        <Card className="p-8 text-center">
+                            <FolderOpen className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                            <h3 className="text-lg font-medium mb-2">Inga stationsområden</h3>
+                            <p className="text-muted-foreground mb-4">
+                                Skapa ett stationsområde för att gruppera flera stationer under en chef.
+                            </p>
+                            <Button onClick={() => setGroupDialogOpen(true)} className="gap-2">
+                                <Plus className="h-4 w-4" />
+                                Skapa första stationsområdet
+                            </Button>
+                        </Card>
+                    ) : (
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                            {stationGroups.map(group => (
+                                <Card key={group.id}>
+                                    <CardHeader className="pb-2">
+                                        <div className="flex items-start justify-between">
+                                            <CardTitle className="flex items-center gap-2">
+                                                <FolderOpen className="h-5 w-5 text-primary" />
+                                                {group.name}
+                                            </CardTitle>
+                                            <Badge variant="outline" className="text-xs">
+                                                {group.stations?.length || 0} stationer
+                                            </Badge>
+                                        </div>
+                                        {group.verksamhetsomraden && (
+                                            <CardDescription className="flex items-center gap-1">
+                                                <Building2 className="h-3 w-3" />
+                                                {group.verksamhetsomraden.name}
+                                            </CardDescription>
+                                        )}
+                                    </CardHeader>
+                                    <CardContent className="space-y-3">
+                                        {group.description && (
+                                            <p className="text-sm text-muted-foreground">
+                                                {group.description}
+                                            </p>
+                                        )}
+
+                                        {group.stations && group.stations.length > 0 && (
+                                            <div className="flex flex-wrap gap-1">
+                                                {group.stations.map(station => (
+                                                    <Badge key={station.id} variant="secondary" className="text-xs">
+                                                        <MapPin className="h-3 w-3 mr-1" />
+                                                        {station.name}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        <div className="flex gap-2 pt-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="flex-1 gap-2"
+                                                onClick={() => handleEditGroup(group)}
+                                            >
+                                                <Edit className="h-4 w-4" />
+                                                Redigera
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="text-destructive hover:text-destructive"
+                                                onClick={() => handleDeleteGroup(group.id)}
+                                                disabled={deletingGroupId === group.id}
+                                            >
+                                                {deletingGroupId === group.id ? (
+                                                    <Loader2 className="h-4 w-4 animate-spin" />
+                                                ) : (
+                                                    <Trash2 className="h-4 w-4" />
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -337,6 +481,16 @@ export default function AdminPage() {
                 onOpenChange={handleCloseDialog}
                 onSuccess={loadData}
                 editUser={editingUser}
+            />
+
+            {/* Create/Edit Station Group Dialog */}
+            <StationGroupDialog
+                open={groupDialogOpen}
+                onOpenChange={handleCloseGroupDialog}
+                onSuccess={loadData}
+                editGroup={editingGroup}
+                voList={voList}
+                stationList={stations}
             />
         </div>
     )

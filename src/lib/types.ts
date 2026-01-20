@@ -30,6 +30,27 @@ export interface Station {
     updated_at: string;
 }
 
+export interface StationGroup {
+    id: string;
+    name: string;
+    description: string | null;
+    vo_id: string;
+    vo?: Verksamhetsomrade;
+    stations?: Station[];
+    created_by: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface StationGroupMember {
+    id: string;
+    station_group_id: string;
+    station_id: string;
+    station?: Station;
+    station_group?: StationGroup;
+    created_at: string;
+}
+
 export interface Profile {
     id: string;
     email: string;
@@ -67,6 +88,8 @@ export interface Task {
     owner_type: TaskOwnerType;
     vo_id: string | null;
     station_id: string | null;
+    station_group_id: string | null;
+    station_group?: StationGroup | null;
     created_by: string;
 
     // Relationships (populated)

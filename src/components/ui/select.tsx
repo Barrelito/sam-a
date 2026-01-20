@@ -149,4 +149,31 @@ const SelectItem = ({ value, children, className }: SelectItemProps) => {
     )
 }
 
-export { Select, SelectTrigger, SelectValue, SelectContent, SelectItem }
+interface SelectGroupProps {
+    children: React.ReactNode
+    className?: string
+}
+
+const SelectGroup = ({ children, className }: SelectGroupProps) => {
+    return (
+        <div className={cn("py-1", className)}>
+            {children}
+        </div>
+    )
+}
+
+interface SelectLabelProps {
+    children: React.ReactNode
+    className?: string
+}
+
+const SelectLabel = ({ children, className }: SelectLabelProps) => {
+    return (
+        <div className={cn("px-2 py-1.5 text-xs font-semibold text-muted-foreground", className)}>
+            {children}
+        </div>
+    )
+}
+
+export { Select, SelectTrigger, SelectValue, SelectContent, SelectItem, SelectGroup, SelectLabel }
+
