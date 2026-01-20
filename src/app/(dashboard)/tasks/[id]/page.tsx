@@ -355,7 +355,7 @@ export default function TaskDetailPage() {
                     )}
 
                     {/* Delete button */}
-                    {(profile?.id === task.created_by || profile?.role === 'vo_chief' || profile?.role === 'admin') && (
+                    {(profile?.id === task.created_by || profile?.role === 'vo_chief' || profile?.role === 'admin' || (profile?.role === 'station_manager' && task.owner_type === 'station')) && (
                         <Button
                             variant="outline"
                             size="sm"
