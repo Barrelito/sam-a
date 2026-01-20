@@ -1,5 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient as createAdminSupabaseClient } from '@supabase/supabase-js'
 
 function createAdminClient() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -9,13 +10,19 @@ function createAdminClient() {
         throw new Error('Missing Supabase admin credentials')
     }
 
-    return createClient(url, serviceKey)
+    return createAdminSupabaseClient(url, serviceKey)
 }
 
 // GET - List all station groups with their stations
 export async function GET() {
     try {
-        const supabase = createAdminClient()
+        const supabase = await createClient()
+
+        // Check authentication
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
 
         // Get station groups
         const { data: groups, error: groupsError } = await supabase
