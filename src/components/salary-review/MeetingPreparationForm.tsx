@@ -4,6 +4,7 @@
 // Används för att samla dokumentation och förbereda sig inför samtalet
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -39,6 +40,7 @@ export default function MeetingPreparationForm({
     currentSalary,
     initialData
 }: MeetingPreparationFormProps) {
+    const router = useRouter()
     const [isSaving, setIsSaving] = useState(false)
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
@@ -56,10 +58,15 @@ export default function MeetingPreparationForm({
     const goalsAchieved = watch('goals_achieved')
 
     const onSubmit = async (data: PreparationFormData) => {
+        console.log('=== MeetingPreparationForm onSubmit called ===')
+        console.log('reviewId:', reviewId)
+        console.log('data:', data)
+
         setIsSaving(true)
         setSaveStatus('saving')
 
         try {
+            console.log('Sending PUT request to API...')
             const response = await fetch(`/api/salary-review/reviews/${reviewId}/meeting-preparation`, {
                 method: 'PUT',
                 headers: {
@@ -68,13 +75,21 @@ export default function MeetingPreparationForm({
                 body: JSON.stringify(data)
             })
 
+            console.log('Response status:', response.status)
+            const result = await response.json()
+            console.log('Response body:', result)
+
             if (!response.ok) {
-                const errorData = await response.json()
-                console.error('Save error:', errorData)
-                throw new Error(errorData.error || 'Failed to save preparation')
+                console.error('Save error:', result)
+                throw new Error(result.error || 'Failed to save preparation')
             }
 
+            console.log('Save successful! Refreshing page data...')
             setSaveStatus('saved')
+
+            // Refresh page data to get updated state
+            router.refresh()
+
             setTimeout(() => setSaveStatus('idle'), 3000)
         } catch (error) {
             console.error('Error saving preparation:', error)
