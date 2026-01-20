@@ -38,7 +38,7 @@ CREATE POLICY "Users can update employees permissive"
   USING (
     manager_id = auth.uid()
     OR EXISTS (
-      SELECT 1 FROM public.profiles 
+      SELECT 1 FROM public.profiles p
       WHERE p.id = auth.uid() AND role IN ('admin', 'vo_chief')
     )
     OR EXISTS (
@@ -71,7 +71,7 @@ CREATE POLICY "Users can delete employees permissive"
   USING (
     manager_id = auth.uid()
     OR EXISTS (
-      SELECT 1 FROM public.profiles 
+      SELECT 1 FROM public.profiles p
       WHERE p.id = auth.uid() AND role = 'admin' -- Only admin usually deletes? Or managers too?
     )
     OR EXISTS (
