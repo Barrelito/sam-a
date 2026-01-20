@@ -195,6 +195,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         }
     }
 
+    console.log('Task PUT - Body received:', JSON.stringify(body))
+    console.log('Task PUT - Updates to apply:', JSON.stringify(updates))
+
     // Handle status change
     if (body.status && body.status !== currentTask.status) {
         if (body.status === 'done') {
@@ -240,7 +243,9 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     if (error) {
         console.error('Error updating task:', error)
-        return NextResponse.json({ error: error.message }, { status: 500 })
+        console.error('Error details:', JSON.stringify(error, null, 2))
+        console.error('Updates attempted:', JSON.stringify(updates, null, 2))
+        return NextResponse.json({ error: error.message, details: error }, { status: 500 })
     }
 
     return NextResponse.json({ task })
