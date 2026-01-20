@@ -24,7 +24,7 @@ export async function GET(
             )
         }
 
-        // Verifiera att användaren äger denna review
+        // Verifiera att användaren har behörighet att se denna review
         const { data: review, error: reviewError } = await supabase
             .from('salary_reviews')
             .select('manager_id')
@@ -38,7 +38,20 @@ export async function GET(
             )
         }
 
-        if (review.manager_id !== user.id) {
+        // Hämta användarens profil för att kontrollera roll
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single()
+
+        const isAdmin = profile?.role === 'admin'
+        const isVOChief = profile?.role === 'vo_chief'
+        const isStationManager = profile?.role === 'station_manager'
+        const isOwner = review.manager_id === user.id
+
+        // Allow if owner, admin, vo_chief, or station_manager
+        if (!isOwner && !isAdmin && !isVOChief && !isStationManager) {
             return NextResponse.json(
                 { error: 'Forbidden - you do not own this review' },
                 { status: 403 }
@@ -89,7 +102,7 @@ export async function PUT(
             )
         }
 
-        // Verifiera att användaren äger denna review
+        // Verifiera att användaren har behörighet att redigera denna review
         const { data: review, error: reviewError } = await supabase
             .from('salary_reviews')
             .select('manager_id')
@@ -103,7 +116,20 @@ export async function PUT(
             )
         }
 
-        if (review.manager_id !== user.id) {
+        // Hämta användarens profil för att kontrollera roll
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single()
+
+        const isAdmin = profile?.role === 'admin'
+        const isVOChief = profile?.role === 'vo_chief'
+        const isStationManager = profile?.role === 'station_manager'
+        const isOwner = review.manager_id === user.id
+
+        // Allow if owner, admin, vo_chief, or station_manager
+        if (!isOwner && !isAdmin && !isVOChief && !isStationManager) {
             return NextResponse.json(
                 { error: 'Forbidden - you do not own this review' },
                 { status: 403 }
@@ -149,7 +175,7 @@ export async function PUT(
         }
 
         // Uppdatera review status till in_progress om den är not_started
-        if (review.manager_id === user.id) {
+        if (isOwner) {
             await supabase
                 .from('salary_reviews')
                 .update({ status: 'in_progress' })

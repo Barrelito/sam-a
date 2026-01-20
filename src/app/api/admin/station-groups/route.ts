@@ -62,8 +62,14 @@ export async function GET() {
 // POST - Create a new station group
 export async function POST(request: NextRequest) {
     try {
-        const supabase = createAdminClient()
+        const supabase = await createClient()
         const body = await request.json()
+
+        // Check authentication
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
 
         const { name, description, vo_id, station_ids, created_by } = body
 
