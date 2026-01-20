@@ -58,15 +58,10 @@ export default function MeetingPreparationForm({
     const goalsAchieved = watch('goals_achieved')
 
     const onSubmit = async (data: PreparationFormData) => {
-        console.log('=== MeetingPreparationForm onSubmit called ===')
-        console.log('reviewId:', reviewId)
-        console.log('data:', data)
-
         setIsSaving(true)
         setSaveStatus('saving')
 
         try {
-            console.log('Sending PUT request to API...')
             const response = await fetch(`/api/salary-review/reviews/${reviewId}/meeting-preparation`, {
                 method: 'PUT',
                 headers: {
@@ -75,19 +70,14 @@ export default function MeetingPreparationForm({
                 body: JSON.stringify(data)
             })
 
-            console.log('Response status:', response.status)
-            const result = await response.json()
-            console.log('Response body:', result)
-
             if (!response.ok) {
-                console.error('Save error:', result)
-                throw new Error(result.error || 'Failed to save preparation')
+                const errorData = await response.json()
+                throw new Error(errorData.error || 'Failed to save preparation')
             }
 
-            console.log('Save successful! Refreshing page data...')
             setSaveStatus('saved')
 
-            // Refresh page data to get updated state
+            // Refresh page data silently
             router.refresh()
 
             setTimeout(() => setSaveStatus('idle'), 3000)
@@ -140,7 +130,8 @@ export default function MeetingPreparationForm({
                         id="previous_agreements"
                         placeholder="Vad kom ni överens om vid tidigare samtal? Har målen uppnåtts?"
                         rows={4}
-                        {...register('previous_agreements')}
+                        defaultValue={initialData?.previous_agreements || ''}
+                        onChange={(e) => setValue('previous_agreements', e.target.value, { shouldDirty: true })}
                     />
                     <p className="text-sm text-muted-foreground">
                         Använd tidigare dokumentation från lönesamtal och utvecklingsplaner
@@ -168,7 +159,8 @@ export default function MeetingPreparationForm({
                         id="contribution_summary"
                         placeholder="Beskriv konkreta exempel på hur medarbetaren har bidragit..."
                         rows={4}
-                        {...register('contribution_summary')}
+                        defaultValue={initialData?.contribution_summary || ''}
+                        onChange={(e) => setValue('contribution_summary', e.target.value, { shouldDirty: true })}
                     />
                 </div>
 
@@ -178,8 +170,9 @@ export default function MeetingPreparationForm({
                     <Textarea
                         id="strengths_summary"
                         placeholder="Vad är medarbetarens styrkor?"
-                        rows={3}
-                        {...register('strengths_summary')}
+                        rows={4}
+                        defaultValue={initialData?.strengths_summary || ''}
+                        onChange={(e) => setValue('strengths_summary', e.target.value, { shouldDirty: true })}
                     />
                 </div>
 
@@ -188,9 +181,10 @@ export default function MeetingPreparationForm({
                     <Label htmlFor="development_needs">Utvecklingsområden</Label>
                     <Textarea
                         id="development_needs"
-                        placeholder="Vilka områden behöver medarbetaren utveckla?"
-                        rows={3}
-                        {...register('development_needs')}
+                        placeholder="Vad behöver medarbetaren utveckla?"
+                        rows={4}
+                        defaultValue={initialData?.development_needs || ''}
+                        onChange={(e) => setValue('development_needs', e.target.value, { shouldDirty: true })}
                     />
                 </div>
 
