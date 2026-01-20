@@ -122,7 +122,7 @@ export function EditTaskDialog({
         setLoading(true)
 
         try {
-            const updateData = {
+            await onSave({
                 title,
                 description: description || null,
                 category,
@@ -132,11 +132,7 @@ export function EditTaskDialog({
                 end_month: isRecurringMonthly ? null : (endMonth ? parseInt(endMonth) : null),
                 is_recurring_monthly: isRecurringMonthly,
                 deadline_day: parseInt(deadlineDay) || 25,
-            }
-            console.log('EditTaskDialog - Sending update:', updateData)
-            console.log('EditTaskDialog - assignmentType:', assignmentType)
-            console.log('EditTaskDialog - stationGroupId:', stationGroupId)
-            await onSave(updateData)
+            })
             onOpenChange(false)
         } catch (err) {
             console.error('Failed to save task:', err)

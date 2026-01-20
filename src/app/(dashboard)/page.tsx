@@ -6,9 +6,10 @@ import { getMonthName, getCurrentMonth, getTertial } from "@/lib/utils"
 import { TaskCard } from "@/components/task-card"
 import { StatusOverview } from "@/components/status-overview"
 import { StationFilter } from "@/components/station-filter"
-import { Task, TaskStatus } from "@/lib/types"
-import { CalendarDays, TrendingUp, Loader2 } from "lucide-react"
+import { Task, TaskStatus, StationGroup } from "@/lib/types"
+import { CalendarDays, TrendingUp, Loader2, FolderOpen } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
+import { Badge } from "@/components/ui/badge"
 
 export default function DashboardPage() {
     const router = useRouter()
@@ -17,56 +18,100 @@ export default function DashboardPage() {
     const [tasks, setTasks] = useState<Task[]>([])
     const [loading, setLoading] = useState(true)
     const [selectedStationId, setSelectedStationId] = useState<string | null>(null)
+    const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
+    const [stationGroups, setStationGroups] = useState<StationGroup[]>([])
+    const [userStationGroup, setUserStationGroup] = useState<StationGroup | null>(null)
 
     const currentMonth = getCurrentMonth()
     const currentTertial = getTertial(currentMonth)
     const monthName = getMonthName(currentMonth)
 
-    // Fetch tasks for the current user
+    // Fetch data
     useEffect(() => {
-        const fetchTasks = async () => {
+        const fetchData = async () => {
             if (authLoading || !profile) return
 
             try {
-                const res = await fetch('/api/tasks')
-                if (res.ok) {
-                    const data = await res.json()
-                    // Filter tasks for station managers:
-                    // 1. Station tasks for their station(s)
-                    // 2. Tasks assigned to them
-                    // 3. Personal tasks they created
-                    const userStationIds = profile.user_stations?.map(us => us.station.id) || []
+                const [tasksRes, groupsRes] = await Promise.all([
+                    fetch('/api/tasks'),
+                    fetch('/api/admin/station-groups')
+                ])
 
-                    let filteredTasks = data.tasks || []
+                const tasksData = await tasksRes.json()
+                const groupsData = await groupsRes.json()
 
-                    if (profile.role === 'station_manager' || profile.role === 'assistant_manager') {
-                        filteredTasks = filteredTasks.filter((task: Task) => {
-                            // Show station tasks for their station(s)
-                            if (task.owner_type === 'station' && task.station_id && userStationIds.includes(task.station_id)) {
-                                return true
-                            }
-                            // Show tasks assigned to them
-                            if (task.assigned_to === profile.id) {
-                                return true
-                            }
-                            // Show personal tasks they created
-                            if (task.owner_type === 'personal' && task.created_by === profile.id) {
-                                return true
-                            }
-                            return false
-                        })
+                const allTasks = tasksData.tasks || []
+                const groups = groupsData.station_groups || []
+
+                setStationGroups(groups)
+
+                // Detect user's station group
+                const userStationIds = profile.user_stations?.map(us => us.station.id) || []
+                let activeGroup: StationGroup | null = null
+
+                for (const group of groups) {
+                    const groupStationIds = group.stations?.map((s: any) => s.id) || []
+                    const allStationsInGroup = userStationIds.every(id => groupStationIds.includes(id))
+                    const userStationsInGroup = userStationIds.filter(id => groupStationIds.includes(id))
+
+                    if (allStationsInGroup && userStationsInGroup.length >= 2) {
+                        activeGroup = group
+                        break
                     }
-
-                    setTasks(filteredTasks)
                 }
+
+                setUserStationGroup(activeGroup)
+
+                // Filter tasks for station managers
+                let filteredTasks = allTasks
+
+                if (profile.role === 'station_manager' || profile.role === 'assistant_manager') {
+                    filteredTasks = filteredTasks.filter((task: Task) => {
+                        // 1. Show station tasks for their station(s)
+                        if (task.owner_type === 'station') {
+                            // Direct station assignment
+                            if (task.station_id && userStationIds.includes(task.station_id)) {
+                                return true
+                            }
+                            // Station group assignment - show if user matches the group
+                            // Logic: If user is in a group that matches the task's group
+                            // OR if user is in a group that CONTAINS the task's station (though that's covered by above usually)
+                            if (task.station_group_id) {
+                                // Specific group assignment
+                                // Check if user belongs to this group (has at least one station in it? or is manager of it?)
+                                // Usually if manager has >0 stations in the group, they should see it?
+                                // Let's simplify: if any of user's stations are in the task's station_group
+                                const group = groups.find((g: StationGroup) => g.id === task.station_group_id)
+                                if (group) {
+                                    const groupStationIds = group.stations?.map((s: any) => s.id) || []
+                                    const hasStationInGroup = userStationIds.some(id => groupStationIds.includes(id))
+                                    if (hasStationInGroup) return true
+                                }
+                            }
+                        }
+
+                        // 2. Show tasks assigned to them
+                        if (task.assigned_to === profile.id) {
+                            return true
+                        }
+
+                        // 3. Show personal tasks they created
+                        if (task.owner_type === 'personal' && task.created_by === profile.id) {
+                            return true
+                        }
+                        return false
+                    })
+                }
+
+                setTasks(filteredTasks)
             } catch (err) {
-                console.error('Error fetching tasks:', err)
+                console.error('Error fetching data:', err)
             } finally {
                 setLoading(false)
             }
         }
 
-        fetchTasks()
+        fetchData()
     }, [authLoading, profile])
 
     // Redirect admin to admin page
@@ -90,12 +135,22 @@ export default function DashboardPage() {
 
     // Get user's stations for the filter
     const userStations = profile?.user_stations?.map(us => us.station) || []
-    const showStationFilter = userStations.length > 1
+    const showStationFilter = userStations.length > 1 && !userStationGroup
 
-    // Apply station filter to tasks
+    // Apply station filter to tasks - if user has a station group, show all by default
     const stationFilteredTasks = selectedStationId
         ? tasks.filter(task => task.station_id === selectedStationId)
-        : tasks
+        : selectedGroupId
+            ? tasks.filter(task => {
+                // If filtering by specific group
+                if (task.station_group_id === selectedGroupId) return true
+
+                // Or if filtering by group, show tasks for stations in that group
+                const group = stationGroups.find(g => g.id === selectedGroupId)
+                const groupStationIds = group?.stations?.map((s: any) => s.id) || []
+                return task.station_id && groupStationIds.includes(task.station_id)
+            })
+            : tasks
 
     // Filter tasks for current month
     const monthTasks = stationFilteredTasks.filter(task => {
@@ -143,7 +198,9 @@ export default function DashboardPage() {
 
     // Determine dashboard title
     let dashboardTitle = "Ambulansledning"
-    if ((profile?.role === 'station_manager' || profile?.role === 'assistant_manager') && profile?.user_stations && profile.user_stations.length > 0) {
+    if (userStationGroup) {
+        dashboardTitle = `Ambulansledning - ${userStationGroup.name}`
+    } else if ((profile?.role === 'station_manager' || profile?.role === 'assistant_manager') && profile?.user_stations && profile.user_stations.length > 0) {
         const stationNames = profile.user_stations.map(us => us.station.name).join(' & ')
         dashboardTitle = `Ambulansledning - Station ${stationNames}`
     } else if (profile?.verksamhetsomraden) {
@@ -162,11 +219,21 @@ export default function DashboardPage() {
                         Digitalt årshjul och uppgiftshantering
                     </p>
                 </div>
+                {/* Station Group Badge */}
+                {userStationGroup && (
+                    <Badge variant="secondary" className="flex items-center gap-1">
+                        <FolderOpen className="h-3 w-3" />
+                        {userStationGroup.name} ({userStations.length} stationer)
+                    </Badge>
+                )}
                 {showStationFilter && (
                     <StationFilter
                         stations={userStations}
+                        stationGroups={stationGroups}
                         selectedStationId={selectedStationId}
+                        selectedGroupId={selectedGroupId}
                         onStationChange={setSelectedStationId}
+                        onGroupChange={setSelectedGroupId}
                     />
                 )}
             </div>

@@ -243,9 +243,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     if (error) {
         console.error('Error updating task:', error)
-        console.error('Error details:', JSON.stringify(error, null, 2))
-        console.error('Updates attempted:', JSON.stringify(updates, null, 2))
-        return NextResponse.json({ error: error.message, details: error }, { status: 500 })
+        return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
     return NextResponse.json({ task })
