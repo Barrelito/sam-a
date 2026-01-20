@@ -26,7 +26,8 @@ import {
     AlertCircle,
     Edit,
     Save,
-    X
+    X,
+    FolderOpen
 } from "lucide-react"
 
 interface TaskDetailViewProps {
@@ -248,7 +249,13 @@ export function TaskDetailView({
                     <Badge variant="secondary">
                         {ownerTypeLabels[task.owner_type]}
                     </Badge>
-                    {task.station?.name && (
+                    {task.station_group?.name && (
+                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <FolderOpen className="h-4 w-4" />
+                            {task.station_group.name}
+                        </div>
+                    )}
+                    {task.station?.name && !task.station_group_id && (
                         <div className="flex items-center gap-1 text-sm text-muted-foreground">
                             <MapPin className="h-4 w-4" />
                             {task.station.name}
