@@ -5,9 +5,10 @@ import { useParams, useRouter } from "next/navigation"
 import { Task, TaskStatus } from "@/lib/types"
 import { TaskDetailView } from "@/components/task-detail-view"
 import { DistributeDialog } from "@/components/distribute-dialog"
+import { EditTaskDialog } from "@/components/edit-task-dialog"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
-import { ArrowLeft, Loader2, Trash2, Share2 } from "lucide-react"
+import { ArrowLeft, Loader2, Trash2, Share2, Edit } from "lucide-react"
 
 export default function TaskDetailPage() {
     const params = useParams()
@@ -17,6 +18,7 @@ export default function TaskDetailPage() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
     const [showDistributeDialog, setShowDistributeDialog] = useState(false)
+    const [showEditDialog, setShowEditDialog] = useState(false)
 
     const taskId = params.id as string
 
@@ -307,6 +309,17 @@ export default function TaskDetailPage() {
     const canDistribute = task.owner_type === 'vo' &&
         (profile?.role === 'vo_chief' || profile?.role === 'admin')
 
+    // Check if user can edit the task
+    const canEdit = !task.id.startsWith('annual-') && (
+        profile?.id === task.created_by ||
+        profile?.role === 'vo_chief' ||
+        profile?.role === 'admin' ||
+        (profile?.role === 'station_manager' && task.owner_type === 'station')
+    )
+
+    // Get user's stations for the edit dialog
+    const userStations = profile?.user_stations?.map(us => us.station) || []
+
     return (
         <div className="space-y-6">
             {/* Back button and actions */}
@@ -326,6 +339,18 @@ export default function TaskDetailPage() {
                         >
                             <Share2 className="h-4 w-4 mr-2" />
                             Fördela till stationer
+                        </Button>
+                    )}
+
+                    {/* Edit button */}
+                    {canEdit && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowEditDialog(true)}
+                        >
+                            <Edit className="h-4 w-4 mr-2" />
+                            Redigera
                         </Button>
                     )}
 
@@ -370,6 +395,21 @@ export default function TaskDetailPage() {
                     onSuccess={() => {
                         setShowDistributeDialog(false)
                         loadTask()
+                    }}
+                />
+            )}
+
+            {/* Edit Task Dialog */}
+            {canEdit && (
+                <EditTaskDialog
+                    open={showEditDialog}
+                    onOpenChange={setShowEditDialog}
+                    task={task}
+                    userRole={profile?.role || 'assistant_manager'}
+                    userStations={userStations}
+                    onSave={async (updates) => {
+                        await handleUpdateTask(updates)
+                        await loadTask()
                     }}
                 />
             )}
