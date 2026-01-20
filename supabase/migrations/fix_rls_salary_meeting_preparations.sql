@@ -1,9 +1,11 @@
 -- FIX: Drop and recreate BOTH policies for salary_meeting_preparations
 -- The previous fix only dropped the write policy, but the SELECT policy was still restrictive!
 
--- Drop BOTH old policies
+-- Drop ALL old policies (both original AND any from previous fix attempts)
 DROP POLICY IF EXISTS "Users can view meeting preparations for their reviews" ON public.salary_meeting_preparations;
 DROP POLICY IF EXISTS "Station managers can manage meeting preparations" ON public.salary_meeting_preparations;
+DROP POLICY IF EXISTS "Users can view meeting preparations" ON public.salary_meeting_preparations;
+DROP POLICY IF EXISTS "Users can manage meeting preparations" ON public.salary_meeting_preparations;
 
 -- Create new SELECT policy that allows station managers
 CREATE POLICY "Users can view meeting preparations"
