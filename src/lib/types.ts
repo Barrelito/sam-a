@@ -40,6 +40,7 @@ export interface StationGroup {
     created_by: string | null;
     created_at: string;
     updated_at: string;
+    station_group_members?: { station_id: string }[];
 }
 
 export interface StationGroupMember {

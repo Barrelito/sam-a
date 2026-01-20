@@ -144,18 +144,31 @@ export function TaskDetailView({
         }
     }
 
-    // Load users on the same station for assignment
+    // Load users on the same station/group for assignment
     const loadStationUsers = async () => {
-        if (!task.station_id) return
+        if (!task.station_id && !task.station_group_id) return
         setLoadingUsers(true)
         try {
             const res = await fetch('/api/admin/users')
             if (res.ok) {
                 const data = await res.json()
-                // Filter users who are on the same station
+                // Filter users who are on the same station or in the same station group
+                const validStationIds = new Set<string>()
+
+                if (task.station_id) {
+                    validStationIds.add(task.station_id)
+                }
+
+                // Add stations from the group if available
+                if (task.station_group?.station_group_members) {
+                    task.station_group.station_group_members.forEach((m: any) => {
+                        if (m.station_id) validStationIds.add(m.station_id)
+                    })
+                }
+
                 const users = data.profiles?.filter((u: any) =>
                     (u.role === 'station_manager' || u.role === 'assistant_manager') &&
-                    u.user_stations?.some((us: any) => us.station?.id === task.station_id)
+                    u.user_stations?.some((us: any) => us.station?.id && validStationIds.has(us.station.id))
                 ).map((u: any) => ({
                     id: u.id,
                     full_name: u.full_name,
@@ -197,8 +210,8 @@ export function TaskDetailView({
     const isVOChief = userRole === 'vo_chief' || userRole === 'admin'
     const isStationManager = userRole === 'station_manager'
     const canEditDeadline = isVOChief
-    // Station managers and VO chiefs can assign tasks on station tasks
-    const canAssign = (isVOChief || isStationManager) && task.owner_type === 'station' && task.station_id
+    // Station managers and VO chiefs can assign tasks on station/group tasks
+    const canAssign = (isVOChief || isStationManager) && task.owner_type === 'station' && (task.station_id || task.station_group_id)
 
     // Status options with visual design
     const statusOptions: { status: TaskStatus; label: string; icon: React.ReactNode; color: string; bgColor: string }[] = [

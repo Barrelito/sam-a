@@ -22,7 +22,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             *,
             verksamhetsomraden:vo_id(id, name),
             station:station_id(id, name, vo_id),
-            station_group:station_group_id(id, name, description),
+            station_group:station_group_id(
+                id, name, description,
+                station_group_members(station_id)
+            ),
             created_by_profile:created_by(id, full_name, email),
             assigned_to_profile:assigned_to(id, full_name, email)
         `)
