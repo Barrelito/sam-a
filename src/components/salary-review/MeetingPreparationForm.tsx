@@ -15,7 +15,6 @@ import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, CheckCircle2, Info, Save } from 'lucide-react'
 import { MEETING_PREPARATION, IMPORTANT_DOCUMENTS } from '@/lib/salary-review/meeting-guide'
-import type { EmployeeCategory } from '@/lib/salary-review/types'
 
 const preparationSchema = z.object({
     previous_agreements: z.string().optional(),
@@ -27,31 +26,38 @@ const preparationSchema = z.object({
 
 type PreparationFormData = z.infer<typeof preparationSchema>
 
+// Typdefinition för initialData
+interface MeetingPreparationData {
+    previous_agreements?: string
+    goals_achieved?: boolean
+    contribution_summary?: string
+    development_needs?: string
+    strengths_summary?: string
+}
+
 interface MeetingPreparationFormProps {
     reviewId: string
-    employeeCategory: EmployeeCategory
-    currentSalary?: number
-    initialData: any
+    employeeCategory?: string // Behålls för bakåtkompatibilitet men används inte
+    currentSalary?: number // Behålls för bakåtkompatibilitet men används inte
+    initialData: MeetingPreparationData | null
 }
 
 export default function MeetingPreparationForm({
     reviewId,
-    employeeCategory,
-    currentSalary,
     initialData
 }: MeetingPreparationFormProps) {
     const router = useRouter()
     const [isSaving, setIsSaving] = useState(false)
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
-    const { register, handleSubmit, watch, setValue, formState: { errors, isDirty } } = useForm<PreparationFormData>({
+    const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<PreparationFormData>({
         resolver: zodResolver(preparationSchema),
         defaultValues: {
-            previous_agreements: initialData?.previous_agreements || '',
-            goals_achieved: initialData?.goals_achieved || false,
-            contribution_summary: initialData?.contribution_summary || '',
-            development_needs: initialData?.development_needs || '',
-            strengths_summary: initialData?.strengths_summary || ''
+            previous_agreements: initialData?.previous_agreements ?? '',
+            goals_achieved: initialData?.goals_achieved ?? false,
+            contribution_summary: initialData?.contribution_summary ?? '',
+            development_needs: initialData?.development_needs ?? '',
+            strengths_summary: initialData?.strengths_summary ?? ''
         }
     })
 
@@ -121,7 +127,7 @@ export default function MeetingPreparationForm({
 
             {/* Form */}
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                {/* Previous Agreements */}
+                {/* Previous Agreements - använder register() korrekt */}
                 <div className="space-y-2">
                     <Label htmlFor="previous_agreements">
                         Tidigare överenskommelser och uppföljning
@@ -130,15 +136,14 @@ export default function MeetingPreparationForm({
                         id="previous_agreements"
                         placeholder="Vad kom ni överens om vid tidigare samtal? Har målen uppnåtts?"
                         rows={4}
-                        defaultValue={initialData?.previous_agreements || ''}
-                        onChange={(e) => setValue('previous_agreements', e.target.value, { shouldDirty: true })}
+                        {...register('previous_agreements')}
                     />
                     <p className="text-sm text-muted-foreground">
                         Använd tidigare dokumentation från lönesamtal och utvecklingsplaner
                     </p>
                 </div>
 
-                {/* Goals Achieved */}
+                {/* Goals Achieved - Checkbox kräver fortfarande manuell hantering med shadcn */}
                 <div className="flex items-center space-x-2">
                     <Checkbox
                         id="goals_achieved"
@@ -150,7 +155,7 @@ export default function MeetingPreparationForm({
                     </Label>
                 </div>
 
-                {/* Contribution Summary */}
+                {/* Contribution Summary - använder register() korrekt */}
                 <div className="space-y-2">
                     <Label htmlFor="contribution_summary">
                         Hur har medarbetaren bidragit till verksamheten?
@@ -159,32 +164,29 @@ export default function MeetingPreparationForm({
                         id="contribution_summary"
                         placeholder="Beskriv konkreta exempel på hur medarbetaren har bidragit..."
                         rows={4}
-                        defaultValue={initialData?.contribution_summary || ''}
-                        onChange={(e) => setValue('contribution_summary', e.target.value, { shouldDirty: true })}
+                        {...register('contribution_summary')}
                     />
                 </div>
 
-                {/* Strengths */}
+                {/* Strengths - använder register() korrekt */}
                 <div className="space-y-2">
                     <Label htmlFor="strengths_summary">Styrkor</Label>
                     <Textarea
                         id="strengths_summary"
                         placeholder="Vad är medarbetarens styrkor?"
                         rows={4}
-                        defaultValue={initialData?.strengths_summary || ''}
-                        onChange={(e) => setValue('strengths_summary', e.target.value, { shouldDirty: true })}
+                        {...register('strengths_summary')}
                     />
                 </div>
 
-                {/* Development Needs */}
+                {/* Development Needs - använder register() korrekt */}
                 <div className="space-y-2">
                     <Label htmlFor="development_needs">Utvecklingsområden</Label>
                     <Textarea
                         id="development_needs"
                         placeholder="Vad behöver medarbetaren utveckla?"
                         rows={4}
-                        defaultValue={initialData?.development_needs || ''}
-                        onChange={(e) => setValue('development_needs', e.target.value, { shouldDirty: true })}
+                        {...register('development_needs')}
                     />
                 </div>
 
