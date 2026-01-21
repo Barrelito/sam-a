@@ -145,7 +145,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
                                 reviewId={review.id}
                                 employeeCategory={employee.category}
                                 currentSalary={employee.current_salary}
-                                initialData={review.meeting_preparation?.[0] || null}
+                                initialData={Array.isArray(review.meeting_preparation) ? review.meeting_preparation[0] : review.meeting_preparation ?? null}
                             />
                         </CardContent>
                     </Card>
@@ -157,7 +157,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
                         employee={employee}
                         criteriaAssessments={review.salary_criteria_assessments || []}
                         particularlySkillfulAssessments={review.particularly_skilled_assessments || []}
-                        preparation={review.meeting_preparation?.[0] || null}
+                        preparation={Array.isArray(review.meeting_preparation) ? review.meeting_preparation[0] : review.meeting_preparation ?? null}
                     />
                 </TabsContent>
 
