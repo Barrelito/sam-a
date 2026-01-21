@@ -129,7 +129,7 @@ export async function PUT(
         const validAssessments = (allAssessments || []).filter(a => validIds.includes(a.criterion_key))
         const metCount = validAssessments.filter(a => a.is_met).length
 
-        const isParticularlySkilled = totalCount > 0 && metCount >= (totalCount * 0.8)
+        const isParticularlySkilled = totalCount > 0 && metCount >= totalCount
 
         // Uppdatera review med bedömningen
         await supabase
