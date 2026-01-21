@@ -3,7 +3,7 @@
 // Förberedelsefas för lönesamtal
 // Används för att samla dokumentation och förbereda sig inför samtalet
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -42,6 +42,9 @@ interface MeetingPreparationFormProps {
     initialData: MeetingPreparationData | null
 }
 
+// Autosave delay i millisekunder
+const AUTOSAVE_DELAY = 3000
+
 export default function MeetingPreparationForm({
     reviewId,
     initialData
@@ -49,8 +52,10 @@ export default function MeetingPreparationForm({
     const router = useRouter()
     const [isSaving, setIsSaving] = useState(false)
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+    const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+    const isInitialMount = useRef(true)
 
-    const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<PreparationFormData>({
+    const { register, handleSubmit, watch, setValue, reset, formState: { errors, isDirty } } = useForm<PreparationFormData>({
         resolver: zodResolver(preparationSchema),
         defaultValues: {
             previous_agreements: initialData?.previous_agreements ?? '',
@@ -76,7 +81,8 @@ export default function MeetingPreparationForm({
 
     const goalsAchieved = watch('goals_achieved')
 
-    const onSubmit = async (data: PreparationFormData) => {
+    // Spara-funktion som kan användas av både autosave och manuell spara
+    const saveData = useCallback(async (data: PreparationFormData) => {
         setIsSaving(true)
         setSaveStatus('saving')
 
@@ -95,17 +101,55 @@ export default function MeetingPreparationForm({
             }
 
             setSaveStatus('saved')
-
-            // Refresh page data silently
-            router.refresh()
-
             setTimeout(() => setSaveStatus('idle'), 3000)
         } catch (error) {
             console.error('Error saving preparation:', error)
             setSaveStatus('error')
+            setTimeout(() => setSaveStatus('idle'), 5000)
         } finally {
             setIsSaving(false)
         }
+    }, [reviewId])
+
+    // Bevaka alla fält för autosave
+    const watchedValues = watch()
+
+    // Autosave effect - sparar automatiskt efter 3 sekunder av inaktivitet
+    useEffect(() => {
+        // Skippa första renderingen för att inte spara direkt vid page load
+        if (isInitialMount.current) {
+            isInitialMount.current = false
+            return
+        }
+
+        // Rensa tidigare timeout
+        if (autosaveTimeoutRef.current) {
+            clearTimeout(autosaveTimeoutRef.current)
+        }
+
+        // Sätt ny timeout för autosave
+        autosaveTimeoutRef.current = setTimeout(() => {
+            if (isDirty) {
+                saveData(watchedValues)
+            }
+        }, AUTOSAVE_DELAY)
+
+        // Cleanup
+        return () => {
+            if (autosaveTimeoutRef.current) {
+                clearTimeout(autosaveTimeoutRef.current)
+            }
+        }
+    }, [watchedValues, isDirty, saveData])
+
+    // Manuell spara (för de som vill vara extra säkra)
+    const onSubmit = async (data: PreparationFormData) => {
+        // Rensa autosave timeout
+        if (autosaveTimeoutRef.current) {
+            clearTimeout(autosaveTimeoutRef.current)
+        }
+        await saveData(data)
+        router.refresh()
     }
 
     return (
@@ -203,31 +247,31 @@ export default function MeetingPreparationForm({
                     />
                 </div>
 
-                {/* Save Button and Status */}
+                {/* Save Status and Button */}
                 <div className="flex items-center justify-between pt-4 border-t">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        {saveStatus === 'saving' && (
+                            <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                <span>Sparar automatiskt...</span>
+                            </>
+                        )}
                         {saveStatus === 'saved' && (
                             <>
                                 <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                <span className="text-sm text-green-600">Sparat!</span>
+                                <span className="text-green-600">Automatiskt sparat!</span>
                             </>
                         )}
                         {saveStatus === 'error' && (
-                            <span className="text-sm text-red-600">Kunde inte spara. Försök igen.</span>
+                            <span className="text-red-600">Kunde inte spara. Försök igen.</span>
+                        )}
+                        {saveStatus === 'idle' && isDirty && (
+                            <span className="text-amber-600">Osparade ändringar...</span>
                         )}
                     </div>
-                    <Button type="submit" disabled={isSaving}>
-                        {isSaving ? (
-                            <>
-                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                Sparar...
-                            </>
-                        ) : (
-                            <>
-                                <Save className="h-4 w-4 mr-2" />
-                                Spara ändringar
-                            </>
-                        )}
+                    <Button type="submit" variant="outline" disabled={isSaving}>
+                        <Save className="h-4 w-4 mr-2" />
+                        Spara nu
                     </Button>
                 </div>
             </form>
