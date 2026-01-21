@@ -3,7 +3,7 @@
 // Förberedelsefas för lönesamtal
 // Används för att samla dokumentation och förbereda sig inför samtalet
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -50,7 +50,7 @@ export default function MeetingPreparationForm({
     const [isSaving, setIsSaving] = useState(false)
     const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
 
-    const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<PreparationFormData>({
+    const { register, handleSubmit, watch, setValue, reset, formState: { errors } } = useForm<PreparationFormData>({
         resolver: zodResolver(preparationSchema),
         defaultValues: {
             previous_agreements: initialData?.previous_agreements ?? '',
@@ -60,6 +60,19 @@ export default function MeetingPreparationForm({
             strengths_summary: initialData?.strengths_summary ?? ''
         }
     })
+
+    // Uppdatera formuläret när initialData ändras (efter router.refresh())
+    useEffect(() => {
+        if (initialData) {
+            reset({
+                previous_agreements: initialData.previous_agreements ?? '',
+                goals_achieved: initialData.goals_achieved ?? false,
+                contribution_summary: initialData.contribution_summary ?? '',
+                development_needs: initialData.development_needs ?? '',
+                strengths_summary: initialData.strengths_summary ?? ''
+            })
+        }
+    }, [initialData, reset])
 
     const goalsAchieved = watch('goals_achieved')
 
