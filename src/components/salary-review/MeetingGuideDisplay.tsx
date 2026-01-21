@@ -3,7 +3,7 @@
 // Samtalsguide för lönesamtal
 // Visar interaktiv checklista och bedömningssammanfattning
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -40,7 +40,29 @@ export default function MeetingGuideDisplay({
     particularlySkillfulAssessments,
     preparation
 }: MeetingGuideDisplayProps) {
-    const [checkedSteps, setCheckedSteps] = useState<Record<string, boolean>>({})
+    // Generera localStorage-nyckel baserat på reviewId
+    const storageKey = `meeting-checklist-${reviewId}`
+
+    // Initiera med sparad data från localStorage, eller tom
+    const [checkedSteps, setCheckedSteps] = useState<Record<string, boolean>>(() => {
+        if (typeof window === 'undefined') return {}
+        try {
+            const saved = localStorage.getItem(storageKey)
+            return saved ? JSON.parse(saved) : {}
+        } catch {
+            return {}
+        }
+    })
+
+    // Spara till localStorage när checkedSteps ändras
+    useEffect(() => {
+        if (typeof window === 'undefined') return
+        try {
+            localStorage.setItem(storageKey, JSON.stringify(checkedSteps))
+        } catch (error) {
+            console.error('Could not save checklist to localStorage:', error)
+        }
+    }, [checkedSteps, storageKey])
 
     const toggleStep = (stepId: string) => {
         setCheckedSteps(prev => ({ ...prev, [stepId]: !prev[stepId] }))
