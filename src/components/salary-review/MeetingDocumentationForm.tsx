@@ -3,7 +3,7 @@
 // Dokumentationsformulär för lönesamtal
 // Används för att spara slutlig lön och slutföra löneöversynen
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
@@ -23,7 +23,7 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Loader2, CheckCircle2, AlertTriangle, Info } from 'lucide-react'
+import { Loader2, CheckCircle2, AlertTriangle, Info, Award } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
 import type { EmployeeWithDetails } from '@/lib/salary-review/types'
 
@@ -49,6 +49,21 @@ interface MeetingDocumentationFormProps {
     distributionIncrease?: number
 }
 
+// Helper types for API response
+interface EmployeeDistributionData {
+    id: string
+    points_part?: number
+    skilled_part?: number
+    guaranteed_part?: number
+    variable_part?: number
+    average_rating?: number
+    is_particularly_skilled?: boolean
+}
+
+interface DistributionResponse {
+    employees: EmployeeDistributionData[]
+}
+
 export default function MeetingDocumentationForm({
     reviewId,
     employee,
@@ -60,6 +75,38 @@ export default function MeetingDocumentationForm({
     const { toast } = useToast()
     const [isSaving, setIsSaving] = useState(false)
     const [showCompleteDialog, setShowCompleteDialog] = useState(false)
+
+    // State för detaljerad uppdelning (från distribution-API)
+    const [breakdown, setBreakdown] = useState<EmployeeDistributionData | null>(null)
+
+    // Hämta detaljerad uppdelning
+    useEffect(() => {
+        async function loadBreakdown() {
+            // Vi behöver station_id för att kunna hämta distributionen. 
+            // employee.station (object) eller station_id.
+            // EmployeeWithDetails har station: {...}.
+            const stationId = employee.station?.id || (employee as any).station_id
+
+            if (!stationId) return
+
+            try {
+                // Anropa API för att få detaljerad uppdelning
+                // Vi utelämnar cycle_id så tar den aktiv cykel automatiskt
+                const res = await fetch(`/api/salary-review/salary-distribution?station_id=${stationId}`)
+                if (res.ok) {
+                    const data: DistributionResponse = await res.json()
+                    const empData = data.employees.find(e => e.id === employee.id)
+                    if (empData) {
+                        setBreakdown(empData)
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load salary breakdown', error)
+            }
+        }
+
+        loadBreakdown()
+    }, [employee.id, employee])
 
     const { register, handleSubmit, watch, formState: { errors } } = useForm<DocumentationFormData>({
         resolver: zodResolver(documentationSchema),
@@ -160,14 +207,51 @@ export default function MeetingDocumentationForm({
                 </AlertDescription>
             </Alert>
 
-            {/* Distribution Proposal Display */}
+            {/* Distribution Proposal Display with Breakdown */}
             {typeof distributionIncrease === 'number' && currentSalary && (
                 <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border border-blue-100 shadow-sm">
                     <h3 className="text-sm font-semibold text-blue-900 mb-3">Förslag från lönefördelning</h3>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-8">
                         <div>
                             <p className="text-xs text-blue-700 uppercase tracking-wider font-medium">Föreslaget påslag</p>
                             <p className="text-xl font-bold text-blue-900">+{distributionIncrease.toLocaleString('sv-SE')} kr</p>
+
+                            {/* Breakdown of salary components */}
+                            {breakdown && (
+                                <div className="mt-3 pt-3 border-t border-blue-200/60 space-y-1.5 text-sm">
+                                    {/* Poängdel / Rörlig */}
+                                    {(breakdown.points_part || breakdown.variable_part) ? (
+                                        <div className="flex justify-between items-center text-blue-800">
+                                            <span>
+                                                Poängdel
+                                                {breakdown.average_rating ? ` (Snitt: ${breakdown.average_rating.toFixed(1)})` : ''}
+                                            </span>
+                                            <span className="font-medium">
+                                                +{((breakdown.points_part || 0) + (breakdown.variable_part || 0)).toLocaleString()} kr
+                                            </span>
+                                        </div>
+                                    ) : null}
+
+                                    {/* Garantidel (Kommunal) */}
+                                    {breakdown.guaranteed_part && breakdown.guaranteed_part > 0 && (
+                                        <div className="flex justify-between items-center text-blue-800">
+                                            <span>Garantidel</span>
+                                            <span className="font-medium">+{breakdown.guaranteed_part.toLocaleString()} kr</span>
+                                        </div>
+                                    )}
+
+                                    {/* Särskilt yrkesskicklig (Vårdförbundet) */}
+                                    {breakdown.is_particularly_skilled && (
+                                        <div className="flex justify-between items-center text-blue-900 font-semibold bg-blue-100/50 px-1.5 py-0.5 rounded -mx-1.5">
+                                            <span className="flex items-center gap-1">
+                                                <Award className="h-3.5 w-3.5 text-amber-600" />
+                                                Särskilt yrkesskicklig
+                                            </span>
+                                            <span>+{breakdown.skilled_part?.toLocaleString()} kr</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                         <div>
                             <p className="text-xs text-blue-700 uppercase tracking-wider font-medium">Ny lön enl. förslag</p>
