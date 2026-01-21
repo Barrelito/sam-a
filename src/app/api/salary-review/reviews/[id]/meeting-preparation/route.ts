@@ -149,10 +149,6 @@ export async function PUT(
         } = body
 
         // Upsert meeting preparation
-        console.log('Attempting upsert for reviewId:', reviewId)
-        console.log('User ID:', user.id)
-        console.log('isOwner:', isOwner, 'isAdmin:', isAdmin, 'isVOChief:', isVOChief, 'isStationManager:', isStationManager)
-
         const { data: preparation, error, count } = await supabase
             .from('salary_meeting_preparations')
             .upsert({
@@ -169,8 +165,6 @@ export async function PUT(
             })
             .select()
             .single()
-
-        console.log('Upsert result - data:', preparation, 'error:', error, 'count:', count)
 
         if (error) {
             console.error('Error upserting meeting preparation:', error)

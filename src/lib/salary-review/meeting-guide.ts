@@ -144,7 +144,7 @@ export const MEETING_CHECKLIST = [
         category: 'Under samtalet',
         items: [
             'Klargjort syfte och struktur',
-            'Presenterat bedömn ingsgrunder',
+            'Presenterat bedömningsgrunder',
             'Delat konkreta exempel',
             'Lyssnat på medarbetarens perspektiv',
             'Presenterat ny lön',

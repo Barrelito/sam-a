@@ -24,6 +24,7 @@ import {
     AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Loader2, CheckCircle2, AlertTriangle, Info } from 'lucide-react'
+import { useToast } from '@/hooks/use-toast'
 import type { EmployeeWithDetails } from '@/lib/salary-review/types'
 
 const documentationSchema = z.object({
@@ -56,6 +57,7 @@ export default function MeetingDocumentationForm({
     distributionIncrease
 }: MeetingDocumentationFormProps) {
     const router = useRouter()
+    const { toast } = useToast()
     const [isSaving, setIsSaving] = useState(false)
     const [showCompleteDialog, setShowCompleteDialog] = useState(false)
 
@@ -97,10 +99,17 @@ export default function MeetingDocumentationForm({
                 throw new Error('Failed to save documentation')
             }
 
-            alert('Dokumentation sparad!')
+            toast({
+                title: 'Sparat!',
+                description: 'Dokumentation har sparats.',
+            })
         } catch (error) {
             console.error('Error saving documentation:', error)
-            alert('Kunde inte spara. Försök igen.')
+            toast({
+                title: 'Fel',
+                description: 'Kunde inte spara. Försök igen.',
+                variant: 'destructive',
+            })
         } finally {
             setIsSaving(false)
         }
@@ -130,7 +139,11 @@ export default function MeetingDocumentationForm({
             router.refresh()
         } catch (error) {
             console.error('Error completing review:', error)
-            alert('Kunde inte slutföra. Försök igen.')
+            toast({
+                title: 'Fel',
+                description: 'Kunde inte slutföra. Försök igen.',
+                variant: 'destructive',
+            })
         } finally {
             setIsSaving(false)
             setShowCompleteDialog(false)
