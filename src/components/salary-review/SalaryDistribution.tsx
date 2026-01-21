@@ -261,7 +261,14 @@ export default function SalaryDistribution({ stationId, stationName, cycleId }: 
                     {/* Employee Table */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>Medarbetare (Vårdförbundet)</CardTitle>
+                            <div className="grid grid-cols-1 md:grid-cols-7 gap-4 font-semibold text-sm text-muted-foreground border-b pb-2 mb-2">
+                                <div className="md:col-span-2">Medarbetare</div>
+                                <div className="text-center">Betyg</div>
+                                <div>Lönedelar</div>
+                                <div className="text-right">Nuvarande</div>
+                                <div className="text-right">Ökning</div>
+                                <div className="text-right">Ny lön</div>
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
@@ -270,7 +277,7 @@ export default function SalaryDistribution({ stationId, stationName, cycleId }: 
                                     const newSal = emp.current_salary + val
 
                                     return (
-                                        <div key={emp.id} className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center py-3 border-b">
+                                        <div key={emp.id} className="grid grid-cols-1 md:grid-cols-7 gap-4 items-center py-3 border-b">
                                             <div className="md:col-span-2">
                                                 <div className="font-medium flex items-center gap-2">
                                                     {emp.name}
@@ -281,11 +288,19 @@ export default function SalaryDistribution({ stationId, stationName, cycleId }: 
                                                         </Badge>
                                                     )}
                                                 </div>
-                                                <div className="text-xs text-muted-foreground mt-1 flex gap-2">
+                                                <div className="text-xs text-muted-foreground mt-1">
                                                     <span>{emp.category}</span>
-                                                    <span>•</span>
-                                                    <span>Betyg: {emp.average_rating.toFixed(1)}</span>
                                                 </div>
+                                            </div>
+
+                                            <div className="text-center">
+                                                {emp.average_rating > 0 ? (
+                                                    <Badge variant={emp.average_rating >= 4 ? "default" : emp.average_rating >= 3 ? "secondary" : "outline"}>
+                                                        {emp.average_rating.toFixed(1)}
+                                                    </Badge>
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground">Ej bedömd</span>
+                                                )}
                                             </div>
 
                                             <div className="text-sm text-muted-foreground">
@@ -361,8 +376,14 @@ export default function SalaryDistribution({ stationId, stationName, cycleId }: 
                     {/* Employee Table */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>Medarbetare (Kommunal)</CardTitle>
-                            <CardDescription>Garanterad ökning {komGuaranteed} kr/mån + rörlig del</CardDescription>
+                            <div className="grid grid-cols-1 md:grid-cols-7 gap-4 font-semibold text-sm text-muted-foreground border-b pb-2 mb-2">
+                                <div className="md:col-span-2">Medarbetare</div>
+                                <div className="text-center">Betyg</div>
+                                <div>Lönedelar</div>
+                                <div className="text-right">Nuvarande</div>
+                                <div className="text-right">Ökning</div>
+                                <div className="text-right">Ny lön</div>
+                            </div>
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
@@ -371,16 +392,24 @@ export default function SalaryDistribution({ stationId, stationName, cycleId }: 
                                     const newSal = emp.current_salary + val
 
                                     return (
-                                        <div key={emp.id} className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center py-3 border-b">
+                                        <div key={emp.id} className="grid grid-cols-1 md:grid-cols-7 gap-4 items-center py-3 border-b">
                                             <div className="md:col-span-2">
                                                 <div className="font-medium">
                                                     {emp.name}
                                                 </div>
-                                                <div className="text-xs text-muted-foreground mt-1 flex gap-2">
+                                                <div className="text-xs text-muted-foreground mt-1">
                                                     <span>{emp.category}</span>
-                                                    <span>•</span>
-                                                    <span>Betyg: {emp.average_rating.toFixed(1)}</span>
                                                 </div>
+                                            </div>
+
+                                            <div className="text-center">
+                                                {emp.average_rating > 0 ? (
+                                                    <Badge variant={emp.average_rating >= 4 ? "default" : emp.average_rating >= 3 ? "secondary" : "outline"}>
+                                                        {emp.average_rating.toFixed(1)}
+                                                    </Badge>
+                                                ) : (
+                                                    <span className="text-xs text-muted-foreground">Ej bedömd</span>
+                                                )}
                                             </div>
 
                                             <div className="text-sm text-muted-foreground">
