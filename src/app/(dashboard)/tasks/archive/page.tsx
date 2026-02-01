@@ -20,7 +20,7 @@ import {
     Download,
     FileText
 } from "lucide-react"
-import { categoryLabels, categoryColors } from "@/lib/types"
+import { categoryLabels, categoryColors, getInstanceDisplayName } from "@/lib/types"
 
 export default function TaskArchivePage() {
     const router = useRouter()
@@ -210,7 +210,7 @@ export default function TaskArchivePage() {
                                                 <div className="flex-1 space-y-2">
                                                     {/* Title and badges */}
                                                     <div className="flex items-center gap-2 flex-wrap">
-                                                        <h3 className="font-medium">{task.title}</h3>
+                                                        <h3 className="font-medium">{getInstanceDisplayName(task)}</h3>
                                                         <Badge variant="outline" className={categoryColors[task.category]}>
                                                             {categoryLabels[task.category]}
                                                         </Badge>

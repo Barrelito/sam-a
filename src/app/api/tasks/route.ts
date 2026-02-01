@@ -215,6 +215,7 @@ export async function POST(request: NextRequest) {
         owner_type,
         vo_id,
         station_id,
+        station_group_id,
         year,
         start_month,
         end_month,
@@ -266,7 +267,79 @@ export async function POST(request: NextRequest) {
         }
     }
 
-    // Create task
+    // If creating a recurring monthly task, create master + current month instance
+    if (is_recurring_monthly) {
+        const currentMonth = new Date().getMonth() + 1
+        const currentYear = new Date().getFullYear()
+
+        // Create master task
+        const { data: masterTask, error: masterError } = await supabase
+            .from('tasks')
+            .insert({
+                title,
+                description,
+                category,
+                owner_type,
+                vo_id: vo_id || profile.vo_id,
+                station_id,
+                station_group_id,
+                created_by: user.id,
+                year: year || currentYear,
+                deadline_day: deadline_day || 25,
+                is_recurring_master: true, // This is the master template
+                is_recurring_monthly: false, // Masters don't use the old field
+                start_month: null, // Masters don't have months
+                end_month: null,
+                status: 'not_started', // Masters don't really have status
+            })
+            .select()
+            .single()
+
+        if (masterError) {
+            console.error('Error creating master task:', masterError)
+            return NextResponse.json({ error: masterError.message }, { status: 500 })
+        }
+
+        // Create instance for current month
+        const { data: instance, error: instanceError } = await supabase
+            .from('tasks')
+            .insert({
+                title,
+                description,
+                category,
+                owner_type,
+                vo_id: vo_id || profile.vo_id,
+                station_id,
+                station_group_id,
+                created_by: user.id,
+                year: currentYear,
+                deadline_day: deadline_day || 25,
+                assigned_to,
+                is_recurring_master: false,
+                is_recurring_monthly: false,
+                recurring_master_id: masterTask.id,
+                instance_month: currentMonth,
+                instance_year: currentYear,
+                start_month: null, // Instances don't use these
+                end_month: null,
+                status: 'not_started',
+            })
+            .select()
+            .single()
+
+        if (instanceError) {
+            console.error('Error creating task instance:', instanceError)
+            return NextResponse.json({ error: instanceError.message }, { status: 500 })
+        }
+
+        return NextResponse.json({
+            task: instance, // Return the instance as the "task"
+            master: masterTask, // Include master for reference
+            message: 'Created recurring master and current month instance'
+        }, { status: 201 })
+    }
+
+    // Create regular task (non-recurring)
     const { data: task, error } = await supabase
         .from('tasks')
         .insert({
@@ -276,11 +349,13 @@ export async function POST(request: NextRequest) {
             owner_type,
             vo_id: vo_id || profile.vo_id,
             station_id,
+            station_group_id,
             created_by: user.id,
             year: year || new Date().getFullYear(),
             start_month,
             end_month,
-            is_recurring_monthly: is_recurring_monthly || false,
+            is_recurring_monthly: false, // New tasks use the new system
+            is_recurring_master: false,
             deadline_day: deadline_day || 25,
             assigned_to,
         })

@@ -103,8 +103,14 @@ export interface Task {
     year: number;
     start_month: number | null;
     end_month: number | null;
-    is_recurring_monthly: boolean;
+    is_recurring_monthly: boolean; // DEPRECATED: Use is_recurring_master instead
     deadline_day: number;
+
+    // Recurring task master/instance system
+    is_recurring_master: boolean;
+    recurring_master_id: string | null;
+    instance_month: number | null; // 1-12
+    instance_year: number | null;
 
     // Status
     status: TaskStatus;
@@ -267,9 +273,21 @@ export const ownerTypeLabels: Record<TaskOwnerType, string> = {
 // =============================================
 
 export function getMonthsForTask(task: Task): number[] {
+    // If this is a task instance, only show for its specific month
+    if (task.instance_month && task.instance_year) {
+        return [task.instance_month];
+    }
+
+    // If this is a master task, show for all months (but masters shouldn't be displayed directly)
+    if (task.is_recurring_master) {
+        return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+    }
+
+    // Legacy: Old recurring monthly tasks
     if (task.is_recurring_monthly) {
         return [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
     }
+
     if (task.start_month && task.end_month) {
         const months: number[] = [];
         for (let m = task.start_month; m <= task.end_month; m++) {
@@ -284,14 +302,45 @@ export function getMonthsForTask(task: Task): number[] {
 }
 
 export function isTaskActiveInMonth(task: Task, month: number): boolean {
+    // If this is a task instance, check if it's for this specific month/year
+    if (task.instance_month && task.instance_year) {
+        const currentYear = new Date().getFullYear();
+        return task.instance_month === month && task.instance_year === currentYear;
+    }
+
+    // Master tasks are never directly shown
+    if (task.is_recurring_master) {
+        return false;
+    }
+
+    // Legacy recurring monthly tasks
     if (task.is_recurring_monthly) return true;
+
     if (!task.start_month) return false;
     const end = task.end_month || task.start_month;
     return month >= task.start_month && month <= end;
 }
 
 export function getTaskDeadline(task: Task, month: number): Date {
-    const year = task.year;
-    const day = Math.min(task.deadline_day, new Date(year, month, 0).getDate());
-    return new Date(year, month - 1, day);
+    const year = task.instance_year || task.year;
+    const targetMonth = task.instance_month || month;
+    const day = Math.min(task.deadline_day, new Date(year, targetMonth, 0).getDate());
+    return new Date(year, targetMonth - 1, day);
 }
+
+export function isTaskInstance(task: Task): boolean {
+    return !!task.recurring_master_id;
+}
+
+export function getInstanceDisplayName(task: Task): string {
+    if (!isTaskInstance(task) || !task.instance_month || !task.instance_year) {
+        return task.title;
+    }
+
+    const monthNames = ['Januari', 'Februari', 'Mars', 'April', 'Maj', 'Juni',
+        'Juli', 'Augusti', 'September', 'Oktober', 'November', 'December'];
+    const monthName = monthNames[task.instance_month - 1];
+
+    return `${task.title} - ${monthName} ${task.instance_year}`;
+}
+

@@ -154,8 +154,33 @@ export default function DashboardPage() {
 
     // Filter tasks for current month
     const monthTasks = stationFilteredTasks.filter(task => {
-        // Match tasks for current month
-        if (task.is_recurring_monthly) return true
+        // Never show master tasks on dashboard (they're just templates)
+        if (task.is_recurring_master) {
+            return false
+        }
+
+        // For recurring task instances, check if this instance is for current month/year
+        if (task.recurring_master_id && task.instance_month && task.instance_year) {
+            const currentDate = new Date()
+            return task.instance_month === currentMonth &&
+                task.instance_year === currentDate.getFullYear()
+        }
+
+        // Legacy: Old recurring monthly tasks (will be migrated)
+        if (task.is_recurring_monthly) {
+            // Safety check: hide if completed in a previous month
+            if (task.status === 'done' && task.completed_at) {
+                const completedDate = new Date(task.completed_at)
+                const currentDate = new Date()
+                if (completedDate.getMonth() + 1 !== currentMonth ||
+                    completedDate.getFullYear() !== currentDate.getFullYear()) {
+                    return false
+                }
+            }
+            return true
+        }
+
+        // Regular tasks: Match tasks for current month
         if (task.start_month === currentMonth) return true
         if (task.start_month && task.end_month) {
             // Check if current month is within range
@@ -172,7 +197,18 @@ export default function DashboardPage() {
             : [9, 10, 11, 12]
 
     const tertialTasks = stationFilteredTasks.filter(task => {
+        // Never show master tasks
+        if (task.is_recurring_master) return false
+
+        // For task instances in this tertial
+        if (task.recurring_master_id && task.instance_month) {
+            return tertialMonths.includes(task.instance_month)
+        }
+
+        // Legacy recurring monthly
         if (task.is_recurring_monthly) return true
+
+        // Regular tasks
         if (task.start_month && tertialMonths.includes(task.start_month)) return true
         return false
     })
