@@ -7,7 +7,7 @@ import { TaskCard } from "@/components/task-card"
 import { StatusOverview } from "@/components/status-overview"
 import { StationFilter } from "@/components/station-filter"
 import { Task, TaskStatus, StationGroup } from "@/lib/types"
-import { CalendarDays, TrendingUp, Loader2, FolderOpen } from "lucide-react"
+import { CalendarDays, TrendingUp, Loader2, FolderOpen, CheckCircle } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { Badge } from "@/components/ui/badge"
 
@@ -274,7 +274,7 @@ export default function DashboardPage() {
                 )}
             </div>
 
-            {/* Current Focus Section */}
+            {/* Current Focus Section - Active Tasks */}
             <section className="space-y-4">
                 <div className="flex items-center gap-2">
                     <CalendarDays className="h-5 w-5 text-primary" />
@@ -282,28 +282,57 @@ export default function DashboardPage() {
                         Uppgifter för {monthName}
                     </h2>
                     <span className="text-sm text-muted-foreground">
-                        ({monthTasks.length} uppgifter)
+                        ({monthTasks.filter(t => t.status !== 'done').length} aktiva)
                     </span>
                 </div>
 
-                {monthTasks.length === 0 ? (
+                {monthTasks.filter(t => t.status !== 'done').length === 0 ? (
                     <div className="text-center py-12 bg-secondary/30 rounded-lg">
                         <p className="text-muted-foreground">
-                            Inga uppgifter för denna månad
+                            Inga aktiva uppgifter för denna månad
                         </p>
                     </div>
                 ) : (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {monthTasks.map(task => (
-                            <TaskCard
-                                key={task.id}
-                                task={task}
-                                onStatusChange={handleStatusChange}
-                            />
-                        ))}
+                        {monthTasks
+                            .filter(task => task.status !== 'done')
+                            .map(task => (
+                                <TaskCard
+                                    key={task.id}
+                                    task={task}
+                                    onStatusChange={handleStatusChange}
+                                />
+                            ))}
                     </div>
                 )}
             </section>
+
+            {/* Completed Tasks Section */}
+            {monthTasks.filter(t => t.status === 'done').length > 0 && (
+                <section className="space-y-4">
+                    <div className="flex items-center gap-2">
+                        <CheckCircle className="h-5 w-5 text-green-600" />
+                        <h2 className="text-xl font-semibold">
+                            Klara uppgifter för {monthName}
+                        </h2>
+                        <span className="text-sm text-muted-foreground">
+                            ({monthTasks.filter(t => t.status === 'done').length} klara)
+                        </span>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {monthTasks
+                            .filter(task => task.status === 'done')
+                            .map(task => (
+                                <TaskCard
+                                    key={task.id}
+                                    task={task}
+                                    onStatusChange={handleStatusChange}
+                                />
+                            ))}
+                    </div>
+                </section>
+            )}
 
             {/* Status Overview */}
             <section className="space-y-4">
@@ -321,7 +350,7 @@ export default function DashboardPage() {
                     />
                     <StatusOverview
                         tasks={tertialTasks}
-                        title={`Tertial ${currentTertial} Progress`}
+                        title={`Tertial {currentTertial} Progress`}
                     />
                 </div>
             </section>
