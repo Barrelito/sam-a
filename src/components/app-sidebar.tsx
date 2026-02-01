@@ -16,7 +16,8 @@ import {
     MapPin,
     Users,
     DollarSign,
-    Calendar
+    Calendar,
+    Archive
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -29,6 +30,7 @@ const managerNavigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
     { name: "Årshjul", href: "/annual-cycle", icon: Calendar },
     { name: "Alla Uppgifter", href: "/tasks", icon: ListTodo },
+    { name: "Arkiv", href: "/tasks/archive", icon: Archive },
     { name: "Mina Uppgifter", href: "/my-tasks", icon: User },
     { name: "Löneöversyn", href: "/salary-review", icon: DollarSign },
     { name: "Chefstöd", href: "/chefstod", icon: MessageSquare },
@@ -40,6 +42,7 @@ const voChiefNavigation = [
     { name: "VO Dashboard", href: "/vo", icon: Building2 },
     { name: "Årshjul", href: "/annual-cycle", icon: Calendar },
     { name: "Alla Uppgifter", href: "/tasks", icon: ListTodo },
+    { name: "Arkiv", href: "/tasks/archive", icon: Archive },
     { name: "Mina Uppgifter", href: "/my-tasks", icon: User },
     { name: "Löneöversyn", href: "/salary-review", icon: DollarSign },
     { name: "Chefstöd", href: "/chefstod", icon: MessageSquare },
