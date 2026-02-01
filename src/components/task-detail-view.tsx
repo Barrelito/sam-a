@@ -110,9 +110,23 @@ export function TaskDetailView({
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file) return
+
+        // Validate file size (10MB)
+        const maxSize = 10 * 1024 * 1024 // 10MB
+        if (file.size > maxSize) {
+            alert('Filen är för stor. Max storlek är 10MB.')
+            e.target.value = ''
+            return
+        }
+
         setUploadLoading(true)
         try {
             await onUploadFile(file)
+            // Success feedback
+            console.log('Fil uppladdad:', file.name)
+        } catch (error) {
+            console.error('Fel vid uppladdning:', error)
+            alert('Kunde inte ladda upp filen. Försök igen.')
         } finally {
             setUploadLoading(false)
             e.target.value = ''
@@ -681,7 +695,7 @@ export function TaskDetailView({
                     )}
 
                     {/* Upload */}
-                    <div>
+                    <div className="space-y-2">
                         <input
                             type="file"
                             id="file-upload"
@@ -705,6 +719,9 @@ export function TaskDetailView({
                                 </span>
                             </Button>
                         </label>
+                        <p className="text-xs text-muted-foreground">
+                            Max filstorlek: 10MB
+                        </p>
                     </div>
                 </CardContent>
             </Card>
