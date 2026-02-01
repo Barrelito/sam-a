@@ -284,7 +284,7 @@ export const priorityConfig = {
         color: 'bg-red-100 text-red-800 border-red-300',
         badgeVariant: 'destructive' as const,
         icon: '🔴',
-        shortLabel: 'Q1',
+        shortLabel: 'P1',
         sortWeight: 1
     },
     2: {
@@ -293,7 +293,7 @@ export const priorityConfig = {
         color: 'bg-yellow-100 text-yellow-800 border-yellow-300',
         badgeVariant: 'default' as const,
         icon: '🟡',
-        shortLabel: 'Q2',
+        shortLabel: 'P2',
         sortWeight: 2
     },
     3: {
@@ -302,7 +302,7 @@ export const priorityConfig = {
         color: 'bg-blue-100 text-blue-800 border-blue-300',
         badgeVariant: 'secondary' as const,
         icon: '🔵',
-        shortLabel: 'Q3',
+        shortLabel: 'P3',
         sortWeight: 3
     },
     4: {
@@ -311,7 +311,7 @@ export const priorityConfig = {
         color: 'bg-gray-100 text-gray-600 border-gray-300',
         badgeVariant: 'outline' as const,
         icon: '⚪',
-        shortLabel: 'Q4',
+        shortLabel: 'P4',
         sortWeight: 4
     }
 } as const;

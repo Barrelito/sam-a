@@ -18,16 +18,24 @@ interface PriorityQuickSelectProps {
     currentPriority: TaskPriority;
     onPriorityChange: (taskId: string, priority: TaskPriority) => Promise<void> | void;
     size?: "sm" | "default";
+    open?: boolean;
+    onOpenChange?: (open: boolean) => void;
 }
 
 export function PriorityQuickSelect({
     taskId,
     currentPriority,
     onPriorityChange,
-    size = "sm"
+    size = "sm",
+    open: externalOpen,
+    onOpenChange: externalOnOpenChange
 }: PriorityQuickSelectProps) {
+    const [internalOpen, setInternalOpen] = useState(false)
     const [loading, setLoading] = useState(false)
-    const [open, setOpen] = useState(false)
+
+    // Use external state if provided, otherwise use internal
+    const open = externalOpen !== undefined ? externalOpen : internalOpen
+    const setOpen = externalOnOpenChange || setInternalOpen
 
     const handleSelect = async (priority: TaskPriority) => {
         setLoading(true)

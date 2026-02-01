@@ -1,5 +1,6 @@
 "use client"
 
+import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Task, TaskStatus, TaskPriority, categoryLabels, statusLabels, statusColors, categoryColors } from "@/lib/types"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
@@ -37,6 +38,7 @@ const statusConfig: Record<TaskStatus, { label: string; icon: typeof Circle }> =
 
 export function TaskCard({ task, onStatusChange, onPriorityChange, showStation = true, onClick }: TaskCardProps) {
     const router = useRouter()
+    const [priorityDropdownOpen, setPriorityDropdownOpen] = useState(false)
     const status = statusConfig[task.status] || statusConfig.not_started
     const StatusIcon = status.icon
 
@@ -62,6 +64,11 @@ export function TaskCard({ task, onStatusChange, onPriorityChange, showStation =
         }
     }
 
+    const handlePriorityBadgeClick = (e: React.MouseEvent) => {
+        e.stopPropagation()
+        setPriorityDropdownOpen(true)
+    }
+
     return (
         <Card
             className="group hover:shadow-md transition-shadow cursor-pointer"
@@ -74,7 +81,10 @@ export function TaskCard({ task, onStatusChange, onPriorityChange, showStation =
                             <CardTitle className="text-base font-medium leading-tight flex-1">
                                 {task.title}
                             </CardTitle>
-                            <PriorityBadge priority={task.priority as TaskPriority} />
+                            <PriorityBadge
+                                priority={task.priority as TaskPriority}
+                                onClick={onPriorityChange ? handlePriorityBadgeClick : undefined}
+                            />
                         </div>
                         <div className="flex flex-wrap gap-1 mt-1">
                             {task.is_recurring_monthly && (
@@ -91,6 +101,8 @@ export function TaskCard({ task, onStatusChange, onPriorityChange, showStation =
                                 taskId={task.id}
                                 currentPriority={task.priority as TaskPriority}
                                 onPriorityChange={onPriorityChange}
+                                open={priorityDropdownOpen}
+                                onOpenChange={setPriorityDropdownOpen}
                             />
                         )}
                         <Badge variant="outline" className={categoryColors[task.category]}>
