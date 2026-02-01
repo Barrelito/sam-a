@@ -6,12 +6,13 @@ import { getMonthName, getCurrentMonth, getTertial } from "@/lib/utils"
 import { TaskCard } from "@/components/task-card"
 import { StatusOverview } from "@/components/status-overview"
 import { StationFilter } from "@/components/station-filter"
-import { Task, TaskStatus, TaskPriority, StationGroup, getDaysUntilDeadline } from "@/lib/types"
-import { CalendarDays, TrendingUp, Loader2, FolderOpen, CheckCircle, AlertCircle, Target } from "lucide-react"
+import { Task, TaskStatus, TaskPriority, StationGroup, getDaysUntilDeadline, TaskCategory, categoryLabels } from "@/lib/types"
+import { CalendarDays, TrendingUp, Loader2, FolderOpen, CheckCircle, AlertCircle, Target, Filter, CheckSquare, X } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 
 export default function DashboardPage() {
     const router = useRouter()
@@ -24,6 +25,9 @@ export default function DashboardPage() {
     const [stationGroups, setStationGroups] = useState<StationGroup[]>([])
     const [userStationGroup, setUserStationGroup] = useState<StationGroup | null>(null)
     const [priorityFilter, setPriorityFilter] = useState<TaskPriority | 'all'>('all')
+    const [categoryFilter, setCategoryFilter] = useState<TaskCategory | 'all'>('all')
+    const [selectionMode, setSelectionMode] = useState(false)
+    const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set())
 
     const currentMonth = getCurrentMonth()
     const currentTertial = getTertial(currentMonth)
@@ -249,8 +253,44 @@ export default function DashboardPage() {
                         : task
                 ))
             }
-        } catch (err) {
-            console.error('Error updating priority:', err)
+        } catch (error) {
+            console.error('Error updating task priority:', error)
+        }
+    }
+
+    const toggleTaskSelection = (taskId: string) => {
+        const newSelected = new Set(selectedTasks)
+        if (newSelected.has(taskId)) {
+            newSelected.delete(taskId)
+        } else {
+            newSelected.add(taskId)
+        }
+        setSelectedTasks(newSelected)
+    }
+
+    const bulkSetPriority = async (priority: TaskPriority) => {
+        try {
+            const promises = Array.from(selectedTasks).map(taskId =>
+                handlePriorityChange(taskId, priority)
+            )
+            await Promise.all(promises)
+            setSelectedTasks(new Set())
+            setSelectionMode(false)
+        } catch (error) {
+            console.error('Error updating bulk priorities:', error)
+        }
+    }
+
+    const bulkSetStatus = async (status: TaskStatus) => {
+        try {
+            const promises = Array.from(selectedTasks).map(taskId =>
+                handleStatusChange(taskId, status)
+            )
+            await Promise.all(promises)
+            setSelectedTasks(new Set())
+            setSelectionMode(false)
+        } catch (error) {
+            console.error('Error updating bulk statuses:', error)
         }
     }
 
@@ -282,10 +322,14 @@ export default function DashboardPage() {
 
     const sortedMonthTasks = sortTasksByPriority(monthTasks)
 
-    // Apply priority filter
-    const filteredMonthTasks = priorityFilter === 'all'
+    // Apply priority and category filters
+    let filteredMonthTasks = priorityFilter === 'all'
         ? sortedMonthTasks
         : sortedMonthTasks.filter(t => t.priority === priorityFilter)
+
+    filteredMonthTasks = categoryFilter === 'all'
+        ? filteredMonthTasks
+        : filteredMonthTasks.filter(t => t.category === categoryFilter)
 
     // Determine dashboard title
     let dashboardTitle = "Ambulansledning"
@@ -406,6 +450,43 @@ export default function DashboardPage() {
                 </Card>
             </div>
 
+            {/* Bulk Action Toolbar (when tasks selected) */}
+            {selectionMode && selectedTasks.size > 0 && (
+                <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 mb-4">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-2">
+                            <CheckSquare className="h-5 w-5 text-primary" />
+                            <span className="font-medium">{selectedTasks.size} uppgifter markerade</span>
+                        </div>
+                        <div className="flex flex-wrap gap-2">
+                            <Button variant="outline" size="sm" onClick={() => bulkSetPriority(1)}>
+                                Sätt P1
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => bulkSetPriority(2)}>
+                                Sätt P2
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => bulkSetPriority(3)}>
+                                Sätt P3
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => bulkSetPriority(4)}>
+                                Sätt P4
+                            </Button>
+                            <div className="h-4 w-px bg-border" />
+                            <Button variant="outline" size="sm" onClick={() => bulkSetStatus('done')}>
+                                Markera klara
+                            </Button>
+                            <Button variant="outline" size="sm" onClick={() => {
+                                setSelectedTasks(new Set())
+                                setSelectionMode(false)
+                            }}>
+                                <X className="h-4 w-4" />
+                                Avbryt
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Current Focus Section - Active Tasks */}
             <section className="space-y-4">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -460,6 +541,47 @@ export default function DashboardPage() {
                         >
                             ⚪ P4
                         </Button>
+
+                        {/* Category Filter Dropdown */}
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant={categoryFilter === 'all' ? 'outline' : 'default'} size="sm">
+                                    <Filter className="h-4 w-4 mr-2" />
+                                    {categoryFilter === 'all' ? 'Kategori' : categoryLabels[categoryFilter]}
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                                <DropdownMenuItem onClick={() => setCategoryFilter('all')}>
+                                    Alla kategorier
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem onClick={() => setCategoryFilter('Operations')}>
+                                    {categoryLabels.Operations}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setCategoryFilter('Finance')}>
+                                    {categoryLabels.Finance}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setCategoryFilter('HR')}>
+                                    {categoryLabels.HR}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => setCategoryFilter('Safety')}>
+                                    {categoryLabels.Safety}
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+
+                        {/* Selection Mode Toggle */}
+                        <Button
+                            variant={selectionMode ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => {
+                                setSelectionMode(!selectionMode)
+                                setSelectedTasks(new Set())
+                            }}
+                        >
+                            <CheckSquare className="h-4 w-4 mr-2" />
+                            {selectionMode ? 'Avmarkera alla' : 'Markera flera'}
+                        </Button>
                     </div>
                 </div>
 
@@ -477,6 +599,9 @@ export default function DashboardPage() {
                                 task={task}
                                 onStatusChange={handleStatusChange}
                                 onPriorityChange={handlePriorityChange}
+                                selectionMode={selectionMode}
+                                isSelected={selectedTasks.has(task.id)}
+                                onToggleSelect={toggleTaskSelection}
                             />
                         ))}
                     </div>
@@ -507,6 +632,9 @@ export default function DashboardPage() {
                                 task={task}
                                 onStatusChange={handleStatusChange}
                                 onPriorityChange={handlePriorityChange}
+                                selectionMode={selectionMode}
+                                isSelected={selectedTasks.has(task.id)}
+                                onToggleSelect={toggleTaskSelection}
                             />
                         ))}
                     </div>
