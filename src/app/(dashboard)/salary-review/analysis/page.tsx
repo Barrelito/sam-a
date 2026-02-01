@@ -1,12 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Sparkles, Loader2, AlertTriangle, TrendingUp, Download, FileText } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import { SalaryGroupCard } from '@/components/salary-review/SalaryGroupCard'
 import { SalaryAnalysisSummary } from '@/components/salary-review/SalaryAnalysisSummary'
+import { useCompletion } from 'ai/react'
 
 interface OutlierEmployee {
     id: string
@@ -40,74 +41,58 @@ interface AnalysisSummary {
     timestamp: string
 }
 
+interface StreamDataResponse {
+    groups?: AnalysisGroup[]
+    summary?: AnalysisSummary
+}
+
 export default function SalaryAnalysisPage() {
-    const [completion, setCompletion] = useState('')
-    const [isLoading, setIsLoading] = useState(false)
-    const [error, setError] = useState<Error | null>(null)
     const [hasStarted, setHasStarted] = useState(false)
     const [analysisData, setAnalysisData] = useState<AnalysisGroup[] | null>(null)
     const [summary, setSummary] = useState<AnalysisSummary | null>(null)
+
+    const { complete, completion, isLoading, error, data } = useCompletion({
+        api: '/api/ai/analyze-salary',
+    })
+
+    // Update state when data arrives
+    useEffect(() => {
+        if (!data) return
+
+        // Vercel AI SDK StreamData arrives as an array of JSON objects
+        // We look for the last valid update that contains our expected structure
+        // Since data is an array of all data events, we filter/find what we need
+        if (Array.isArray(data)) {
+            // Find the object that has 'groups' and 'summary'
+            const lastUpdate = [...data].reverse().find(item => item && typeof item === 'object' && 'groups' in item) as StreamDataResponse | undefined
+
+            if (lastUpdate && lastUpdate.groups) {
+                setAnalysisData(lastUpdate.groups)
+            }
+            if (lastUpdate && lastUpdate.summary) {
+                setSummary(lastUpdate.summary)
+            }
+        }
+    }, [data])
 
     const handlePrint = () => {
         window.print()
     }
 
-    const handleStartAnalysis = async () => {
+    const handleStartAnalysis = () => {
         setHasStarted(true)
-        setIsLoading(true)
-        setError(null)
-        setCompletion('')
+        // Reset old data
         setAnalysisData(null)
         setSummary(null)
+        complete('')
+    }
 
-        try {
-            const response = await fetch('/api/ai/analyze-salary', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-            })
-
-            if (!response.ok) {
-                throw new Error('Failed to analyze salaries')
-            }
-
-            // Parse structured data from headers
-            const analysisHeader = response.headers.get('X-Analysis-Data')
-            if (analysisHeader) {
-                const data = JSON.parse(analysisHeader)
-                setAnalysisData(data.groups)
-                setSummary(data.summary)
-            }
-
-            // Stream the AI text response
-            const reader = response.body?.getReader()
-            const decoder = new TextDecoder()
-
-            if (reader) {
-                let done = false
-                while (!done) {
-                    const { value, done: doneReading } = await reader.read()
-                    done = doneReading
-                    if (value) {
-                        const chunk = decoder.decode(value)
-                        // Parse streaming data (simple version, may need refinement)
-                        const lines = chunk.split('\n')
-                        for (const line of lines) {
-                            if (line.startsWith('0:')) {
-                                const text = line.substring(2).replace(/"/g, '')
-                                setCompletion(prev => prev + text)
-                            }
-                        }
-                    }
-                }
-            }
-
-            setIsLoading(false)
-        } catch (err) {
-            setError(err instanceof Error ? err : new Error('Unknown error'))
-            setIsLoading(false)
-        }
+    const handleReset = () => {
+        setHasStarted(false)
+        setAnalysisData(null)
+        setSummary(null)
+        // Note: completion and data reset automatically on new complete call, 
+        // but to fully reset UI we revert hasStarted
     }
 
     return (
@@ -148,12 +133,7 @@ export default function SalaryAnalysisPage() {
                                 <Download className="mr-2 h-4 w-4" />
                                 Exportera PDF
                             </Button>
-                            <Button onClick={() => {
-                                setHasStarted(false)
-                                setCompletion('')
-                                setAnalysisData(null)
-                                setSummary(null)
-                            }} variant="outline">
+                            <Button onClick={handleReset} variant="outline">
                                 Ny analys
                             </Button>
                         </div>
@@ -253,7 +233,7 @@ export default function SalaryAnalysisPage() {
                                             {completion}
                                         </ReactMarkdown>
                                     </div>
-                                    {isLoading && (
+                                    {isLoading && !completion && (
                                         <div className="flex items-center gap-2 mt-4 text-sm text-muted-foreground animate-pulse">
                                             <div className="h-2 w-2 rounded-full bg-blue-500" />
                                             Genererar insikter...

@@ -1,9 +1,11 @@
-
 import { createClient } from '@/lib/supabase/server'
-import { streamText } from 'ai'
+import { streamText, StreamData } from 'ai'
 import { openai } from '@ai-sdk/openai'
 
 export const runtime = 'edge'
+
+
+// ... (imports remain the same) ...
 
 interface EmployeeData {
     id: string
@@ -187,18 +189,11 @@ export async function POST(req: Request) {
       - Håll tonen professionell, insiktsfull och analyserande
     `
 
-        // 5. Stream response with metadata
-        const result = await streamText({
-            model: openai('gpt-4o'),
-            prompt: prompt,
-            onFinish: async () => {
-                // Optional: save analysis to database for history
-            }
-        })
+        // Initialize StreamData
+        const streamData = new StreamData()
 
-        // Add structured data as a header (will be parsed by frontend)
-        const response = result.toDataStreamResponse()
-        response.headers.set('X-Analysis-Data', JSON.stringify({
+        // Append structured data
+        streamData.append({
             groups: analysisData,
             summary: {
                 totalEmployees,
@@ -208,9 +203,18 @@ export async function POST(req: Request) {
                 groupCount: analysisData.length,
                 timestamp: new Date().toISOString()
             }
-        }))
+        } as any)
 
-        return response
+        // 5. Stream response with data
+        const result = await streamText({
+            model: openai('gpt-4o'),
+            prompt: prompt,
+            onFinish: async () => {
+                await streamData.close()
+            }
+        })
+
+        return result.toDataStreamResponse({ data: streamData })
 
     } catch (error) {
         console.error('Error in AI analysis:', error)
