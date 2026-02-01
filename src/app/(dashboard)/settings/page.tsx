@@ -4,14 +4,16 @@ import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Settings, User, LogOut, Loader2 } from "lucide-react"
+import { Settings, User, LogOut, Loader2, ShieldCheck } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { roleLabels } from "@/lib/types"
 import { ChangePasswordDialog } from "@/components/change-password-dialog"
+import { MFAEnrollmentDialog } from "@/components/mfa-enrollment-dialog"
 
 export default function SettingsPage() {
     const { profile, user, loading, signOut } = useAuth()
     const [changePasswordOpen, setChangePasswordOpen] = useState(false)
+    const [mfaOpen, setMfaOpen] = useState(false)
 
     return (
         <div className="space-y-6 max-w-2xl">
@@ -80,6 +82,14 @@ export default function SettingsPage() {
                     <Button
                         variant="outline"
                         className="w-full justify-start gap-2"
+                        onClick={() => setMfaOpen(true)}
+                    >
+                        <ShieldCheck className="h-4 w-4" />
+                        Aktivera Tvåfaktorsautentisering (MFA)
+                    </Button>
+                    <Button
+                        variant="outline"
+                        className="w-full justify-start gap-2"
                         onClick={() => setChangePasswordOpen(true)}
                     >
                         <Settings className="h-4 w-4" />
@@ -113,6 +123,11 @@ export default function SettingsPage() {
             <ChangePasswordDialog
                 open={changePasswordOpen}
                 onOpenChange={setChangePasswordOpen}
+            />
+
+            <MFAEnrollmentDialog
+                open={mfaOpen}
+                onOpenChange={setMfaOpen}
             />
         </div>
     )
