@@ -9,11 +9,65 @@ import { useAuth } from "@/lib/auth-context"
 import { roleLabels } from "@/lib/types"
 import { ChangePasswordDialog } from "@/components/change-password-dialog"
 import { MFAEnrollmentDialog } from "@/components/mfa-enrollment-dialog"
+import { createClient } from "@/lib/supabase/client"
+import { useEffect } from "react"
 
 export default function SettingsPage() {
     const { profile, user, loading, signOut } = useAuth()
     const [changePasswordOpen, setChangePasswordOpen] = useState(false)
     const [mfaOpen, setMfaOpen] = useState(false)
+    const [mfaStatus, setMfaStatus] = useState<'loading' | 'enabled' | 'disabled'>('loading')
+    const [resettingMFA, setResettingMFA] = useState(false)
+
+    const supabase = createClient()
+
+    useEffect(() => {
+        checkMFAStatus()
+    }, [user])
+
+    const checkMFAStatus = async () => {
+        if (!user) {
+            setMfaStatus('disabled')
+            return
+        }
+
+        try {
+            const { data } = await supabase.auth.mfa.listFactors()
+            const hasVerifiedFactor = data?.totp?.some(f => f.status === 'verified')
+            setMfaStatus(hasVerifiedFactor ? 'enabled' : 'disabled')
+        } catch (err) {
+            console.error('Error checking MFA status:', err)
+            setMfaStatus('disabled')
+        }
+    }
+
+    const handleResetMFA = async () => {
+        if (!confirm('Är du säker på att du vill återställa din MFA? Du måste skanna en ny QR-kod efter detta.')) {
+            return
+        }
+
+        setResettingMFA(true)
+        try {
+            const { data: factors } = await supabase.auth.mfa.listFactors()
+
+            // Unenroll all TOTP factors
+            for (const factor of factors?.totp || []) {
+                await supabase.auth.mfa.unenroll({ factorId: factor.id })
+            }
+
+            setMfaStatus('disabled')
+            setMfaOpen(true) // Open enrollment dialog
+        } catch (err: any) {
+            console.error('Error resetting MFA:', err)
+            alert('Kunde inte återställa MFA: ' + err.message)
+        } finally {
+            setResettingMFA(false)
+        }
+    }
+
+    const handleMFAEnrollSuccess = () => {
+        checkMFAStatus()
+    }
 
     return (
         <div className="space-y-6 max-w-2xl">
@@ -79,14 +133,42 @@ export default function SettingsPage() {
                     <CardTitle>Säkerhet</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-2">
-                    <Button
-                        variant="outline"
-                        className="w-full justify-start gap-2"
-                        onClick={() => setMfaOpen(true)}
-                    >
-                        <ShieldCheck className="h-4 w-4" />
-                        Aktivera Tvåfaktorsautentisering (MFA)
-                    </Button>
+                    {/* MFA Status */}
+                    <div className="p-3 border rounded-lg bg-muted/30">
+                        <div className="flex items-center justify-between mb-2">
+                            <span className="text-sm font-medium">Tvåfaktorsautentisering (MFA)</span>
+                            {mfaStatus === 'enabled' ? (
+                                <Badge variant="default" className="bg-emerald-600">Aktiverad</Badge>
+                            ) : mfaStatus === 'disabled' ? (
+                                <Badge variant="destructive">Inaktiv</Badge>
+                            ) : (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                            )}
+                        </div>
+                        {mfaStatus === 'enabled' ? (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full gap-2 text-destructive hover:text-destructive"
+                                onClick={handleResetMFA}
+                                disabled={resettingMFA}
+                            >
+                                {resettingMFA && <Loader2 className="h-4 w-4 animate-spin" />}
+                                Återställ MFA (Re-enroll)
+                            </Button>
+                        ) : mfaStatus === 'disabled' ? (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full gap-2"
+                                onClick={() => setMfaOpen(true)}
+                            >
+                                <ShieldCheck className="h-4 w-4" />
+                                Aktivera MFA
+                            </Button>
+                        ) : null}
+                    </div>
+
                     <Button
                         variant="outline"
                         className="w-full justify-start gap-2"
@@ -128,6 +210,7 @@ export default function SettingsPage() {
             <MFAEnrollmentDialog
                 open={mfaOpen}
                 onOpenChange={setMfaOpen}
+                onSuccess={handleMFAEnrollSuccess}
             />
         </div>
     )
