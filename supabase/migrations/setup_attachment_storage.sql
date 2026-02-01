@@ -7,7 +7,13 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('attachments', 'attachments', false)
 ON CONFLICT (id) DO NOTHING;
 
--- 2. Storage policies for attachments bucket
+-- 2. Drop existing policies if they exist (idempotent)
+DROP POLICY IF EXISTS "Authenticated users can upload attachments" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can view attachments" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete their own attachments" ON storage.objects;
+DROP POLICY IF EXISTS "Users can update their own attachments" ON storage.objects;
+
+-- 3. Storage policies for attachments bucket
 -- Allow authenticated users to upload files
 CREATE POLICY "Authenticated users can upload attachments"
 ON storage.objects FOR INSERT TO authenticated

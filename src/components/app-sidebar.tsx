@@ -29,6 +29,7 @@ import { useAuth } from "@/lib/auth-context"
 const managerNavigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
     { name: "Årshjul", href: "/annual-cycle", icon: Calendar },
+    { name: "Medarbetare", href: "/employees", icon: Users },
     { name: "Alla Uppgifter", href: "/tasks", icon: ListTodo },
     { name: "Arkiv", href: "/tasks/archive", icon: Archive },
     { name: "Mina Uppgifter", href: "/my-tasks", icon: User },
@@ -41,6 +42,7 @@ const managerNavigation = [
 const voChiefNavigation = [
     { name: "VO Dashboard", href: "/vo", icon: Building2 },
     { name: "Årshjul", href: "/annual-cycle", icon: Calendar },
+    { name: "Medarbetare", href: "/employees", icon: Users },
     { name: "Alla Uppgifter", href: "/tasks", icon: ListTodo },
     { name: "Arkiv", href: "/tasks/archive", icon: Archive },
     { name: "Mina Uppgifter", href: "/my-tasks", icon: User },
