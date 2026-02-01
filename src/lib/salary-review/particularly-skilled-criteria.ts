@@ -15,6 +15,7 @@ export interface ParticularlySkillfulCriterion {
 export interface ParticularlySkillfulSubCriterion {
     id: string
     text: string
+    examples?: string[]  // Vägledande exempel från AISAB:s detaljerade kriterier
 }
 
 // =============================================
@@ -29,7 +30,10 @@ export const VUB_CRITERIA: ParticularlySkillfulCriterion[] = [
         subcriteria: [
             {
                 id: 'vub_1_a',
-                text: 'Medarbetaren finns i den kliniska verksamheten nära patienterna och bidrar aktivt till verksamhetens utveckling'
+                text: 'Medarbetaren finns i den kliniska verksamheten nära patienterna och bidrar aktivt till verksamhetens utveckling',
+                examples: [
+                    'Att vara ansvarstagande, ta initiativ och aktivt bidra till kvalitetsutveckling och förbättringsarbeten genom att omsätta kunskap inhämtad från utbildning, den egna verksamheten samt omvärldsbevakning'
+                ]
             }
         ]
     },
@@ -40,7 +44,11 @@ export const VUB_CRITERIA: ParticularlySkillfulCriterion[] = [
         subcriteria: [
             {
                 id: 'vub_2_a',
-                text: 'Medarbetaren har förvärvat sin särskilda yrkesskicklighet genom erfarenhet av kliniskt arbete och har förmåga att dela med sig av sin verksamhetsnära kunskap till kollegor, studenter och patienter, dessa medarbetare har därför sannolikt en längre tids yrkeserfarenhet'
+                text: 'Medarbetaren har förvärvat sin särskilda yrkesskicklighet genom erfarenhet av kliniskt arbete och har förmåga att dela med sig av sin verksamhetsnära kunskap till kollegor, studenter och patienter, dessa medarbetare har därför sannolikt en längre tids yrkeserfarenhet',
+                examples: [
+                    'När kunskap och relevant klinisk erfarenhet kombineras med förmågan att användas vid rätt tillfälle och på rätt sätt',
+                    'Har en hög pedagogisk förmåga och handleder regelbundet studenter och kollegor'
+                ]
             }
         ]
     },
@@ -51,7 +59,12 @@ export const VUB_CRITERIA: ParticularlySkillfulCriterion[] = [
         subcriteria: [
             {
                 id: 'vub_3_a',
-                text: 'Medarbetaren är en verksamhetsbärare som arbetar interprofessionellt och coachande och stärker andras resurser och förmågor'
+                text: 'Medarbetaren är en verksamhetsbärare som arbetar interprofessionellt och coachande och stärker andras resurser och förmågor',
+                examples: [
+                    'En verksamhetsbärare bidrar till ökad tillgänglighet och arbetar för att uppnå verksamhetens mål och har en god helhetssyn',
+                    'Att aktivt samarbeta med andra och vara inkluderande i sin yrkesroll',
+                    'Visa på arbetssätt så att andra utvecklas, vara en god förebild och vara en ambassadör'
+                ]
             }
         ]
     },
@@ -62,7 +75,12 @@ export const VUB_CRITERIA: ParticularlySkillfulCriterion[] = [
         subcriteria: [
             {
                 id: 'vub_4_a',
-                text: 'Medarbetarens handlingar och agerande tyder på kompetens baserat på erfarenheter, färdigheter och djupt kunnande'
+                text: 'Medarbetarens handlingar och agerande tyder på kompetens baserat på erfarenheter, färdigheter och djupt kunnande',
+                examples: [
+                    'Det är den medarbetaren kollegan eller chef vänder sig till för råd och stöd',
+                    'Är trygg i sin roll och ska kunna samarbeta med alla kollegor, på alla stationer och i alla situationer',
+                    'Arbetar utifrån ett helhetsperspektiv, kan omsätta sin fleråriga erfarenhet och agera flexibelt'
+                ]
             }
         ]
     },
@@ -73,7 +91,11 @@ export const VUB_CRITERIA: ParticularlySkillfulCriterion[] = [
         subcriteria: [
             {
                 id: 'vub_5_a',
-                text: 'Medarbetaren kan arbeta självständigt, vilket innebär förmågan att se, upptäcka, bedöma, analysera, ta beslut och agera bekvämt även i komplexa situationer, och arbetar framåtsyftande till nytta för patienten och verksamheten'
+                text: 'Medarbetaren kan arbeta självständigt, vilket innebär förmågan att se, upptäcka, bedöma, analysera, ta beslut och agera bekvämt även i komplexa situationer, och arbetar framåtsyftande till nytta för patienten och verksamheten',
+                examples: [
+                    'Medarbetaren ska vara effektiv, proaktiv, stabil och lugn även i sällan händelser',
+                    'Ser till och agerar utifrån patientens framtida vårdbehov'
+                ]
             }
         ]
     },
@@ -84,7 +106,10 @@ export const VUB_CRITERIA: ParticularlySkillfulCriterion[] = [
         subcriteria: [
             {
                 id: 'vub_6_a',
-                text: 'Medarbetaren bidrar i utvecklingen av den personcentrerade vården och ser till helheten'
+                text: 'Medarbetaren bidrar i utvecklingen av den personcentrerade vården och ser till helheten',
+                examples: [
+                    'Att man är konsekvent i sitt vårdarbete utifrån patientens unika behov och sprider kunskapen i verksamheten'
+                ]
             }
         ]
     }
@@ -102,7 +127,10 @@ export const SSK_CRITERIA: ParticularlySkillfulCriterion[] = [
         subcriteria: [
             {
                 id: 'ssk_1_a',
-                text: 'Medarbetaren finns i den kliniska verksamheten nära patienterna och bidrar aktivt till verksamhetens utveckling'
+                text: 'Medarbetaren finns i den kliniska verksamheten nära patienterna och bidrar aktivt till verksamhetens utveckling',
+                examples: [
+                    'Att vara ansvarstagande, ta initiativ och aktivt bidra till kvalitetsutveckling och förbättringsarbeten genom att omsätta kunskap inhämtad från utbildning, den egna verksamheten samt omvärldsbevakning'
+                ]
             }
         ]
     },
@@ -113,7 +141,11 @@ export const SSK_CRITERIA: ParticularlySkillfulCriterion[] = [
         subcriteria: [
             {
                 id: 'ssk_2_a',
-                text: 'Medarbetaren har förvärvat sin särskilda yrkesskicklighet genom erfarenhet av kliniskt arbete och har förmåga att dela med sig av sin verksamhetsnära kunskap till kollegor, studenter och patienter, dessa medarbetare har därför sannolikt en längre tids yrkeserfarenhet'
+                text: 'Medarbetaren har förvärvat sin särskilda yrkesskicklighet genom erfarenhet av kliniskt arbete och har förmåga att dela med sig av sin verksamhetsnära kunskap till kollegor, studenter och patienter, dessa medarbetare har därför sannolikt en längre tids yrkeserfarenhet',
+                examples: [
+                    'När kunskap och relevant klinisk erfarenhet kombineras med förmågan att användas vid rätt tillfälle och på rätt sätt',
+                    'Har en hög pedagogisk förmåga och handleder regelbundet studenter och kollegor'
+                ]
             }
         ]
     },
@@ -124,7 +156,12 @@ export const SSK_CRITERIA: ParticularlySkillfulCriterion[] = [
         subcriteria: [
             {
                 id: 'ssk_3_a',
-                text: 'Medarbetaren är en verksamhetsbärare som arbetar interprofessionellt och coachande och stärker andras resurser och förmågor'
+                text: 'Medarbetaren är en verksamhetsbärare som arbetar interprofessionellt och coachande och stärker andras resurser och förmågor',
+                examples: [
+                    'En verksamhetsbärare bidrar till ökad tillgänglighet och arbetar för att uppnå verksamhetens mål och har en god helhetssyn',
+                    'Att aktivt samarbeta med andra och vara inkluderande i sin yrkesroll',
+                    'Visa på arbetssätt så att andra utvecklas, vara en god förebild och vara en ambassadör'
+                ]
             }
         ]
     },
@@ -135,7 +172,12 @@ export const SSK_CRITERIA: ParticularlySkillfulCriterion[] = [
         subcriteria: [
             {
                 id: 'ssk_4_a',
-                text: 'Medarbetarens handlingar och agerande tyder på kompetens baserat på erfarenheter, färdigheter och djupt kunnande'
+                text: 'Medarbetarens handlingar och agerande tyder på kompetens baserat på erfarenheter, färdigheter och djupt kunnande',
+                examples: [
+                    'Det är den medarbetaren kollegan eller chef vänder sig till för råd och stöd',
+                    'Är trygg i sin roll och ska kunna samarbeta med alla kollegor, på alla stationer och i alla situationer',
+                    'Arbetar utifrån ett helhetsperspektiv, kan omsätta sin fleråriga erfarenhet och agera flexibelt'
+                ]
             }
         ]
     },
@@ -146,7 +188,11 @@ export const SSK_CRITERIA: ParticularlySkillfulCriterion[] = [
         subcriteria: [
             {
                 id: 'ssk_5_a',
-                text: 'Medarbetaren kan arbeta självständigt, vilket innebär förmågan att se, upptäcka, bedöma, analysera, ta beslut och agera bekvämt även i komplexa situationer, och arbetar framåtsyftande till nytta för patienten och verksamheten'
+                text: 'Medarbetaren kan arbeta självständigt, vilket innebär förmågan att se, upptäcka, bedöma, analysera, ta beslut och agera bekvämt även i komplexa situationer, och arbetar framåtsyftande till nytta för patienten och verksamheten',
+                examples: [
+                    'Medarbetaren ska vara effektiv, proaktiv, stabil och lugn även i sällan händelser',
+                    'Ser till och agerar utifrån patientens framtida vårdbehov'
+                ]
             }
         ]
     },
@@ -157,7 +203,10 @@ export const SSK_CRITERIA: ParticularlySkillfulCriterion[] = [
         subcriteria: [
             {
                 id: 'ssk_6_a',
-                text: 'Medarbetaren bidrar i utvecklingen av den personcentrerade vården och ser till helheten'
+                text: 'Medarbetaren bidrar i utvecklingen av den personcentrerade vården och ser till helheten',
+                examples: [
+                    'Att man är konsekvent i sitt vårdarbete utifrån patientens unika behov och sprider kunskapen i verksamheten'
+                ]
             }
         ]
     }

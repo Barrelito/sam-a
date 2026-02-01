@@ -81,6 +81,23 @@ export default function ParticularlySkillfulReadOnly({
                                             <p className="text-sm font-medium">
                                                 {subcriterion.text}
                                             </p>
+
+                                            {/* Vägledande exempel */}
+                                            {subcriterion.examples && subcriterion.examples.length > 0 && (
+                                                <div className="mt-2 p-3 bg-white border border-blue-100 rounded-md">
+                                                    <p className="text-xs font-semibold text-blue-900 mb-1">
+                                                        Detta kan visa sig som:
+                                                    </p>
+                                                    <ul className="space-y-1">
+                                                        {subcriterion.examples.map((example, idx) => (
+                                                            <li key={idx} className="text-xs text-gray-700 leading-relaxed flex items-start gap-1.5">
+                                                                <span className="text-blue-400 mt-0.5">•</span>
+                                                                <span>{example}</span>
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 

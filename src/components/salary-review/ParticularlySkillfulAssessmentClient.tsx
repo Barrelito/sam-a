@@ -230,6 +230,23 @@ export default function ParticularlySkillfulAssessmentClient({
                                                 >
                                                     {sub.text}
                                                 </Label>
+
+                                                {/* Vägledande exempel */}
+                                                {sub.examples && sub.examples.length > 0 && (
+                                                    <div className="mt-2 p-3 bg-blue-50 border border-blue-200 rounded-md">
+                                                        <p className="text-xs font-semibold text-blue-900 mb-1">
+                                                            Detta kan visa sig som:
+                                                        </p>
+                                                        <ul className="space-y-1">
+                                                            {sub.examples.map((example, idx) => (
+                                                                <li key={idx} className="text-xs text-blue-800 leading-relaxed flex items-start gap-1.5">
+                                                                    <span className="text-blue-400 mt-0.5">•</span>
+                                                                    <span>{example}</span>
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                )}
                                             </div>
                                             {assessment.is_met && (
                                                 <CheckCircle2 className="h-5 w-5 text-green-600 flex-shrink-0" />
