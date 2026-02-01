@@ -6,10 +6,12 @@ import { getMonthName, getCurrentMonth, getTertial } from "@/lib/utils"
 import { TaskCard } from "@/components/task-card"
 import { StatusOverview } from "@/components/status-overview"
 import { StationFilter } from "@/components/station-filter"
-import { Task, TaskStatus, TaskPriority, StationGroup } from "@/lib/types"
-import { CalendarDays, TrendingUp, Loader2, FolderOpen, CheckCircle } from "lucide-react"
+import { Task, TaskStatus, TaskPriority, StationGroup, getDaysUntilDeadline } from "@/lib/types"
+import { CalendarDays, TrendingUp, Loader2, FolderOpen, CheckCircle, AlertCircle, Target } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
 
 export default function DashboardPage() {
     const router = useRouter()
@@ -21,6 +23,7 @@ export default function DashboardPage() {
     const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
     const [stationGroups, setStationGroups] = useState<StationGroup[]>([])
     const [userStationGroup, setUserStationGroup] = useState<StationGroup | null>(null)
+    const [priorityFilter, setPriorityFilter] = useState<TaskPriority | 'all'>('all')
 
     const currentMonth = getCurrentMonth()
     const currentTertial = getTertial(currentMonth)
@@ -251,34 +254,38 @@ export default function DashboardPage() {
         }
     }
 
-    // Sort tasks by priority (1-4, null last), then status, then deadline
-    const sortTasksByPriority = (tasks: Task[]): Task[] => {
-        return tasks.sort((a, b) => {
-            // Priority first (null = lowest)
-            const priorityA = a.priority ?? 999
-            const priorityB = b.priority ?? 999
-
-            if (priorityA !== priorityB) {
-                return priorityA - priorityB // Lower number = higher priority
+    // Sort tasks by priority (higher priority first), then status, then deadline
+    const sortTasksByPriority = (tasksToSort: Task[]) => {
+        return [...tasksToSort].sort((a, b) => {
+            // First by priority (1 = highest, 4 = lowest, null = last)
+            const aPriority = a.priority || 999
+            const bPriority = b.priority || 999
+            if (aPriority !== bPriority) {
+                return aPriority - bPriority
             }
 
-            // Then status (not_started > in_progress > done)
-            const statusOrder = { 'not_started': 1, 'in_progress': 2, 'done': 3, 'reported': 4 }
-            const statusA = statusOrder[a.status] || 999
-            const statusB = statusOrder[b.status] || 999
-
-            if (statusA !== statusB) {
-                return statusA - statusB
+            // Then by status (not_started, in_progress, done)
+            const statusOrder: TaskStatus[] = ['not_started', 'in_progress', 'done', 'reported']
+            const aStatusIndex = statusOrder.indexOf(a.status)
+            const bStatusIndex = statusOrder.indexOf(b.status)
+            if (aStatusIndex !== bStatusIndex) {
+                return aStatusIndex - bStatusIndex
             }
 
-            // Lastly deadline (earliest first)
+            // Finally by deadline (earliest first)
             if (a.deadline_day && b.deadline_day) {
                 return a.deadline_day - b.deadline_day
             }
-
             return 0
         })
     }
+
+    const sortedMonthTasks = sortTasksByPriority(monthTasks)
+
+    // Apply priority filter
+    const filteredMonthTasks = priorityFilter === 'all'
+        ? sortedMonthTasks
+        : sortedMonthTasks.filter(t => t.priority === priorityFilter)
 
     // Determine dashboard title
     let dashboardTitle = "Ambulansledning"
@@ -322,27 +329,149 @@ export default function DashboardPage() {
                 )}
             </div>
 
+            {/* Quick Stats Cards */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                {/* P1 Tasks Remaining */}
+                <Card>
+                    <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="text-2xl font-bold text-red-600">
+                                    {monthTasks.filter(t => t.priority === 1 && t.status !== 'done').length}
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                    🔴 P1 kvar
+                                </div>
+                            </div>
+                            <Target className="h-8 w-8 text-red-200" />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Completed Tasks */}
+                <Card>
+                    <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="text-2xl font-bold">
+                                    {monthTasks.filter(t => t.status === 'done').length}/{monthTasks.length}
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                    ✓ Klara uppgifter
+                                </div>
+                            </div>
+                            <CheckCircle className="h-8 w-8 text-green-200" />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Overdue Tasks */}
+                <Card>
+                    <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="text-2xl font-bold text-orange-600">
+                                    {monthTasks.filter(t => {
+                                        if (!t.deadline_day || t.status === 'done') return false
+                                        const deadline = getDaysUntilDeadline(t.deadline_day)
+                                        return deadline.text.includes('sen')
+                                    }).length}
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                    ⚠️ Försenade
+                                </div>
+                            </div>
+                            <AlertCircle className="h-8 w-8 text-orange-200" />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Completion Rate */}
+                <Card>
+                    <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className="text-2xl font-bold">
+                                    {monthTasks.length > 0
+                                        ? Math.round((monthTasks.filter(t => t.status === 'done').length / monthTasks.length) * 100)
+                                        : 0}%
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                    📊 Slutförandegrad
+                                </div>
+                            </div>
+                            <TrendingUp className="h-8 w-8 text-blue-200" />
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
             {/* Current Focus Section - Active Tasks */}
             <section className="space-y-4">
-                <div className="flex items-center gap-2">
-                    <CalendarDays className="h-5 w-5 text-primary" />
-                    <h2 className="text-xl font-semibold">
-                        Uppgifter för {monthName}
-                    </h2>
-                    <span className="text-sm text-muted-foreground">
-                        ({monthTasks.filter(t => t.status !== 'done').length} aktiva)
-                    </span>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                        <CalendarDays className="h-5 w-5 text-primary" />
+                        <h2 className="text-xl font-semibold">
+                            Uppgifter för {monthName}
+                        </h2>
+                        <span className="text-sm text-muted-foreground">
+                            ({filteredMonthTasks.filter(t => t.status !== 'done').length} aktiva)
+                        </span>
+                    </div>
+
+                    {/* Priority Filter Buttons */}
+                    <div className="flex flex-wrap gap-2">
+                        <Button
+                            variant={priorityFilter === 'all' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setPriorityFilter('all')}
+                        >
+                            Alla
+                        </Button>
+                        <Button
+                            variant={priorityFilter === 1 ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setPriorityFilter(1)}
+                            className={priorityFilter === 1 ? '' : 'hover:bg-red-50'}
+                        >
+                            🔴 P1
+                        </Button>
+                        <Button
+                            variant={priorityFilter === 2 ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setPriorityFilter(2)}
+                            className={priorityFilter === 2 ? '' : 'hover:bg-yellow-50'}
+                        >
+                            🟡 P2
+                        </Button>
+                        <Button
+                            variant={priorityFilter === 3 ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setPriorityFilter(3)}
+                            className={priorityFilter === 3 ? '' : 'hover:bg-blue-50'}
+                        >
+                            🔵 P3
+                        </Button>
+                        <Button
+                            variant={priorityFilter === 4 ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setPriorityFilter(4)}
+                            className={priorityFilter === 4 ? '' : 'hover:bg-gray-50'}
+                        >
+                            ⚪ P4
+                        </Button>
+                    </div>
                 </div>
 
-                {monthTasks.filter(t => t.status !== 'done').length === 0 ? (
+                {filteredMonthTasks.filter(t => t.status !== 'done').length === 0 ? (
                     <div className="text-center py-12 bg-secondary/30 rounded-lg">
                         <p className="text-muted-foreground">
-                            Inga aktiva uppgifter för denna månad
+                            {priorityFilter === 'all' ? 'Inga aktiva uppgifter för denna månad' : `Inga ${priorityFilter === 1 ? 'P1' : priorityFilter === 2 ? 'P2' : priorityFilter === 3 ? 'P3' : 'P4'}-uppgifter`}
                         </p>
                     </div>
                 ) : (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {sortTasksByPriority(monthTasks.filter(task => task.status !== 'done')).map(task => (
+                        {filteredMonthTasks.filter(task => task.status !== 'done').map(task => (
                             <TaskCard
                                 key={task.id}
                                 task={task}
@@ -355,20 +484,24 @@ export default function DashboardPage() {
             </section>
 
             {/* Completed Tasks Section */}
-            {monthTasks.filter(t => t.status === 'done').length > 0 && (
+            {filteredMonthTasks.filter(t => t.status === 'done').length === 0 ? (
+                <div className="text-center py-12 bg-secondary/30 rounded-lg">
+                    <p className="text-muted-foreground">
+                        Inga klara uppgifter för denna månad
+                    </p>
+                </div>
+            ) : (
                 <section className="space-y-4">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 mb-4">
                         <CheckCircle className="h-5 w-5 text-green-600" />
-                        <h2 className="text-xl font-semibold">
-                            Klara uppgifter för {monthName}
-                        </h2>
+                        <h3 className="text-lg font-semibold">Klara uppgifter</h3>
                         <span className="text-sm text-muted-foreground">
-                            ({monthTasks.filter(t => t.status === 'done').length} klara)
+                            ({filteredMonthTasks.filter(t => t.status === 'done').length})
                         </span>
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {sortTasksByPriority(monthTasks.filter(task => task.status === 'done')).map(task => (
+                        {filteredMonthTasks.filter(task => task.status === 'done').map(task => (
                             <TaskCard
                                 key={task.id}
                                 task={task}

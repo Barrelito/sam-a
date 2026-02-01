@@ -2,10 +2,10 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Task, TaskStatus, TaskPriority, categoryLabels, statusLabels, statusColors, categoryColors } from "@/lib/types"
+import { Task, TaskStatus, TaskPriority, categoryLabels, statusLabels, statusColors, categoryColors, getDaysUntilDeadline } from "@/lib/types"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Clock, CheckCircle2, Circle, MessageSquare, RefreshCw, MapPin, User } from "lucide-react"
+import { Clock, CheckCircle2, Circle, MessageSquare, RefreshCw, MapPin, User, AlertCircle } from "lucide-react"
 import { PriorityBadge } from "@/components/priority-badge"
 import { PriorityQuickSelect } from "@/components/priority-quick-select"
 
@@ -147,11 +147,17 @@ export function TaskCard({ task, onStatusChange, onPriorityChange, showStation =
                     )}
                 </div>
 
-                {/* Deadline info */}
+                {/* Smart Deadline Display */}
                 {task.deadline_day && (
-                    <p className="text-xs text-muted-foreground">
-                        Deadline: dag {task.deadline_day}
-                    </p>
+                    (() => {
+                        const deadline = getDaysUntilDeadline(task.deadline_day)
+                        return (
+                            <div className={`flex items-center gap-1 text-xs ${deadline.urgent ? 'font-semibold' : ''}`}>
+                                {deadline.urgent && <AlertCircle className="h-3 w-3" />}
+                                <span className={deadline.color}>{deadline.text}</span>
+                            </div>
+                        )
+                    })()
                 )}
             </CardContent>
         </Card>

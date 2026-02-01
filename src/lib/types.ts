@@ -392,3 +392,42 @@ export function getInstanceDisplayName(task: Task): string {
     return `${task.title} - ${monthName} ${task.instance_year}`;
 }
 
+/**
+ * Calculate days until deadline and return formatted text with color
+ */
+export function getDaysUntilDeadline(deadlineDay: number): {
+    text: string
+    color: string
+    urgent: boolean
+} {
+    const now = new Date()
+    const currentDay = now.getDate()
+    const currentMonth = now.getMonth()
+    const currentYear = now.getFullYear()
+
+    // Create deadline date in current month
+    const deadline = new Date(currentYear, currentMonth, deadlineDay)
+    const daysLeft = Math.floor((deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+
+    if (daysLeft < 0) {
+        return {
+            text: `${Math.abs(daysLeft)} dag${Math.abs(daysLeft) === 1 ? '' : 'ar'} sen!`,
+            color: 'text-red-600',
+            urgent: true
+        }
+    }
+    if (daysLeft === 0) {
+        return { text: 'Idag!', color: 'text-red-600', urgent: true }
+    }
+    if (daysLeft === 1) {
+        return { text: 'Imorgon', color: 'text-orange-600', urgent: true }
+    }
+    if (daysLeft <= 3) {
+        return { text: `${daysLeft} dagar kvar`, color: 'text-orange-600', urgent: true }
+    }
+    if (daysLeft <= 7) {
+        return { text: `${daysLeft} dagar kvar`, color: 'text-yellow-600', urgent: false }
+    }
+
+    return { text: `Dag ${deadlineDay}`, color: 'text-muted-foreground', urgent: false }
+}
