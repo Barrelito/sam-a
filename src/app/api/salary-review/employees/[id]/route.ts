@@ -54,6 +54,19 @@ export async function GET(
             )
         }
 
+        // Create Audit Log (Best effort)
+        try {
+            await supabase.from('audit_logs').insert({
+                user_id: user.id,
+                action: 'VIEW_EMPLOYEE',
+                resource_id: id,
+                resource_type: 'employee',
+                details: { via: 'api/salary-review/employees/[id]' }
+            })
+        } catch (e) {
+            console.warn('Audit log failed', e)
+        }
+
         return NextResponse.json({ employee })
     } catch (error) {
         console.error('Unexpected error:', error)
@@ -187,6 +200,19 @@ export async function PATCH(
             .eq('id', id)
             .single()
 
+        // Create Audit Log (Best effort)
+        try {
+            await supabase.from('audit_logs').insert({
+                user_id: user.id,
+                action: 'UPDATE_EMPLOYEE',
+                resource_id: id,
+                resource_type: 'employee',
+                details: body
+            })
+        } catch (e) {
+            console.warn('Audit log failed', e)
+        }
+
         return NextResponse.json({ employee: updatedEmployee })
     } catch (error) {
         console.error('Unexpected error:', error)
@@ -256,6 +282,22 @@ export async function DELETE(
                 { error: `Failed to delete employee: ${deleteError.message}` },
                 { status: 500 }
             )
+        }
+
+        // Create Audit Log (Best effort)
+        try {
+            await supabase.from('audit_logs').insert({
+                user_id: user.id,
+                action: 'DELETE_EMPLOYEE',
+                resource_id: id,
+                resource_type: 'employee',
+                details: {
+                    had_active_review: hasActiveReview,
+                    total_reviews_deleted: totalReviews || 0
+                }
+            })
+        } catch (e) {
+            console.warn('Audit log failed', e)
         }
 
         return NextResponse.json({
