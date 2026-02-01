@@ -79,6 +79,7 @@ export function RequireMFAGuard({ children }: { children: React.ReactNode }) {
                 open={forceEnrollOpen}
                 onOpenChange={() => { }} // Prevent closing - it's mandatory!
                 onSuccess={handleEnrollmentSuccess}
+                mandatory={true}
             />
         </>
     )
