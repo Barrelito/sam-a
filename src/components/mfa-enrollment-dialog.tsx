@@ -13,9 +13,10 @@ interface MFAEnrollmentDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
     onSuccess?: () => void
+    mandatory?: boolean // If true, user cannot close the dialog
 }
 
-export function MFAEnrollmentDialog({ open, onOpenChange, onSuccess }: MFAEnrollmentDialogProps) {
+export function MFAEnrollmentDialog({ open, onOpenChange, onSuccess, mandatory = false }: MFAEnrollmentDialogProps) {
     const [step, setStep] = useState<'init' | 'qr' | 'success'>('init')
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState<string | null>(null)
@@ -41,6 +42,8 @@ export function MFAEnrollmentDialog({ open, onOpenChange, onSuccess }: MFAEnroll
         try {
             const { data, error } = await supabase.auth.mfa.enroll({
                 factorType: 'totp',
+                issuer: 'Stationskollen',
+                friendlyName: 'Stationskollen'
             })
 
             if (error) throw error
@@ -94,15 +97,19 @@ export function MFAEnrollmentDialog({ open, onOpenChange, onSuccess }: MFAEnroll
     }
 
     return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[425px]">
+        <Dialog open={open} onOpenChange={mandatory ? () => { } : onOpenChange}>
+            <DialogContent className="sm:max-w-[425px]" onInteractOutside={(e) => mandatory && e.preventDefault()}>
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <ShieldCheck className="h-5 w-5 text-primary" />
                         Tvåfaktorsautentisering (MFA)
+                        {mandatory && <span className="text-xs font-normal text-destructive">(Obligatorisk)</span>}
                     </DialogTitle>
                     <DialogDescription>
-                        Öka säkerheten på ditt konto genom att kräva en kod vid inloggning.
+                        {mandatory
+                            ? "Din administratör kräver att du aktiverar MFA för att använda systemet."
+                            : "Öka säkerheten på ditt konto genom att kräva en kod vid inloggning."
+                        }
                     </DialogDescription>
                 </DialogHeader>
 
@@ -170,14 +177,14 @@ export function MFAEnrollmentDialog({ open, onOpenChange, onSuccess }: MFAEnroll
                 <DialogFooter>
                     {step === 'qr' && (
                         <div className="flex w-full gap-2">
-                            <Button variant="outline" className="flex-1" onClick={() => setStep('init')}>Avbryt</Button>
-                            <Button className="flex-1" onClick={verifyAndActivate} disabled={verifyCode.length !== 6 || loading}>
+                            {!mandatory && <Button variant="outline" className="flex-1" onClick={() => setStep('init')}>Avbryt</Button>}
+                            <Button className={mandatory ? "w-full" : "flex-1"} onClick={verifyAndActivate} disabled={verifyCode.length !== 6 || loading}>
                                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                 Verifiera
                             </Button>
                         </div>
                     )}
-                    {(step === 'init' || step === 'success') && (
+                    {(step === 'init' || step === 'success') && !mandatory && (
                         <Button variant="outline" onClick={handleClose} className="w-full">
                             Stäng
                         </Button>
