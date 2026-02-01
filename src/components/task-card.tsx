@@ -1,14 +1,17 @@
 "use client"
 
 import { useRouter } from "next/navigation"
-import { Task, TaskStatus, categoryLabels, statusLabels, statusColors, categoryColors } from "@/lib/types"
+import { Task, TaskStatus, TaskPriority, categoryLabels, statusLabels, statusColors, categoryColors } from "@/lib/types"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Clock, CheckCircle2, Circle, MessageSquare, RefreshCw, MapPin, User } from "lucide-react"
+import { PriorityBadge } from "@/components/priority-badge"
+import { PriorityQuickSelect } from "@/components/priority-quick-select"
 
 interface TaskCardProps {
     task: Task
     onStatusChange?: (taskId: string, status: TaskStatus) => void
+    onPriorityChange?: (taskId: string, priority: TaskPriority) => Promise<void> | void
     showStation?: boolean
     onClick?: () => void
 }
@@ -32,7 +35,7 @@ const statusConfig: Record<TaskStatus, { label: string; icon: typeof Circle }> =
     },
 }
 
-export function TaskCard({ task, onStatusChange, showStation = true, onClick }: TaskCardProps) {
+export function TaskCard({ task, onStatusChange, onPriorityChange, showStation = true, onClick }: TaskCardProps) {
     const router = useRouter()
     const status = statusConfig[task.status] || statusConfig.not_started
     const StatusIcon = status.icon
@@ -67,9 +70,12 @@ export function TaskCard({ task, onStatusChange, showStation = true, onClick }: 
             <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
                     <div className="flex-1">
-                        <CardTitle className="text-base font-medium leading-tight">
-                            {task.title}
-                        </CardTitle>
+                        <div className="flex items-start gap-2">
+                            <CardTitle className="text-base font-medium leading-tight flex-1">
+                                {task.title}
+                            </CardTitle>
+                            <PriorityBadge priority={task.priority as TaskPriority} />
+                        </div>
                         <div className="flex flex-wrap gap-1 mt-1">
                             {task.is_recurring_monthly && (
                                 <CardDescription className="flex items-center gap-1">
@@ -79,9 +85,18 @@ export function TaskCard({ task, onStatusChange, showStation = true, onClick }: 
                             )}
                         </div>
                     </div>
-                    <Badge variant="outline" className={categoryColors[task.category]}>
-                        {categoryLabels[task.category]}
-                    </Badge>
+                    <div className="flex items-center gap-1">
+                        {onPriorityChange && (
+                            <PriorityQuickSelect
+                                taskId={task.id}
+                                currentPriority={task.priority as TaskPriority}
+                                onPriorityChange={onPriorityChange}
+                            />
+                        )}
+                        <Badge variant="outline" className={categoryColors[task.category]}>
+                            {categoryLabels[task.category]}
+                        </Badge>
+                    </div>
                 </div>
             </CardHeader>
             <CardContent className="pt-0 space-y-3">

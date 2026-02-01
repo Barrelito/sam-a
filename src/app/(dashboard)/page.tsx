@@ -6,7 +6,7 @@ import { getMonthName, getCurrentMonth, getTertial } from "@/lib/utils"
 import { TaskCard } from "@/components/task-card"
 import { StatusOverview } from "@/components/status-overview"
 import { StationFilter } from "@/components/station-filter"
-import { Task, TaskStatus, StationGroup } from "@/lib/types"
+import { Task, TaskStatus, TaskPriority, StationGroup } from "@/lib/types"
 import { CalendarDays, TrendingUp, Loader2, FolderOpen, CheckCircle } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { Badge } from "@/components/ui/badge"
@@ -232,6 +232,54 @@ export default function DashboardPage() {
         }
     }
 
+    const handlePriorityChange = async (taskId: string, newPriority: TaskPriority) => {
+        try {
+            const res = await fetch(`/api/tasks/${taskId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ priority: newPriority })
+            })
+            if (res.ok) {
+                setTasks(prev => prev.map(task =>
+                    task.id === taskId
+                        ? { ...task, priority: newPriority }
+                        : task
+                ))
+            }
+        } catch (err) {
+            console.error('Error updating priority:', err)
+        }
+    }
+
+    // Sort tasks by priority (1-4, null last), then status, then deadline
+    const sortTasksByPriority = (tasks: Task[]): Task[] => {
+        return tasks.sort((a, b) => {
+            // Priority first (null = lowest)
+            const priorityA = a.priority ?? 999
+            const priorityB = b.priority ?? 999
+
+            if (priorityA !== priorityB) {
+                return priorityA - priorityB // Lower number = higher priority
+            }
+
+            // Then status (not_started > in_progress > done)
+            const statusOrder = { 'not_started': 1, 'in_progress': 2, 'done': 3, 'reported': 4 }
+            const statusA = statusOrder[a.status] || 999
+            const statusB = statusOrder[b.status] || 999
+
+            if (statusA !== statusB) {
+                return statusA - statusB
+            }
+
+            // Lastly deadline (earliest first)
+            if (a.deadline_day && b.deadline_day) {
+                return a.deadline_day - b.deadline_day
+            }
+
+            return 0
+        })
+    }
+
     // Determine dashboard title
     let dashboardTitle = "Ambulansledning"
     if (userStationGroup) {
@@ -294,15 +342,14 @@ export default function DashboardPage() {
                     </div>
                 ) : (
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {monthTasks
-                            .filter(task => task.status !== 'done')
-                            .map(task => (
-                                <TaskCard
-                                    key={task.id}
-                                    task={task}
-                                    onStatusChange={handleStatusChange}
-                                />
-                            ))}
+                        {sortTasksByPriority(monthTasks.filter(task => task.status !== 'done')).map(task => (
+                            <TaskCard
+                                key={task.id}
+                                task={task}
+                                onStatusChange={handleStatusChange}
+                                onPriorityChange={handlePriorityChange}
+                            />
+                        ))}
                     </div>
                 )}
             </section>
@@ -321,15 +368,14 @@ export default function DashboardPage() {
                     </div>
 
                     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                        {monthTasks
-                            .filter(task => task.status === 'done')
-                            .map(task => (
-                                <TaskCard
-                                    key={task.id}
-                                    task={task}
-                                    onStatusChange={handleStatusChange}
-                                />
-                            ))}
+                        {sortTasksByPriority(monthTasks.filter(task => task.status === 'done')).map(task => (
+                            <TaskCard
+                                key={task.id}
+                                task={task}
+                                onStatusChange={handleStatusChange}
+                                onPriorityChange={handlePriorityChange}
+                            />
+                        ))}
                     </div>
                 </section>
             )}

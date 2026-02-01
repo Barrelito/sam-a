@@ -112,6 +112,9 @@ export interface Task {
     instance_month: number | null; // 1-12
     instance_year: number | null;
 
+    // Priority (Eisenhower matrix)
+    priority: number | null; // 1-4 or null
+
     // Status
     status: TaskStatus;
     assigned_to: string | null;
@@ -267,6 +270,51 @@ export const ownerTypeLabels: Record<TaskOwnerType, string> = {
     station: 'Stationsuppgift',
     personal: 'Personlig',
 };
+
+// =============================================
+// Priority Configuration (Eisenhower Matrix)
+// =============================================
+
+export type TaskPriority = 1 | 2 | 3 | 4 | null;
+
+export const priorityConfig = {
+    1: {
+        label: 'Gör Direkt',
+        description: 'Brådskande & Viktigt',
+        color: 'bg-red-100 text-red-800 border-red-300',
+        badgeVariant: 'destructive' as const,
+        icon: '🔴',
+        shortLabel: 'Q1',
+        sortWeight: 1
+    },
+    2: {
+        label: 'Planera In',
+        description: 'Inte brådskande men Viktigt',
+        color: 'bg-yellow-100 text-yellow-800 border-yellow-300',
+        badgeVariant: 'default' as const,
+        icon: '🟡',
+        shortLabel: 'Q2',
+        sortWeight: 2
+    },
+    3: {
+        label: 'Delegera',
+        description: 'Brådskande men Inte viktigt',
+        color: 'bg-blue-100 text-blue-800 border-blue-300',
+        badgeVariant: 'secondary' as const,
+        icon: '🔵',
+        shortLabel: 'Q3',
+        sortWeight: 3
+    },
+    4: {
+        label: 'Eliminera',
+        description: 'Varken brådskande eller Viktigt',
+        color: 'bg-gray-100 text-gray-600 border-gray-300',
+        badgeVariant: 'outline' as const,
+        icon: '⚪',
+        shortLabel: 'Q4',
+        sortWeight: 4
+    }
+} as const;
 
 // =============================================
 // Helper Functions

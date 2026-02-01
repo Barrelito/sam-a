@@ -189,7 +189,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const allowedFields = [
         'title', 'description', 'category', 'start_month', 'end_month',
         'is_recurring_monthly', 'deadline_day', 'status', 'assigned_to', 'notes',
-        'station_id', 'station_group_id'
+        'station_id', 'station_group_id', 'priority'
     ]
 
     for (const field of allowedFields) {
