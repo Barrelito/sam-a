@@ -52,6 +52,7 @@ export function PriorityQuickSelect({
                     size={size}
                     className="h-auto p-1 hover:bg-accent"
                     title="Ändra prioritet"
+                    onClick={(e) => e.stopPropagation()} // Prevent card click
                 >
                     {loading ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
@@ -62,7 +63,7 @@ export function PriorityQuickSelect({
                     )}
                 </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-72">
+            <DropdownMenuContent align="end" className="w-72" onClick={(e) => e.stopPropagation()}>
                 <DropdownMenuLabel>Ändra prioritet (Eisenhower)</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {([1, 2, 3, 4] as const).map(p => {
