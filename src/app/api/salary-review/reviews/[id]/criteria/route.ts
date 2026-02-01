@@ -117,11 +117,12 @@ export async function PUT(
         }
 
         // Beräkna genomsnittlig rating (kan användas för löneförslag)
+        // Using differentiated scale for better salary differentiation
         const ratingValues = {
             'behover_utvecklas': 1,
-            'bra': 2,
-            'mycket_bra': 3,
-            'utmarkt': 4
+            'bra': 5,
+            'mycket_bra': 12,
+            'utmarkt': 25
         }
 
         const avgRating = assessments.reduce((sum, a) => sum + ratingValues[a.rating as keyof typeof ratingValues], 0) / assessments.length

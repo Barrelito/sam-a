@@ -104,14 +104,14 @@ export async function GET(request: Request) {
         }
 
         // Helper to calculate rating score
+        // Using differentiated scale for better salary differentiation
         const calculateAverageRating = (assessments: any[]) => {
             if (!assessments || assessments.length === 0) return 0
             const ratingMap: Record<string, number> = {
                 'behover_utvecklas': 1, 'needs_improvement': 1,
-                'acceptabel': 2, 'acceptable': 2,
-                'bra': 3, 'good': 3,
-                'mycket_bra': 4, 'very_good': 4,
-                'utmarkt': 5, 'excellent': 5
+                'bra': 5, 'good': 5,
+                'mycket_bra': 12, 'very_good': 12,
+                'utmarkt': 25, 'excellent': 25
             }
             // Filter out 0/undefined
             const ratings = assessments.map(a => ratingMap[a.rating] || 0).filter(r => r > 0)

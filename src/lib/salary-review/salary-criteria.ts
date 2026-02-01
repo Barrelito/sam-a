@@ -30,12 +30,13 @@ export const RATING_COLORS: Record<CriteriaRating, string> = {
     'utmarkt': 'text-green-600 bg-green-50 border-green-200'
 }
 
-// Numerisk mappning för enklare löneberäkning (Skala 1-5)
+// Numerisk mappning för löneberäkning - differentierad skala för bättre lönespridning
+// UI-labels (behöver utvecklas, bra, mycket bra, utmärkt) förblir desamma
 export const NUMERIC_RATING_VALUES: Record<CriteriaRating, number> = {
-    'behover_utvecklas': 1,
-    'bra': 3,
-    'mycket_bra': 4,
-    'utmarkt': 5
+    'behover_utvecklas': 1,    // Basnivå
+    'bra': 5,                  // 5× basnivån - acceptabel prestation
+    'mycket_bra': 12,          // 2.4× ökning - stark prestation
+    'utmarkt': 25              // ~2× ökning - exceptionell prestation
 }
 
 // =============================================
