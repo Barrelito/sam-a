@@ -22,7 +22,17 @@ interface Newsletter {
     station: {
         id: string
         name: string
-    }
+    } | null
+    station_group: {
+        id: string
+        name: string
+        members: {
+            station: {
+                id: string
+                name: string
+            }
+        }[]
+    } | null
 }
 
 export default function VeckobrevPage() {
@@ -48,7 +58,12 @@ export default function VeckobrevPage() {
 
                 // Get station_id from first newsletter if available
                 if (data.newsletters && data.newsletters.length > 0) {
-                    setStationId(data.newsletters[0].station.id)
+                    const firstNewsletter = data.newsletters[0]
+                    if (firstNewsletter.station) {
+                        setStationId(firstNewsletter.station.id)
+                    } else if (firstNewsletter.station_group?.members?.[0]) {
+                        setStationId(firstNewsletter.station_group.members[0].station.id)
+                    }
                 }
             }
         } catch (error) {
@@ -217,7 +232,8 @@ export default function VeckobrevPage() {
                                         </Badge>
                                     </div>
                                     <CardDescription>
-                                        {newsletter.station.name} • {newsletter.year}
+                                        {newsletter.station?.name ||
+                                            (newsletter.station_group ? `${newsletter.station_group.name} (${newsletter.station_group.members?.map(m => m.station?.name).filter(Boolean).join(', ')})` : 'Okänd station')} • {newsletter.year}
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent>
