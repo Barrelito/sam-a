@@ -82,6 +82,25 @@ export default function ChefstodPage() {
                         </CardContent>
                     </Card>
                 </Link>
+
+                <Link href="/chefstod/veckobrev" className="block">
+                    <Card className="h-full hover:shadow-lg transition-all border-l-4 border-l-blue-500 cursor-pointer">
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <FileText className="h-5 w-5 text-blue-500" />
+                                Veckobrev
+                            </CardTitle>
+                            <CardDescription>
+                                Skapa professionella veckobrev med AI-assistans
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <Button variant="secondary" className="w-full">
+                                Öppna verktyg
+                            </Button>
+                        </CardContent>
+                    </Card>
+                </Link>
             </div>
 
             <div className="flex items-center gap-2 mt-8 mb-4">
