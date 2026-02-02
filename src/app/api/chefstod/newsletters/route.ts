@@ -127,8 +127,8 @@ export async function POST(req: Request) {
                 .in('station_id', (userStations || []).map(us => us.station_id))
 
             // Deduplicate groups
-            const uniqueGroups = userGroups?.reduce((acc: any[], curr) => {
-                if (!acc.find(g => g.station_group?.id === curr.station_group?.id)) {
+            const uniqueGroups = userGroups?.reduce((acc: any[], curr: any) => {
+                if (!acc.find((g: any) => g.id === curr.id)) {
                     acc.push(curr)
                 }
                 return acc
