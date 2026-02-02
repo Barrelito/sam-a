@@ -91,8 +91,8 @@ export async function POST(
 
         await browser.close()
 
-        // Return PDF
-        return new NextResponse(pdf, {
+        // Return PDF (convert Uint8Array to Buffer for NextResponse)
+        return new NextResponse(Buffer.from(pdf), {
             headers: {
                 'Content-Type': 'application/pdf',
                 'Content-Disposition': `attachment; filename="veckobrev-v${newsletter.week_number}-${newsletter.year}.pdf"`
