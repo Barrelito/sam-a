@@ -24,7 +24,14 @@ export async function POST(
             .from('weekly_newsletters')
             .select(`
                 *,
-                station:stations(id, name)
+                station:stations(id, name),
+                station_group:station_groups(
+                    id,
+                    name,
+                    members:station_group_members(
+                        station:stations(id, name)
+                    )
+                )
             `)
             .eq('id', id)
             .single()
@@ -45,10 +52,19 @@ export async function POST(
         // Convert markdown to HTML (simple conversion - you can use a library like marked.js)
         const htmlContent = convertMarkdownToHTML(content)
 
+        // Create station title
+        let stationTitle = 'Station'
+        if (newsletter.station_group) {
+            const stationNames = newsletter.station_group.members?.map((m: any) => m.station?.name).filter(Boolean).join(', ') || ''
+            stationTitle = `${newsletter.station_group.name} (${stationNames})`
+        } else if (newsletter.station) {
+            stationTitle = newsletter.station.name
+        }
+
         // Create HTML template for PDF
         const html = createPDFTemplate({
             content: htmlContent,
-            stationName: newsletter.station?.name || 'Station',
+            stationName: stationTitle,
             year: newsletter.year,
             weekNumber: newsletter.week_number
         })

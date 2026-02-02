@@ -37,7 +37,17 @@ export async function GET(
         // Get newsletter
         const { data: newsletter, error: nlError } = await supabase
             .from('weekly_newsletters')
-            .select('*, station:stations(id, name)')
+            .select(`
+                *,
+                station:stations(id, name),
+                station_group:station_groups(
+                    id,
+                    name,
+                    members:station_group_members(
+                        station:stations(id, name)
+                    )
+                )
+            `)
             .eq('id', id)
             .single()
 
@@ -45,14 +55,27 @@ export async function GET(
             return NextResponse.json({ error: 'Newsletter not found' }, { status: 404 })
         }
 
-        const { year, week_number, station_id } = newsletter
+        const { year, week_number, station_id, station_group_id } = newsletter
         const weekRange = getWeekDateRange(year, week_number)
 
-        // 1. Get birthdays this week
+        // Determine which station IDs to query
+        let stationIds: string[] = []
+        if (station_id) {
+            stationIds = [station_id]
+        } else if (station_group_id && newsletter.station_group) {
+            // Get all stations in the group
+            stationIds = newsletter.station_group.members?.map((m: any) => m.station?.id).filter(Boolean) || []
+        }
+
+        if (stationIds.length === 0) {
+            return NextResponse.json({ error: 'No stations found for newsletter' }, { status: 400 })
+        }
+
+        // 1. Get birthdays this week from all stations
         const { data: employees } = await supabase
             .from('employees')
             .select('id, first_name, last_name, birthdate')
-            .eq('station_id', station_id)
+            .in('station_id', stationIds)
             .not('birthdate', 'is', null)
 
         const birthdays = employees?.filter(emp => {
@@ -65,11 +88,11 @@ export async function GET(
             date: emp.birthdate
         })) || []
 
-        // 2. Get upcoming tasks for this week
+        // 2. Get upcoming tasks for this week from all stations
         const { data: tasks } = await supabase
             .from('tasks')
             .select('id, title, due_date, category, status')
-            .eq('station_id', station_id)
+            .in('station_id', stationIds)
             .gte('due_date', weekRange.start.toISOString().split('T')[0])
             .lte('due_date', weekRange.end.toISOString().split('T')[0])
             .neq('status', 'completed')
@@ -91,7 +114,7 @@ export async function GET(
         const { data: completedTasks, count: completedCount } = await supabase
             .from('tasks')
             .select('id', { count: 'exact', head: true })
-            .eq('station_id', station_id)
+            .in('station_id', stationIds)
             .eq('status', 'completed')
             .gte('updated_at', lastWeekStart.toISOString())
             .lte('updated_at', lastWeekEnd.toISOString())
@@ -99,7 +122,7 @@ export async function GET(
         const { data: allTasks, count: totalPending } = await supabase
             .from('tasks')
             .select('id', { count: 'exact', head: true })
-            .eq('station_id', station_id)
+            .in('station_id', stationIds)
             .neq('status', 'completed')
 
         // 4. Seasonal reminders based on month

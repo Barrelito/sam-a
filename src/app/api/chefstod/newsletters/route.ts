@@ -43,6 +43,16 @@ export async function GET(req: Request) {
                     id,
                     name
                 ),
+                station_group:station_groups (
+                    id,
+                    name,
+                    members:station_group_members (
+                        station:stations (
+                            id,
+                            name
+                        )
+                    )
+                ),
                 creator:profiles!created_by (
                     id,
                     email
@@ -91,24 +101,76 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json()
-        let { station_id, year, week_number, initial_bullets } = body
+        let { station_id, station_group_id, year, week_number, initial_bullets } = body
 
-        // If station_id not provided, get user's first station
-        if (!station_id) {
+        // If neither station_id nor station_group_id provided, auto-select
+        if (!station_id && !station_group_id) {
+            // Get user's stations
             const { data: userStations } = await supabase
                 .from('user_stations')
-                .select('station_id')
+                .select('station_id, station:stations(id, name)')
                 .eq('user_id', user.id)
-                .limit(1)
 
-            if (!userStations || userStations.length === 0) {
+            // Get station groups user has access to (through their stations)
+            const { data: userGroups } = await supabase
+                .from('station_group_members')
+                .select(`
+                    station_group_id,
+                    station_group:station_groups(
+                        id,
+                        name,
+                        members:station_group_members(
+                            station:stations(id, name)
+                        )
+                    )
+                `)
+                .in('station_id', (userStations || []).map(us => us.station_id))
+
+            // Deduplicate groups
+            const uniqueGroups = userGroups?.reduce((acc: any[], curr) => {
+                if (!acc.find(g => g.station_group?.id === curr.station_group?.id)) {
+                    acc.push(curr)
+                }
+                return acc
+            }, []) || []
+
+            const totalOptions = (userStations?.length || 0) + uniqueGroups.length
+
+            if (totalOptions === 0) {
                 return NextResponse.json(
-                    { error: 'No station found for user' },
+                    { error: 'No station or station group found for user' },
                     { status: 400 }
                 )
             }
 
-            station_id = userStations[0].station_id
+            // Auto-select if only one option
+            if (totalOptions === 1) {
+                if (userStations && userStations.length === 1 && uniqueGroups.length === 0) {
+                    station_id = userStations[0].station_id
+                } else if (uniqueGroups.length === 1 && uniqueGroups[0].station_group) {
+                    station_group_id = uniqueGroups[0].station_group.id
+                }
+            } else {
+                // Multiple options, need user to select
+                return NextResponse.json(
+                    {
+                        requiresSelection: true,
+                        options: {
+                            stations: userStations?.map(us => us.station) || [],
+                            stationGroups: uniqueGroups.map(ug => ug.station_group)
+                        }
+                    },
+                    { status: 200 }
+                )
+            }
+        }
+
+        // Validate: must have exactly one (station_id OR station_group_id)
+        if ((station_id && station_group_id) || (!station_id && !station_group_id)) {
+            return NextResponse.json(
+                { error: 'Must provide either station_id or station_group_id, not both' },
+                { status: 400 }
+            )
         }
 
         // If year/week not provided, use current week
@@ -117,13 +179,19 @@ export async function POST(req: Request) {
         const finalWeek = week_number || currentWeek.week
 
         // Check if newsletter already exists for this week
-        const { data: existing } = await supabase
+        let existingQuery = supabase
             .from('weekly_newsletters')
             .select('id')
-            .eq('station_id', station_id)
             .eq('year', finalYear)
             .eq('week_number', finalWeek)
-            .single()
+
+        if (station_id) {
+            existingQuery = existingQuery.eq('station_id', station_id).is('station_group_id', null)
+        } else if (station_group_id) {
+            existingQuery = existingQuery.eq('station_group_id', station_group_id).is('station_id', null)
+        }
+
+        const { data: existing } = await existingQuery.maybeSingle()
 
         if (existing) {
             return NextResponse.json(
@@ -133,28 +201,45 @@ export async function POST(req: Request) {
         }
 
         // Create newsletter
-        const { data: newsletter, error } = await supabase
+        const insertData: any = {
+            year: finalYear,
+            week_number: finalWeek,
+            created_by: user.id,
+            raw_bullets: initial_bullets || [],
+            status: 'draft'
+        }
+
+        if (station_id) {
+            insertData.station_id = station_id
+        } else if (station_group_id) {
+            insertData.station_group_id = station_group_id
+        }
+
+        const { data: newsletter, error: createError } = await supabase
             .from('weekly_newsletters')
-            .insert({
-                station_id,
-                year: finalYear,
-                week_number: finalWeek,
-                created_by: user.id,
-                raw_bullets: [],
-                status: 'draft'
-            })
+            .insert(insertData)
             .select(`
                 *,
                 station:stations (
                     id,
                     name
+                ),
+                station_group:station_groups (
+                    id,
+                    name,
+                    members:station_group_members (
+                        station:stations (
+                            id,
+                            name
+                        )
+                    )
                 )
             `)
             .single()
 
-        if (error) {
-            console.error('Error creating newsletter:', error)
-            return NextResponse.json({ error: error.message }, { status: 500 })
+        if (createError) {
+            console.error('Error creating newsletter:', createError)
+            return NextResponse.json({ error: createError.message }, { status: 500 })
         }
 
         return NextResponse.json({ newsletter }, { status: 201 })

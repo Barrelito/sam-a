@@ -25,6 +25,16 @@ export async function GET(
                 station:stations (
                     id,
                     name
+                ),
+                station_group:station_groups (
+                    id,
+                    name,
+                    members:station_group_members (
+                        station:stations (
+                            id,
+                            name
+                        )
+                    )
                 )
             `)
             .eq('id', id)
@@ -64,7 +74,7 @@ export async function PATCH(
         const { id } = await params
 
         const body = await req.json()
-        const { raw_bullets, generated_content, final_content, status } = body
+        const { raw_bullets, generated_content, final_content, status, station_id, station_group_id } = body
 
         // Build update object
         const updates: any = {}
@@ -78,6 +88,12 @@ export async function PATCH(
             }
         }
 
+        // Allow changing station_id or station_group_id
+        if (station_id !== undefined || station_group_id !== undefined) {
+            updates.station_id = station_id
+            updates.station_group_id = station_group_id
+        }
+
         const { data: newsletter, error } = await supabase
             .from('weekly_newsletters')
             .update(updates)
@@ -87,6 +103,16 @@ export async function PATCH(
                 station:stations (
                     id,
                     name
+                ),
+                station_group:station_groups (
+                    id,
+                    name,
+                    members:station_group_members (
+                        station:stations (
+                            id,
+                            name
+                        )
+                    )
                 )
             `)
             .single()

@@ -4,6 +4,7 @@ import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, ArrowLeft, Download, Send, CheckCircle2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
@@ -23,7 +24,17 @@ interface Newsletter {
     station: {
         id: string
         name: string
-    }
+    } | null
+    station_group: {
+        id: string
+        name: string
+        members: {
+            station: {
+                id: string
+                name: string
+            }
+        }[]
+    } | null
 }
 
 export default function NewsletterEditorPage({ params }: { params: Promise<{ id: string }> }) {
@@ -42,9 +53,12 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
     const [generatedText, setGeneratedText] = useState('')
     const [exporting, setExporting] = useState(false)
     const [publishing, setPublishing] = useState(false)
+    const [availableStations, setAvailableStations] = useState<any[]>([])
+    const [availableGroups, setAvailableGroups] = useState<any[]>([])
 
     useEffect(() => {
         loadNewsletter()
+        loadAvailableOptions()
     }, [newsletterId])
 
     const loadNewsletter = async () => {
@@ -66,6 +80,75 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
             console.error('Error loading newsletter:', error)
         } finally {
             setLoading(false)
+        }
+    }
+
+    const loadAvailableOptions = async () => {
+        try {
+            // Fetch user's stations
+            const stationsRes = await fetch('/api/stations')
+            if (stationsRes.ok) {
+                const data = await stationsRes.json()
+                setAvailableStations(data.stations || [])
+            }
+
+            // Fetch available station groups
+            const groupsRes = await fetch('/api/admin/station-groups')
+            if (groupsRes.ok) {
+                const data = await groupsRes.json()
+                setAvailableGroups(data.station_groups || [])
+            }
+        } catch (error) {
+            console.error('Error loading options:', error)
+        }
+    }
+
+    const getNewsletterTitle = () => {
+        if (!newsletter) return ''
+        if (newsletter.station) {
+            return `Veckobrev för ${newsletter.station.name}`
+        } else if (newsletter.station_group) {
+            const stationNames = newsletter.station_group.members?.map(m => m.station?.name).filter(Boolean).join(', ') || ''
+            return `Veckobrev för ${newsletter.station_group.name} (${stationNames})`
+        }
+        return 'Veckobrev'
+    }
+
+    const handleChangeStationOrGroup = async (type: 'station' | 'group', id: string) => {
+        setSaving(true)
+        try {
+            const updateData: any = {}
+            if (type === 'station') {
+                updateData.station_id = id
+                updateData.station_group_id = null
+            } else {
+                updateData.station_group_id = id
+                updateData.station_id = null
+            }
+
+            const res = await fetch(`/api/chefstod/newsletters/${newsletterId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updateData)
+            })
+
+            if (res.ok) {
+                toast({
+                    title: "✓ Uppdaterat",
+                    description: "Station/område har ändrats"
+                })
+                // Reload newsletter to get updated data
+                await loadNewsletter()
+            }
+        } catch (error) {
+            console.error('Error updating station/group:', error)
+            toast({
+                variant: "destructive",
+                title: "Fel",
+                description: "Kunde inte uppdatera station/område"
+            })
+        } finally {
+            setSaving(false)
         }
     }
 
@@ -275,7 +358,38 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
                         <h1 className="text-3xl font-bold tracking-tight">
                             Vecka {newsletter.week_number}, {newsletter.year}
                         </h1>
-                        <p className="text-muted-foreground mt-1">{newsletter.station.name}</p>
+                        <div className="flex items-center gap-2 mt-2">
+                            <Select
+                                value={newsletter.station?.id || newsletter.station_group?.id}
+                                onValueChange={(value) => {
+                                    const isGroup = availableGroups.some((g: any) => g.id === value)
+                                    handleChangeStationOrGroup(isGroup ? 'group' : 'station', value)
+                                }}
+                            >
+                                <SelectTrigger className="w-[400px]">
+                                    <span>
+                                        {newsletter.station && `📍 ${newsletter.station.name}`}
+                                        {newsletter.station_group && `🏢 ${newsletter.station_group.name}`}
+                                        {!newsletter.station && !newsletter.station_group && "Välj station eller område"}
+                                    </span>
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {availableStations.map((station: any) => (
+                                        <SelectItem key={station.id} value={station.id}>
+                                            📍 {station.name}
+                                        </SelectItem>
+                                    ))}
+                                    {availableGroups.length > 0 && availableStations.length > 0 && (
+                                        <div className="border-t my-1" />
+                                    )}
+                                    {availableGroups.map((group: any) => (
+                                        <SelectItem key={group.id} value={group.id}>
+                                            🏢 {group.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                     <Badge variant={newsletter.status === 'published' ? 'default' : 'secondary'}>
                         {newsletter.status === 'published' ? 'Publicerad' : 'Utkast'}
