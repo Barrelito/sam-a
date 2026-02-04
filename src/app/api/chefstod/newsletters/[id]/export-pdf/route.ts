@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import puppeteer from 'puppeteer'
+import puppeteer from 'puppeteer-core'
+import chromium from '@sparticuz/chromium'
 
 // POST /api/chefstod/newsletters/[id]/export-pdf
 export async function POST(
@@ -69,10 +70,19 @@ export async function POST(
             weekNumber: newsletter.week_number
         })
 
-        // Launch Puppeteer and generate PDF
+        // Determine if running in development or production
+        const isDev = process.env.NODE_ENV === 'development'
+
+        // Launch Puppeteer with appropriate config for environment
         const browser = await puppeteer.launch({
-            headless: true,
-            args: ['--no-sandbox', '--disable-setuid-sandbox']
+            args: isDev
+                ? ['--no-sandbox', '--disable-setuid-sandbox']
+                : chromium.args,
+            defaultViewport: chromium.defaultViewport,
+            executablePath: isDev
+                ? undefined // Use local Chrome in development
+                : await chromium.executablePath(),
+            headless: chromium.headless
         })
 
         const page = await browser.newPage()
