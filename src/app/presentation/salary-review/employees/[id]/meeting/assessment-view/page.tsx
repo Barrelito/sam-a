@@ -53,7 +53,7 @@ async function getEmployeeMeetingData(employeeId: string) {
         console.log('Criteria assessments:', criteriaAssessments, criteriaError)
 
         // Fetch particularly skillful assessments (only for VUB and SSK)
-        let particularlySkillfulAssessments = []
+        let particularlySkillfulAssessments: Array<{ is_met: boolean }> = []
         if (employee.category === 'VUB' || employee.category === 'SSK') {
             const { data: psAssessments } = await supabase
                 .from('particularly_skillful_assessments')
