@@ -361,24 +361,28 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
             })
 
             const imgData = canvas.toDataURL('image/png')
-            const pdfWidth = pdf.internal.pageSize.getWidth()
-            const pdfHeight = pdf.internal.pageSize.getHeight()
-            const imgWidth = pdfWidth
-            const imgHeight = (canvas.height * pdfWidth) / canvas.width
+            const pageWidth = pdf.internal.pageSize.getWidth()
+            const pageHeight = pdf.internal.pageSize.getHeight()
+            const marginTop = 10 // 10mm top margin
+            const marginBottom = 10 // 10mm bottom margin
+            const contentHeight = pageHeight - marginTop - marginBottom
+
+            const imgWidth = pageWidth
+            const imgHeight = (canvas.height * pageWidth) / canvas.width
 
             let heightLeft = imgHeight
-            let position = 0
+            let position = marginTop
 
             // Add first page
             pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-            heightLeft -= pdfHeight
+            heightLeft -= contentHeight
 
             // Add additional pages if content exceeds one page
             while (heightLeft > 0) {
-                position = heightLeft - imgHeight
+                position = marginTop - (imgHeight - heightLeft)
                 pdf.addPage()
                 pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-                heightLeft -= pdfHeight
+                heightLeft -= contentHeight
             }
 
             pdf.save(`veckobrev-v${newsletter?.week_number}-${newsletter?.year}.pdf`)
