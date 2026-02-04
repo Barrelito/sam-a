@@ -287,10 +287,10 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
             // Convert markdown to HTML
             const convertMarkdownToHTML = (text: string): string => {
                 return text
-                    // Headers
-                    .replace(/^### (.+)$/gm, '<h3 style="font-size: 16px; font-weight: 600; color: #1f2937; margin: 20px 0 12px 0; padding-left: 12px; border-left: 3px solid #3b82f6;">$1</h3>')
-                    .replace(/^## (.+)$/gm, '<h2 style="font-size: 20px; font-weight: 700; color: #111827; margin: 28px 0 14px 0;">$1</h2>')
-                    .replace(/^# (.+)$/gm, '<h1 style="font-size: 24px; font-weight: 700; color: #111827; margin: 36px 0 18px 0;">$1</h1>')
+                    // Headers - reduced bottom margins for tighter layout
+                    .replace(/^### (.+)$/gm, '<h3 style="font-size: 16px; font-weight: 600; color: #1f2937; margin: 16px 0 6px 0; padding-left: 12px; border-left: 3px solid #3b82f6;">$1</h3>')
+                    .replace(/^## (.+)$/gm, '<h2 style="font-size: 20px; font-weight: 700; color: #111827; margin: 24px 0 8px 0;">$1</h2>')
+                    .replace(/^# (.+)$/gm, '<h1 style="font-size: 24px; font-weight: 700; color: #111827; margin: 28px 0 10px 0;">$1</h1>')
                     // Bold
                     .replace(/\*\*(.+?)\*\*/g, '<strong style="font-weight: 600; color: #111827;">$1</strong>')
                     // Italic
@@ -365,6 +365,7 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
             const pageHeight = pdf.internal.pageSize.getHeight()
             const marginTop = 10 // 10mm top margin
             const marginBottom = 10 // 10mm bottom margin
+            const marginSide = 10 // 10mm left/right margin
             const contentHeight = pageHeight - marginTop - marginBottom
 
             const imgWidth = pageWidth
@@ -376,10 +377,12 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
             // Add first page
             pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
             heightLeft -= contentHeight
-            // Add white masks for clean margins
+            // Add white masks for clean margins (top, bottom, left, right)
             pdf.setFillColor(255, 255, 255)
-            pdf.rect(0, 0, pageWidth, marginTop, 'F')
-            pdf.rect(0, pageHeight - marginBottom, pageWidth, marginBottom, 'F')
+            pdf.rect(0, 0, pageWidth, marginTop, 'F') // Top
+            pdf.rect(0, pageHeight - marginBottom, pageWidth, marginBottom, 'F') // Bottom
+            pdf.rect(0, 0, marginSide, pageHeight, 'F') // Left
+            pdf.rect(pageWidth - marginSide, 0, marginSide, pageHeight, 'F') // Right
 
             // Add additional pages if content exceeds one page
             while (heightLeft > 0) {
@@ -387,10 +390,12 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
                 pdf.addPage()
                 pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
                 heightLeft -= contentHeight
-                // Add white masks for clean margins
+                // Add white masks for clean margins (top, bottom, left, right)
                 pdf.setFillColor(255, 255, 255)
-                pdf.rect(0, 0, pageWidth, marginTop, 'F')
-                pdf.rect(0, pageHeight - marginBottom, pageWidth, marginBottom, 'F')
+                pdf.rect(0, 0, pageWidth, marginTop, 'F') // Top
+                pdf.rect(0, pageHeight - marginBottom, pageWidth, marginBottom, 'F') // Bottom
+                pdf.rect(0, 0, marginSide, pageHeight, 'F') // Left
+                pdf.rect(pageWidth - marginSide, 0, marginSide, pageHeight, 'F') // Right
             }
 
             pdf.save(`veckobrev-v${newsletter?.week_number}-${newsletter?.year}.pdf`)
