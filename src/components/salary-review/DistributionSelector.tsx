@@ -68,9 +68,7 @@ export default function DistributionSelector({
                     </label>
                     <Select value={currentValue} onValueChange={handleChange}>
                         <SelectTrigger className="w-full max-w-md">
-                            <SelectValue>
-                                {getDisplayName()}
-                            </SelectValue>
+                            <span>{getDisplayName()}</span>
                         </SelectTrigger>
                         <SelectContent>
                             {stationGroups.length > 0 && (
