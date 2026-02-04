@@ -61,6 +61,28 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
         loadAvailableOptions()
     }, [newsletterId])
 
+    // Debounced auto-save for bullets
+    useEffect(() => {
+        if (!newsletter) return // Don't save if newsletter hasn't loaded yet
+
+        const timeoutId = setTimeout(async () => {
+            setSaving(true)
+            try {
+                await fetch(`/api/chefstod/newsletters/${newsletterId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ raw_bullets: bullets })
+                })
+            } catch (error) {
+                console.error('Error saving bullets:', error)
+            } finally {
+                setSaving(false)
+            }
+        }, 1000) // Wait 1 second after last change before saving
+
+        return () => clearTimeout(timeoutId)
+    }, [bullets, newsletterId, newsletter])
+
     const loadNewsletter = async () => {
         try {
             const res = await fetch(`/api/chefstod/newsletters/${newsletterId}`)
@@ -152,22 +174,9 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
         }
     }
 
-    const handleBulletsChange = async (newBullets: string[]) => {
+    const handleBulletsChange = (newBullets: string[]) => {
+        // Just update state - auto-save handled by useEffect with debouncing
         setBullets(newBullets)
-
-        // Auto-save bullets
-        setSaving(true)
-        try {
-            await fetch(`/api/chefstod/newsletters/${newsletterId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ raw_bullets: newBullets })
-            })
-        } catch (error) {
-            console.error('Error saving bullets:', error)
-        } finally {
-            setSaving(false)
-        }
     }
 
     const handleGenerate = async () => {
