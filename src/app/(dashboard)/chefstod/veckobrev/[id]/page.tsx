@@ -283,37 +283,69 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
     const handleExportPDF = async () => {
         setExporting(true)
         try {
-            // Dynamic import to reduce bundle size
-            const jsPDF = (await import('jspdf')).default
-            const html2canvas = (await import('html2canvas')).default
+            // @ts-ignore - pdfmake types
+            const pdfMake = await import('pdfmake/build/pdfmake')
+            // @ts-ignore - pdfmake types  
+            const pdfFonts = await import('pdfmake/build/vfs_fonts')
 
-            // Convert markdown to HTML
-            const convertMarkdownToHTML = (text: string): string => {
-                return text
-                    // Headers - reduced bottom margins for tighter layout
-                    .replace(/^### (.+)$/gm, '<h3 style="font-size: 16px; font-weight: 600; color: #1f2937; margin: 16px 0 6px 0; padding-left: 12px; border-left: 3px solid #3b82f6;">$1</h3>')
-                    .replace(/^## (.+)$/gm, '<h2 style="font-size: 20px; font-weight: 700; color: #111827; margin: 24px 0 8px 0;">$1</h2>')
-                    .replace(/^# (.+)$/gm, '<h1 style="font-size: 24px; font-weight: 700; color: #111827; margin: 28px 0 10px 0;">$1</h1>')
-                    // Bold
-                    .replace(/\*\*(.+?)\*\*/g, '<strong style="font-weight: 600; color: #111827;">$1</strong>')
-                    // Italic
-                    .replace(/\*(.+?)\*/g, '<em style="font-style: italic;">$1</em>')
-                    // Line breaks
-                    .replace(/\n\n/g, '</p><p style="margin: 12px 0; line-height: 1.7; color: #374151;">')
-                    .replace(/\n/g, '<br/>')
+            // Set up fonts
+            if (pdfMake.default) {
+                pdfMake.default.vfs = pdfFonts.default || pdfFonts
             }
 
-            // Create a temporary container with the newsletter content
-            const tempDiv = document.createElement('div')
-            tempDiv.style.position = 'absolute'
-            tempDiv.style.left = '-9999px'
-            tempDiv.style.width = '210mm' // A4 width
-            tempDiv.style.padding = '0 10mm' // Side padding to match PDF margins
-            tempDiv.style.fontFamily = 'Inter, system-ui, -apple-system, sans-serif'
-            tempDiv.style.background = 'white'
-            tempDiv.style.boxSizing = 'border-box'
+            // Parse markdown to pdfmake content
+            const parseMarkdownToPdfContent = (text: string): any[] => {
+                const content: any[] = []
+                const lines = text.split('\n')
 
-            // Create station title
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i]
+
+                    // Skip empty lines
+                    if (!line.trim()) continue
+
+                    // H3 headers
+                    if (line.startsWith('### ')) {
+                        content.push({
+                            text: line.substring(4),
+                            style: 'h3',
+                            margin: [0, 8, 0, 4]
+                        })
+                    }
+                    // H2 headers
+                    else if (line.startsWith('## ')) {
+                        content.push({
+                            text: line.substring(3),
+                            style: 'h2',
+                            margin: [0, 12, 0, 6]
+                        })
+                    }
+                    // H1 headers
+                    else if (line.startsWith('# ')) {
+                        content.push({
+                            text: line.substring(2),
+                            style: 'h1',
+                            margin: [0, 16, 0, 8]
+                        })
+                    }
+                    // Regular paragraphs
+                    else {
+                        // Process inline markdown (bold, italic)
+                        const processedText = line
+                            .replace(/\*\*(.+?)\*\*/g, (_, text) => text) // Remove bold markers for now
+                            .replace(/\*(.+?)\*/g, (_, text) => text) // Remove italic markers
+
+                        content.push({
+                            text: processedText,
+                            style: 'normal',
+                            margin: [0, 0, 0, 6]
+                        })
+                    }
+                }
+
+                return content
+            }
+
             let stationTitle = 'Station'
             if (newsletter?.station) {
                 stationTitle = newsletter.station.name
@@ -322,99 +354,125 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
                 stationTitle = `${newsletter.station_group.name} (${stationNames})`
             }
 
-            // Convert content to HTML
-            const htmlContent = convertMarkdownToHTML(generatedText)
+            const parsedContent = parseMarkdownToPdfContent(generatedText)
 
-            // Build modern HTML layout
-            tempDiv.innerHTML = `
-                <div style="margin-bottom: 36px;">
-                    <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 32px; text-align: center; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.07);">
-                        <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 8px 0; letter-spacing: -0.3px;">${stationTitle}</h1>
-                        <div style="font-size: 15px; opacity: 0.95; font-weight: 500;">Veckobrev • Vecka ${newsletter?.week_number}, ${newsletter?.year}</div>
-                    </div>
-                </div>
-                <div style="background: #f9fafb; padding: 28px; border-radius: 10px; margin-bottom: 24px;">
-                    <p style="margin: 0; line-height: 1.7; color: #374151;">${htmlContent}</p>
-                </div>
-                <div style="margin-top: 44px; padding-top: 20px; text-align: center; border-top: 2px solid #e5e7eb;">
-                    <div style="color: #6b7280; font-size: 11px; line-height: 1.6;">
-                        <div style="font-weight: 500; margin-bottom: 4px;">Genererat ${new Date().toLocaleDateString('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-                        <div>${stationTitle}</div>
-                    </div>
-                </div>
-            `
-
-            document.body.appendChild(tempDiv)
-
-            // Convert to canvas
-            const canvas = await html2canvas(tempDiv, {
-                scale: 2,
-                useCORS: true,
-                logging: false,
-                backgroundColor: '#ffffff'
-            })
-
-            // Remove temp div
-            document.body.removeChild(tempDiv)
-
-            // Create PDF
-            const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: 'a4'
-            })
-
-            const imgData = canvas.toDataURL('image/png')
-            const pageWidth = pdf.internal.pageSize.getWidth()
-            const pageHeight = pdf.internal.pageSize.getHeight()
-            const marginTop = 10 // 10mm top margin
-            const marginBottom = 10 // 10mm bottom margin
-            const marginSide = 10 // 10mm left/right margin
-            const contentHeight = pageHeight - marginTop - marginBottom
-            const contentWidth = pageWidth - (marginSide * 2)
-
-            // Calculate how much of the canvas fits per page (in canvas pixels)
-            const pixelsPerMm = canvas.width / 210 // A4 is 210mm wide
-            const contentHeightPx = contentHeight * pixelsPerMm
-            const totalPages = Math.ceil(canvas.height / contentHeightPx)
-
-            // Create each page by slicing the canvas
-            for (let page = 0; page < totalPages; page++) {
-                if (page > 0) pdf.addPage()
-
-                // Calculate which portion of canvas to use for this page
-                const sourceY = page * contentHeightPx
-                const sourceHeight = Math.min(contentHeightPx, canvas.height - sourceY)
-
-                // Create a temporary canvas for this page's slice
-                const pageCanvas = document.createElement('canvas')
-                pageCanvas.width = canvas.width
-                pageCanvas.height = sourceHeight
-                const ctx = pageCanvas.getContext('2d')
-                if (ctx) {
-                    ctx.fillStyle = '#ffffff'
-                    ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height)
-                    ctx.drawImage(
-                        canvas,
-                        0, sourceY, canvas.width, sourceHeight, // Source
-                        0, 0, canvas.width, sourceHeight // Destination
-                    )
+            // Define PDF document
+            const docDefinition = {
+                pageSize: 'A4',
+                pageMargins: [40, 40, 40, 40],
+                content: [
+                    // Header with gradient-style background
+                    {
+                        table: {
+                            widths: ['*'],
+                            body: [[{
+                                text: stationTitle,
+                                style: 'header',
+                                fillColor: '#3b82f6',
+                                color: 'white',
+                                alignment: 'center',
+                                margin: [10, 10, 10, 5]
+                            }], [{
+                                text: `Veckobrev • Vecka ${newsletter?.week_number}, ${newsletter?.year}`,
+                                style: 'subheader',
+                                fillColor: '#3b82f6',
+                                color: 'white',
+                                alignment: 'center',
+                                margin: [10, 0, 10, 10]
+                            }]]
+                        },
+                        layout: 'noBorders',
+                        margin: [0, 0, 0, 20]
+                    },
+                    // Content box
+                    {
+                        table: {
+                            widths: ['*'],
+                            body: [[{
+                                stack: parsedContent,
+                                fillColor: '#f9fafb',
+                                margin: [15, 15, 15, 15]
+                            }]]
+                        },
+                        layout: {
+                            hLineWidth: () => 0,
+                            vLineWidth: () => 0,
+                            paddingLeft: () => 0,
+                            paddingRight: () => 0,
+                            paddingTop: () => 0,
+                            paddingBottom: () => 0
+                        },
+                        margin: [0, 0, 0, 20]
+                    },
+                    // Footer
+                    {
+                        canvas: [{
+                            type: 'line',
+                            x1: 0, y1: 0,
+                            x2: 515, y2: 0,
+                            lineWidth: 1,
+                            lineColor: '#e5e7eb'
+                        }],
+                        margin: [0, 10, 0, 10]
+                    },
+                    {
+                        text: `Genererat ${new Date().toLocaleDateString('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' })}`,
+                        style: 'footer',
+                        alignment: 'center'
+                    },
+                    {
+                        text: stationTitle,
+                        style: 'footer',
+                        alignment: 'center'
+                    }
+                ],
+                styles: {
+                    header: {
+                        fontSize: 18,
+                        bold: true
+                    },
+                    subheader: {
+                        fontSize: 11,
+                        bold: false
+                    },
+                    h1: {
+                        fontSize: 16,
+                        bold: true,
+                        color: '#111827'
+                    },
+                    h2: {
+                        fontSize: 14,
+                        bold: true,
+                        color: '#111827'
+                    },
+                    h3: {
+                        fontSize: 12,
+                        bold: true,
+                        color: '#1f2937'
+                    },
+                    normal: {
+                        fontSize: 10,
+                        lineHeight: 1.4,
+                        color: '#374151'
+                    },
+                    footer: {
+                        fontSize: 8,
+                        color: '#6b7280'
+                    }
+                },
+                defaultStyle: {
+                    font: 'Roboto'
                 }
-
-                // Calculate the height this slice will have on the PDF page
-                const sliceImgHeight = (sourceHeight * contentWidth) / canvas.width
-
-                // Add the slice to PDF
-                const sliceData = pageCanvas.toDataURL('image/png')
-                pdf.addImage(sliceData, 'PNG', marginSide, marginTop, contentWidth, sliceImgHeight)
             }
 
-            pdf.save(`veckobrev-v${newsletter?.week_number}-${newsletter?.year}.pdf`)
+            // Generate and download PDF
+            pdfMake.default.createPdf(docDefinition).download(`veckobrev-v${newsletter?.week_number}-${newsletter?.year}.pdf`)
 
             toast({
                 title: "✓ PDF exporterad!",
                 description: "Filen har laddats ner"
             })
+
         } catch (error: any) {
             console.error('Error exporting PDF:', error)
             toast({
