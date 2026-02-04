@@ -305,6 +305,7 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
             tempDiv.style.position = 'absolute'
             tempDiv.style.left = '-9999px'
             tempDiv.style.width = '210mm' // A4 width
+            tempDiv.style.padding = '0 10mm' // Side padding to match PDF margins
             tempDiv.style.fontFamily = 'Inter, system-ui, -apple-system, sans-serif'
             tempDiv.style.background = 'white'
             tempDiv.style.boxSizing = 'border-box'
