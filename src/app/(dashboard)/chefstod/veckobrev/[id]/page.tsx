@@ -280,24 +280,68 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
     const handleExportPDF = async () => {
         setExporting(true)
         try {
-            const response = await fetch(`/api/chefstod/newsletters/${newsletterId}/export-pdf`, {
-                method: 'POST'
-            })
+            // Dynamic import to reduce bundle size
+            const jsPDF = (await import('jspdf')).default
+            const html2canvas = (await import('html2canvas')).default
 
-            if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.error)
+            // Create a temporary container with the newsletter content
+            const tempDiv = document.createElement('div')
+            tempDiv.style.position = 'absolute'
+            tempDiv.style.left = '-9999px'
+            tempDiv.style.width = '210mm' // A4 width
+            tempDiv.style.padding = '20mm'
+            tempDiv.style.fontFamily = 'Inter, sans-serif'
+            tempDiv.style.lineHeight = '1.6'
+            tempDiv.style.color = '#1f2937'
+            tempDiv.style.background = 'white'
+
+            // Create station title
+            let stationTitle = 'Station'
+            if (newsletter?.station) {
+                stationTitle = newsletter.station.name
+            } else if (newsletter?.station_group) {
+                const stationNames = newsletter.station_group.members?.map((m: any) => m.station?.name).filter(Boolean).join(', ') || ''
+                stationTitle = `${newsletter.station_group.name} (${stationNames})`
             }
 
-            const blob = await response.blob()
-            const url = window.URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = url
-            a.download = `veckobrev-v${newsletter?.week_number}-${newsletter?.year}.pdf`
-            document.body.appendChild(a)
-            a.click()
-            window.URL.revokeObjectURL(url)
-            document.body.removeChild(a)
+            // Build HTML with header and content
+            tempDiv.innerHTML = `
+                <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 40px; text-align: center; margin-bottom: 40px; border-radius: 8px;">
+                    <h1 style="font-size: 32px; font-weight: 700; margin: 0 0 8px 0;">${stationTitle}</h1>
+                    <div style="font-size: 18px; opacity: 0.9;">Veckobrev • Vecka ${newsletter?.week_number}, ${newsletter?.year}</div>
+                </div>
+                <div style="white-space: pre-wrap;">${generatedText}</div>
+                <div style="margin-top: 60px; padding-top: 30px; text-align: center; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px;">
+                    Genererat ${new Date().toLocaleDateString('sv-SE')} • ${stationTitle}
+                </div>
+            `
+
+            document.body.appendChild(tempDiv)
+
+            // Convert to canvas
+            const canvas = await html2canvas(tempDiv, {
+                scale: 2,
+                useCORS: true,
+                logging: false,
+                backgroundColor: '#ffffff'
+            })
+
+            // Remove temp div
+            document.body.removeChild(tempDiv)
+
+            // Create PDF
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4'
+            })
+
+            const imgData = canvas.toDataURL('image/png')
+            const pdfWidth = pdf.internal.pageSize.getWidth()
+            const pdfHeight = (canvas.height * pdfWidth) / canvas.width
+
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight)
+            pdf.save(`veckobrev-v${newsletter?.week_number}-${newsletter?.year}.pdf`)
 
             toast({
                 title: "✓ PDF exporterad!",
