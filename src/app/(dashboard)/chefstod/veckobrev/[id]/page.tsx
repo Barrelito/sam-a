@@ -368,35 +368,42 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
             const marginBottom = 10 // 10mm bottom margin
             const marginSide = 10 // 10mm left/right margin
             const contentHeight = pageHeight - marginTop - marginBottom
+            const contentWidth = pageWidth - (marginSide * 2)
 
-            const imgWidth = pageWidth
-            const imgHeight = (canvas.height * pageWidth) / canvas.width
+            // Calculate how much of the canvas fits per page (in canvas pixels)
+            const pixelsPerMm = canvas.width / 210 // A4 is 210mm wide
+            const contentHeightPx = contentHeight * pixelsPerMm
+            const totalPages = Math.ceil(canvas.height / contentHeightPx)
 
-            let heightLeft = imgHeight
-            let position = marginTop
+            // Create each page by slicing the canvas
+            for (let page = 0; page < totalPages; page++) {
+                if (page > 0) pdf.addPage()
 
-            // Add first page
-            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-            heightLeft -= contentHeight
-            // Add white masks for clean margins (top, bottom, left, right)
-            pdf.setFillColor(255, 255, 255)
-            pdf.rect(0, 0, pageWidth, marginTop, 'F') // Top
-            pdf.rect(0, pageHeight - marginBottom, pageWidth, marginBottom, 'F') // Bottom
-            pdf.rect(0, 0, marginSide, pageHeight, 'F') // Left
-            pdf.rect(pageWidth - marginSide, 0, marginSide, pageHeight, 'F') // Right
+                // Calculate which portion of canvas to use for this page
+                const sourceY = page * contentHeightPx
+                const sourceHeight = Math.min(contentHeightPx, canvas.height - sourceY)
 
-            // Add additional pages if content exceeds one page
-            while (heightLeft > 0) {
-                position = marginTop - (imgHeight - heightLeft)
-                pdf.addPage()
-                pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
-                heightLeft -= contentHeight
-                // Add white masks for clean margins (top, bottom, left, right)
-                pdf.setFillColor(255, 255, 255)
-                pdf.rect(0, 0, pageWidth, marginTop, 'F') // Top
-                pdf.rect(0, pageHeight - marginBottom, pageWidth, marginBottom, 'F') // Bottom
-                pdf.rect(0, 0, marginSide, pageHeight, 'F') // Left
-                pdf.rect(pageWidth - marginSide, 0, marginSide, pageHeight, 'F') // Right
+                // Create a temporary canvas for this page's slice
+                const pageCanvas = document.createElement('canvas')
+                pageCanvas.width = canvas.width
+                pageCanvas.height = sourceHeight
+                const ctx = pageCanvas.getContext('2d')
+                if (ctx) {
+                    ctx.fillStyle = '#ffffff'
+                    ctx.fillRect(0, 0, pageCanvas.width, pageCanvas.height)
+                    ctx.drawImage(
+                        canvas,
+                        0, sourceY, canvas.width, sourceHeight, // Source
+                        0, 0, canvas.width, sourceHeight // Destination
+                    )
+                }
+
+                // Calculate the height this slice will have on the PDF page
+                const sliceImgHeight = (sourceHeight * contentWidth) / canvas.width
+
+                // Add the slice to PDF
+                const sliceData = pageCanvas.toDataURL('image/png')
+                pdf.addImage(sliceData, 'PNG', marginSide, marginTop, contentWidth, sliceImgHeight)
             }
 
             pdf.save(`veckobrev-v${newsletter?.week_number}-${newsletter?.year}.pdf`)
