@@ -249,11 +249,13 @@ export async function GET(request: Request) {
             budgets: {
                 vardforbundet: {
                     ...vfBudget,
-                    total_proposed: vfEmployees.reduce((sum, e: any) => sum + e.proposed_increase, 0)
+                    // Only count variable points-based increases, NOT skilled bonus (separate budget)
+                    total_proposed: vfEmployees.reduce((sum, e: any) => sum + (e.points_part || 0), 0)
                 },
                 kommunal: {
                     ...komBudget,
-                    total_proposed: komEmployees.reduce((sum, e: any) => sum + e.proposed_increase, 0)
+                    // Only count variable points-based increases, NOT guaranteed (separate/fixed)
+                    total_proposed: komEmployees.reduce((sum, e: any) => sum + (e.variable_part || 0), 0)
                 }
             },
             employees: employeeData
