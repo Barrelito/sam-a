@@ -55,33 +55,14 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
     const [publishing, setPublishing] = useState(false)
     const [availableStations, setAvailableStations] = useState<any[]>([])
     const [availableGroups, setAvailableGroups] = useState<any[]>([])
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
     useEffect(() => {
         loadNewsletter()
         loadAvailableOptions()
     }, [newsletterId])
 
-    // Debounced auto-save for bullets
-    useEffect(() => {
-        if (!newsletter) return // Don't save if newsletter hasn't loaded yet
 
-        const timeoutId = setTimeout(async () => {
-            setSaving(true)
-            try {
-                await fetch(`/api/chefstod/newsletters/${newsletterId}`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ raw_bullets: bullets })
-                })
-            } catch (error) {
-                console.error('Error saving bullets:', error)
-            } finally {
-                setSaving(false)
-            }
-        }, 1000) // Wait 1 second after last change before saving
-
-        return () => clearTimeout(timeoutId)
-    }, [bullets, newsletterId, newsletter])
 
     const loadNewsletter = async () => {
         try {
@@ -91,6 +72,7 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
                 setNewsletter(data.newsletter)
                 setBullets(data.newsletter.raw_bullets || [])
                 setGeneratedText(data.newsletter.final_content || data.newsletter.generated_content || '')
+                setHasUnsavedChanges(false)
             } else {
                 toast({
                     variant: "destructive",
@@ -175,8 +157,33 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
     }
 
     const handleBulletsChange = (newBullets: string[]) => {
-        // Just update state - auto-save handled by useEffect with debouncing
         setBullets(newBullets)
+        setHasUnsavedChanges(true)
+    }
+
+    const handleSaveBullets = async () => {
+        setSaving(true)
+        try {
+            await fetch(`/api/chefstod/newsletters/${newsletterId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ raw_bullets: bullets })
+            })
+            setHasUnsavedChanges(false)
+            toast({
+                title: "✓ Sparat!",
+                description: "Dina punkter har sparats"
+            })
+        } catch (error) {
+            console.error('Error saving bullets:', error)
+            toast({
+                variant: "destructive",
+                title: "Fel",
+                description: "Kunde inte spara punkterna"
+            })
+        } finally {
+            setSaving(false)
+        }
     }
 
     const handleGenerate = async () => {
@@ -445,7 +452,30 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
                 <div className="space-y-4">
                     <Card>
                         <CardHeader>
-                            <CardTitle>Innehåll</CardTitle>
+                            <div className="flex items-center justify-between">
+                                <CardTitle>Innehåll</CardTitle>
+                                <div className="flex items-center gap-2">
+                                    {hasUnsavedChanges && (
+                                        <Badge variant="secondary" className="text-xs">
+                                            Osparade ändringar
+                                        </Badge>
+                                    )}
+                                    <Button
+                                        onClick={handleSaveBullets}
+                                        disabled={saving || !hasUnsavedChanges}
+                                        size="sm"
+                                    >
+                                        {saving ? (
+                                            <>
+                                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                Sparar...
+                                            </>
+                                        ) : (
+                                            'Spara'
+                                        )}
+                                    </Button>
+                                </div>
+                            </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <BulletEditor
