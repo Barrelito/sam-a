@@ -10,7 +10,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { CheckCircle2, Circle, Eye, Lightbulb, MessageSquare } from 'lucide-react'
+import { CheckCircle2, Circle, Eye, Lightbulb, MessageSquare, Monitor } from 'lucide-react'
 import { MEETING_STRUCTURE, CONVERSATION_TEMPLATES, MEETING_CHECKLIST } from '@/lib/salary-review/meeting-guide'
 import { SALARY_CRITERIA, RATING_DISPLAY_NAMES, RATING_COLORS, NUMERIC_RATING_VALUES } from '@/lib/salary-review/salary-criteria'
 import type { SalaryCriteriaAssessment, ParticularlySkillfulAssessment, EmployeeWithDetails } from '@/lib/salary-review/types'
@@ -102,63 +102,93 @@ export default function MeetingGuideDisplay({
                     </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    {/* Numeric Overview with Average */}
-                    <div className="mb-6">
-                        <div className="flex items-center justify-between mb-4">
-                            <h4 className="font-medium">Bedömningsresultat - Numerisk skala</h4>
-                            <Badge variant="outline" className="text-lg px-3 py-1">
-                                Genomsnitt: {(() => {
-                                    const ratings = criteriaAssessments.map(a => a.rating)
-                                    const average = ratings.length > 0
-                                        ? ratings.reduce((acc, rating) => acc + NUMERIC_RATING_VALUES[rating as keyof typeof NUMERIC_RATING_VALUES], 0) / ratings.length
-                                        : 0
-                                    return average.toFixed(2)
-                                })()} / 5.0
-                            </Badge>
-                        </div>
+                    {/* Visual Assessment Scale */}
+                    <div className="mb-8">
+                        <h4 className="font-medium mb-4">Bedömningsresultat - visuell skala</h4>
 
-                        {/* Rating Scale Guide */}
-                        <div className="bg-gradient-to-r from-red-50 via-yellow-50 via-green-50 to-blue-50 p-4 rounded-lg border mb-4">
-                            <div className="grid grid-cols-4 gap-2 text-center text-sm">
-                                <div>
-                                    <div className="font-bold text-2xl text-red-700">1</div>
-                                    <div className="text-xs text-red-600">Behöver utvecklas</div>
-                                </div>
-                                <div>
-                                    <div className="font-bold text-2xl text-yellow-700">3</div>
-                                    <div className="text-xs text-yellow-600">Bra</div>
-                                </div>
-                                <div>
-                                    <div className="font-bold text-2xl text-green-700">4</div>
-                                    <div className="text-xs text-green-600">Mycket bra</div>
-                                </div>
-                                <div>
-                                    <div className="font-bold text-2xl text-blue-700">5</div>
-                                    <div className="text-xs text-blue-600">Utmärkt</div>
-                                </div>
-                            </div>
-                        </div>
+                        {(() => {
+                            // Calculate total score from all assessments
+                            const totalScore = criteriaAssessments.reduce((sum, assessment) => {
+                                return sum + NUMERIC_RATING_VALUES[assessment.rating as keyof typeof NUMERIC_RATING_VALUES]
+                            }, 0)
 
-                        {/* Salary Guidance Helper */}
-                        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                            <p className="text-sm text-blue-900">
-                                <strong>Vägledning:</strong> Använd genomsnittet (1-5) för att beräkna löneökning.
-                                <br />
-                                Exempel: Genomsnitt 3.5 = X kronor, 4.0 = Y kronor, 4.5 = Z kronor
-                            </p>
-                        </div>
+                            // Psychological scale with "Bra" centered at 50%:
+                            // 0-14p: 0-50% (entire left half = below "Bra")
+                            // 14p: exactly 50% ("Bra" baseline at center)
+                            // 14-21p: 50-70% (solid "Bra", clearly above center)
+                            // 21-28p: 70-85% ("Mycket bra")
+                            // 28-42p: 85-100% ("Utmärkt")
+
+                            let percentage = 0
+                            if (totalScore <= 14) {
+                                // 0-14 points → 0-50% (left half)
+                                percentage = (totalScore / 14) * 50
+                            } else if (totalScore <= 21) {
+                                // 14-21 points → 50-70% ("Bra" zone)
+                                percentage = 50 + ((totalScore - 14) / 7) * 20
+                            } else if (totalScore <= 28) {
+                                // 21-28 points → 70-85% ("Mycket bra")
+                                percentage = 70 + ((totalScore - 21) / 7) * 15
+                            } else {
+                                // 28-42 points → 85-100% ("Utmärkt")
+                                percentage = 85 + ((totalScore - 28) / 14) * 15
+                            }
+                            return (
+                                <div className="space-y-3">
+                                    {/* Color gradient bar with position indicator */}
+                                    <div className="relative h-16 rounded-lg overflow-hidden border-2 border-gray-200">
+                                        {/* Gradient background */}
+                                        <div className="absolute inset-0 bg-gradient-to-r from-red-400 via-yellow-400 via-50% via-green-400 to-blue-400"></div>
+
+                                        {/* Position indicator */}
+                                        <div
+                                            className="absolute top-0 bottom-0 w-1 bg-gray-900 shadow-lg transition-all duration-300"
+                                            style={{ left: `${percentage}%` }}
+                                        >
+                                            {/* Triangle pointer at top */}
+                                            <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[8px] border-t-gray-900"></div>
+                                            {/* Triangle pointer at bottom */}
+                                            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-b-[8px] border-b-gray-900"></div>
+                                        </div>
+                                    </div>
+
+                                    {/* Text labels positioned according to their zones */}
+                                    <div className="relative text-xs mt-2 h-8">
+                                        <div className="absolute left-[25%] -translate-x-1/2 text-red-700 font-medium text-center max-w-[20%] text-[10px] leading-tight">
+                                            Behöver<br />utvecklas
+                                        </div>
+                                        <div className="absolute left-[60%] -translate-x-1/2 text-yellow-700 font-medium text-center">
+                                            Bra
+                                        </div>
+                                        <div className="absolute left-[77.5%] -translate-x-1/2 text-green-700 font-medium text-center">
+                                            Mycket bra
+                                        </div>
+                                        <div className="absolute left-[92.5%] -translate-x-1/2 text-blue-700 font-medium text-center">
+                                            Utmärkt
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        })()}
                     </div>
 
                     {/* Particularly Skillful - Button to open dialog */}
                     {particularlySkillfulAssessments && particularlySkillfulAssessments.length > 0 && (
                         <div className="pt-4 border-t">
-                            <div className="flex items-center justify-between p-4 border-2 border-green-200 rounded-lg bg-green-50 hover:bg-green-100 transition-colors">
+                            <div className={`flex items-center justify-between p-4 border-2 rounded-lg transition-colors ${particularlySkillfulMet === particularlySkillfulTotal
+                                ? 'border-green-200 bg-green-50 hover:bg-green-100'
+                                : 'border-yellow-200 bg-yellow-50 hover:bg-yellow-100'
+                                }`}>
                                 <div className="flex-1">
                                     <h4 className="font-medium mb-1">Särskild yrkesskicklighet</h4>
                                     <div className="flex items-center gap-2">
-                                        {particularlySkillfulMet > 0 && (
+                                        {particularlySkillfulMet === particularlySkillfulTotal ? (
                                             <Badge variant="outline" className="bg-green-100 text-green-700 border-green-200">
-                                                {particularlySkillfulMet} av {particularlySkillfulTotal} uppfyllda
+                                                ✓ Alla {particularlySkillfulTotal} kriterier uppfyllda
+                                            </Badge>
+                                        ) : (
+                                            <Badge variant="outline" className="bg-yellow-100 text-yellow-700 border-yellow-200">
+                                                {particularlySkillfulMet} av {particularlySkillfulTotal} uppfyllda (ej SYS)
                                             </Badge>
                                         )}
                                     </div>
@@ -236,100 +266,248 @@ export default function MeetingGuideDisplay({
                 </CardContent>
             </Card>
 
-            {/* Meeting Structure Checklist */}
+            {/* Integrated Meeting Structure with Conversation Templates */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Samtalsstruktur</CardTitle>
+                    <CardTitle>Samtalsstruktur & Formuleringsförslag</CardTitle>
                     <CardDescription>
-                        Följ dessa steg under lönesamtalet
+                        Följ dessa steg under lönesamtalet - klicka för att se förslag på hur du kan formulera dig
                     </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <div className="space-y-4">
-                        {MEETING_STRUCTURE.steps.map((step, index) => {
-                            const stepId = `step-${index}`
-                            return (
-                                <div key={stepId} className="flex items-start gap-3 p-3 rounded-lg hover:bg-accent/50 transition-colors">
-                                    <Checkbox
-                                        id={stepId}
-                                        checked={checkedSteps[stepId] || false}
-                                        onCheckedChange={() => toggleStep(stepId)}
-                                        className="mt-1"
-                                    />
-                                    <Label htmlFor={stepId} className="cursor-pointer flex-1">
-                                        <div className={checkedSteps[stepId] ? 'line-through text-muted-foreground' : ''}>
-                                            {step}
+                    <div className="space-y-2">
+                        {/* Step 1: Klargör syftet */}
+                        <div className="border rounded-lg">
+                            <div className="flex items-start gap-3 p-3">
+                                <Checkbox
+                                    id="step-0"
+                                    checked={checkedSteps['step-0'] || false}
+                                    onCheckedChange={() => toggleStep('step-0')}
+                                    className="mt-1"
+                                />
+                                <div className="flex-1">
+                                    <Label htmlFor="step-0" className="cursor-pointer font-medium">
+                                        <div className={checkedSteps['step-0'] ? 'line-through text-muted-foreground' : ''}>
+                                            1. Klargör syftet med samtalet
                                         </div>
                                     </Label>
+                                    <Accordion type="single" collapsible className="w-full mt-2">
+                                        <AccordionItem value="suggestions-0" className="border-none">
+                                            <AccordionTrigger className="text-xs text-muted-foreground hover:text-foreground py-1">
+                                                <span className="flex items-center gap-1">
+                                                    <Lightbulb className="h-3 w-3" />
+                                                    Formuleringsförslag
+                                                </span>
+                                            </AccordionTrigger>
+                                            <AccordionContent>
+                                                <ul className="list-disc list-inside space-y-1 text-sm pl-2">
+                                                    {CONVERSATION_TEMPLATES.opening.map((template, idx) => (
+                                                        <li key={idx} className="text-muted-foreground">{template}</li>
+                                                    ))}
+                                                </ul>
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    </Accordion>
                                 </div>
-                            )
-                        })}
+                            </div>
+                        </div>
+
+                        {/* Step 2: Berätta om upplägg */}
+                        <div className="border rounded-lg">
+                            <div className="flex items-start gap-3 p-3">
+                                <Checkbox
+                                    id="step-1"
+                                    checked={checkedSteps['step-1'] || false}
+                                    onCheckedChange={() => toggleStep('step-1')}
+                                    className="mt-1"
+                                />
+                                <Label htmlFor="step-1" className="cursor-pointer flex-1 font-medium">
+                                    <div className={checkedSteps['step-1'] ? 'line-through text-muted-foreground' : ''}>
+                                        2. Berätta om samtalets upplägg och hur mycket tid ni har
+                                    </div>
+                                </Label>
+                            </div>
+                        </div>
+
+                        {/* Step 3: Redogör för bedömningsgrunder */}
+                        <div className="border rounded-lg">
+                            <div className="flex items-start gap-3 p-3">
+                                <Checkbox
+                                    id="step-2"
+                                    checked={checkedSteps['step-2'] || false}
+                                    onCheckedChange={() => toggleStep('step-2')}
+                                    className="mt-1"
+                                />
+                                <div className="flex-1">
+                                    <Label htmlFor="step-2" className="cursor-pointer font-medium">
+                                        <div className={checkedSteps['step-2'] ? 'line-through text-muted-foreground' : ''}>
+                                            3. Redogör för de bedömningsgrunder du använt
+                                        </div>
+                                    </Label>
+
+                                    {/* Employee view button */}
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="mt-2"
+                                        onClick={() => window.open(
+                                            `/salary-review/employees/${employee.id}/meeting/assessment-view`,
+                                            'assessment',
+                                            'width=1200,height=800'
+                                        )}
+                                    >
+                                        <Monitor className="mr-2 h-4 w-4" />
+                                        Visa för medarbetaren
+                                    </Button>
+
+                                    <Accordion type="single" collapsible className="w-full mt-2">
+                                        <AccordionItem value="suggestions-2" className="border-none">
+                                            <AccordionTrigger className="text-xs text-muted-foreground hover:text-foreground py-1">
+                                                <span className="flex items-center gap-1">
+                                                    <Lightbulb className="h-3 w-3" />
+                                                    Formuleringsförslag
+                                                </span>
+                                            </AccordionTrigger>
+                                            <AccordionContent>
+                                                <ul className="list-disc list-inside space-y-1 text-sm pl-2">
+                                                    {CONVERSATION_TEMPLATES.assessment_intro.map((template, idx) => (
+                                                        <li key={idx} className="text-muted-foreground">{template}</li>
+                                                    ))}
+                                                </ul>
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    </Accordion>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Step 4: Summera arbetsinsats */}
+                        <div className="border rounded-lg">
+                            <div className="flex items-start gap-3 p-3">
+                                <Checkbox
+                                    id="step-3"
+                                    checked={checkedSteps['step-3'] || false}
+                                    onCheckedChange={() => toggleStep('step-3')}
+                                    className="mt-1"
+                                />
+                                <Label htmlFor="step-3" className="cursor-pointer flex-1 font-medium">
+                                    <div className={checkedSteps['step-3'] ? 'line-through text-muted-foreground' : ''}>
+                                        4. Summera din bild av medarbetarens arbetsinsats utifrån bedömningsgrunderna. Använd så konkreta exempel som möjligt. Lyft gärna exempel på hur personen har bidragit till verksamheten och vad medarbetaren behöver göra mer. Tycker medarbetaren att din bild stämmer?
+                                    </div>
+                                </Label>
+                            </div>
+                        </div>
+
+                        {/* Step 5: Presentera lön */}
+                        <div className="border rounded-lg">
+                            <div className="flex items-start gap-3 p-3">
+                                <Checkbox
+                                    id="step-4"
+                                    checked={checkedSteps['step-4'] || false}
+                                    onCheckedChange={() => toggleStep('step-4')}
+                                    className="mt-1"
+                                />
+                                <div className="flex-1">
+                                    <Label htmlFor="step-4" className="cursor-pointer font-medium">
+                                        <div className={checkedSteps['step-4'] ? 'line-through text-muted-foreground' : ''}>
+                                            5. Berätta hur du gjort din värdering och lönesättning samt presentera den nya lönen. Fokusera på den nya lönen och inte på påslaget eller höjningen.
+                                        </div>
+                                    </Label>
+
+                                    {/* Salary view button */}
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        className="mt-2"
+                                        onClick={() => window.open(
+                                            `/salary-review/employees/${employee.id}/meeting/salary-view`,
+                                            'salary',
+                                            'width=1000,height=600'
+                                        )}
+                                    >
+                                        <Monitor className="mr-2 h-4 w-4" />
+                                        Visa löneförslag för medarbetaren
+                                    </Button>
+
+                                    <Accordion type="single" collapsible className="w-full mt-2">
+                                        <AccordionItem value="suggestions-4" className="border-none">
+                                            <AccordionTrigger className="text-xs text-muted-foreground hover:text-foreground py-1">
+                                                <span className="flex items-center gap-1">
+                                                    <Lightbulb className="h-3 w-3" />
+                                                    Formuleringsförslag
+                                                </span>
+                                            </AccordionTrigger>
+                                            <AccordionContent>
+                                                <ul className="list-disc list-inside space-y-1 text-sm pl-2">
+                                                    {CONVERSATION_TEMPLATES.salary_presentation.map((template, idx) => (
+                                                        <li key={idx} className="text-muted-foreground italic">{template}</li>
+                                                    ))}
+                                                </ul>
+                                                <Alert className="mt-3">
+                                                    <AlertDescription className="text-xs">
+                                                        💡 <strong>Tips:</strong> Fokusera på den nya lönen, inte på påslaget eller höjningen.
+                                                    </AlertDescription>
+                                                </Alert>
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    </Accordion>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Step 6: Framtida utveckling */}
+                        <div className="border rounded-lg">
+                            <div className="flex items-start gap-3 p-3">
+                                <Checkbox
+                                    id="step-5"
+                                    checked={checkedSteps['step-5'] || false}
+                                    onCheckedChange={() => toggleStep('step-5')}
+                                    className="mt-1"
+                                />
+                                <div className="flex-1">
+                                    <Label htmlFor="step-5" className="cursor-pointer font-medium">
+                                        <div className={checkedSteps['step-5'] ? 'line-through text-muted-foreground' : ''}>
+                                            6. Berätta hur medarbetaren ska kunna påverka sin löneutveckling framöver.
+                                        </div>
+                                    </Label>
+                                    <Accordion type="single" collapsible className="w-full mt-2">
+                                        <AccordionItem value="suggestions-5" className="border-none">
+                                            <AccordionTrigger className="text-xs text-muted-foreground hover:text-foreground py-1">
+                                                <span className="flex items-center gap-1">
+                                                    <Lightbulb className="h-3 w-3" />
+                                                    Formuleringsförslag
+                                                </span>
+                                            </AccordionTrigger>
+                                            <AccordionContent>
+                                                <ul className="list-disc list-inside space-y-1 text-sm pl-2">
+                                                    {CONVERSATION_TEMPLATES.future_development.map((template, idx) => (
+                                                        <li key={idx} className="text-muted-foreground">{template}</li>
+                                                    ))}
+                                                </ul>
+                                            </AccordionContent>
+                                        </AccordionItem>
+                                    </Accordion>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Step 7: Dokumentera */}
+                        <div className="border rounded-lg">
+                            <div className="flex items-start gap-3 p-3">
+                                <Checkbox
+                                    id="step-6"
+                                    checked={checkedSteps['step-6'] || false}
+                                    onCheckedChange={() => toggleStep('step-6')}
+                                    className="mt-1"
+                                />
+                                <Label htmlFor="step-6" className="cursor-pointer flex-1 font-medium">
+                                    <div className={checkedSteps['step-6'] ? 'line-through text-muted-foreground' : ''}>
+                                        7. Skriv ner och dokumentera punkter som ni ska ta med er till kommande medarbetar-/utvecklingssamtal.
+                                    </div>
+                                </Label>
+                            </div>
+                        </div>
                     </div>
-                </CardContent>
-            </Card>
-
-            {/* Conversation Templates */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Lightbulb className="h-5 w-5" />
-                        Formuleringsförslag
-                    </CardTitle>
-                    <CardDescription>
-                        Förslag på hur du kan formulera dig under samtalet
-                    </CardDescription>
-                </CardHeader>
-                <CardContent>
-                    <Accordion type="single" collapsible className="w-full">
-                        <AccordionItem value="opening">
-                            <AccordionTrigger>Inledning av samtalet</AccordionTrigger>
-                            <AccordionContent>
-                                <ul className="list-disc list-inside space-y-2">
-                                    {CONVERSATION_TEMPLATES.opening.map((template, index) => (
-                                        <li key={index} className="text-sm">{template}</li>
-                                    ))}
-                                </ul>
-                            </AccordionContent>
-                        </AccordionItem>
-
-                        <AccordionItem value="assessment">
-                            <AccordionTrigger>Presentera bedömning</AccordionTrigger>
-                            <AccordionContent>
-                                <ul className="list-disc list-inside space-y-2">
-                                    {CONVERSATION_TEMPLATES.assessment_intro.map((template, index) => (
-                                        <li key={index} className="text-sm">{template}</li>
-                                    ))}
-                                </ul>
-                            </AccordionContent>
-                        </AccordionItem>
-
-                        <AccordionItem value="salary">
-                            <AccordionTrigger>Presentera lön</AccordionTrigger>
-                            <AccordionContent>
-                                <ul className="list-disc list-inside space-y-2">
-                                    {CONVERSATION_TEMPLATES.salary_presentation.map((template, index) => (
-                                        <li key={index} className="text-sm italic">{template}</li>
-                                    ))}
-                                </ul>
-                                <Alert className="mt-4">
-                                    <AlertDescription className="text-sm">
-                                        💡 <strong>Tips:</strong> Fokusera på den nya lönen, inte på påslaget eller höjningen.
-                                    </AlertDescription>
-                                </Alert>
-                            </AccordionContent>
-                        </AccordionItem>
-
-                        <AccordionItem value="development">
-                            <AccordionTrigger>Framtida utveckling</AccordionTrigger>
-                            <AccordionContent>
-                                <ul className="list-disc list-inside space-y-2">
-                                    {CONVERSATION_TEMPLATES.future_development.map((template, index) => (
-                                        <li key={index} className="text-sm">{template}</li>
-                                    ))}
-                                </ul>
-                            </AccordionContent>
-                        </AccordionItem>
-                    </Accordion>
                 </CardContent>
             </Card>
 

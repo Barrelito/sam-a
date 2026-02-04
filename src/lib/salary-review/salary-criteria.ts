@@ -30,13 +30,14 @@ export const RATING_COLORS: Record<CriteriaRating, string> = {
     'utmarkt': 'text-green-600 bg-green-50 border-green-200'
 }
 
-// Numerisk mappning för löneberäkning - differentierad skala för bättre lönespridning
-// UI-labels (behöver utvecklas, bra, mycket bra, utmärkt) förblir desamma
+// Numerisk mappning för löneberäkning - enkel skala
+// Behöver utvecklas = 0p, Bra = 1p, Mycket bra = 2p, Utmärkt = 3p
+// Max totalt: 14 kriterier × 3p = 42 poäng
 export const NUMERIC_RATING_VALUES: Record<CriteriaRating, number> = {
-    'behover_utvecklas': 1,    // Basnivå
-    'bra': 5,                  // 5× basnivån - acceptabel prestation
-    'mycket_bra': 12,          // 2.4× ökning - stark prestation
-    'utmarkt': 25              // ~2× ökning - exceptionell prestation
+    'behover_utvecklas': 0,    // 0 poäng
+    'bra': 1,                  // 1 poäng
+    'mycket_bra': 2,           // 2 poäng
+    'utmarkt': 3               // 3 poäng
 }
 
 // =============================================
