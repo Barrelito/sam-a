@@ -305,9 +305,9 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
             tempDiv.style.position = 'absolute'
             tempDiv.style.left = '-9999px'
             tempDiv.style.width = '210mm' // A4 width
-            tempDiv.style.padding = '20mm'
             tempDiv.style.fontFamily = 'Inter, system-ui, -apple-system, sans-serif'
             tempDiv.style.background = 'white'
+            tempDiv.style.boxSizing = 'border-box'
 
             // Create station title
             let stationTitle = 'Station'
@@ -321,21 +321,23 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
             // Convert content to HTML
             const htmlContent = convertMarkdownToHTML(generatedText)
 
-            // Build modern HTML layout
+            // Build modern HTML layout with padding wrapper
             tempDiv.innerHTML = `
-                <div style="margin-bottom: 36px;">
-                    <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 32px; text-align: center; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.07);">
-                        <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 8px 0; letter-spacing: -0.3px;">${stationTitle}</h1>
-                        <div style="font-size: 15px; opacity: 0.95; font-weight: 500;">Veckobrev • Vecka ${newsletter?.week_number}, ${newsletter?.year}</div>
+                <div style="padding: 10mm 0; box-sizing: border-box;">
+                    <div style="margin-bottom: 36px;">
+                        <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 32px; text-align: center; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.07);">
+                            <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 8px 0; letter-spacing: -0.3px;">${stationTitle}</h1>
+                            <div style="font-size: 15px; opacity: 0.95; font-weight: 500;">Veckobrev • Vecka ${newsletter?.week_number}, ${newsletter?.year}</div>
+                        </div>
                     </div>
-                </div>
-                <div style="background: #f9fafb; padding: 28px; border-radius: 10px; margin-bottom: 24px;">
-                    <p style="margin: 0; line-height: 1.7; color: #374151;">${htmlContent}</p>
-                </div>
-                <div style="margin-top: 44px; padding-top: 20px; text-align: center; border-top: 2px solid #e5e7eb;">
-                    <div style="color: #6b7280; font-size: 11px; line-height: 1.6;">
-                        <div style="font-weight: 500; margin-bottom: 4px;">Genererat ${new Date().toLocaleDateString('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
-                        <div>${stationTitle}</div>
+                    <div style="background: #f9fafb; padding: 28px; border-radius: 10px; margin-bottom: 24px;">
+                        <p style="margin: 0; line-height: 1.7; color: #374151;">${htmlContent}</p>
+                    </div>
+                    <div style="margin-top: 44px; padding-top: 20px; text-align: center; border-top: 2px solid #e5e7eb;">
+                        <div style="color: #6b7280; font-size: 11px; line-height: 1.6;">
+                            <div style="font-weight: 500; margin-bottom: 4px;">Genererat ${new Date().toLocaleDateString('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                            <div>${stationTitle}</div>
+                        </div>
                     </div>
                 </div>
             `
