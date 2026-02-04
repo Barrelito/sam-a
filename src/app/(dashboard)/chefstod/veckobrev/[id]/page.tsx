@@ -284,15 +284,29 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
             const jsPDF = (await import('jspdf')).default
             const html2canvas = (await import('html2canvas')).default
 
+            // Convert markdown to HTML
+            const convertMarkdownToHTML = (text: string): string => {
+                return text
+                    // Headers
+                    .replace(/^### (.+)$/gm, '<h3 style="font-size: 16px; font-weight: 600; color: #1f2937; margin: 20px 0 12px 0; padding-left: 12px; border-left: 3px solid #3b82f6;">$1</h3>')
+                    .replace(/^## (.+)$/gm, '<h2 style="font-size: 20px; font-weight: 700; color: #111827; margin: 28px 0 14px 0;">$1</h2>')
+                    .replace(/^# (.+)$/gm, '<h1 style="font-size: 24px; font-weight: 700; color: #111827; margin: 36px 0 18px 0;">$1</h1>')
+                    // Bold
+                    .replace(/\*\*(.+?)\*\*/g, '<strong style="font-weight: 600; color: #111827;">$1</strong>')
+                    // Italic
+                    .replace(/\*(.+?)\*/g, '<em style="font-style: italic;">$1</em>')
+                    // Line breaks
+                    .replace(/\n\n/g, '</p><p style="margin: 12px 0; line-height: 1.7; color: #374151;">')
+                    .replace(/\n/g, '<br/>')
+            }
+
             // Create a temporary container with the newsletter content
             const tempDiv = document.createElement('div')
             tempDiv.style.position = 'absolute'
             tempDiv.style.left = '-9999px'
             tempDiv.style.width = '210mm' // A4 width
             tempDiv.style.padding = '20mm'
-            tempDiv.style.fontFamily = 'Inter, sans-serif'
-            tempDiv.style.lineHeight = '1.6'
-            tempDiv.style.color = '#1f2937'
+            tempDiv.style.fontFamily = 'Inter, system-ui, -apple-system, sans-serif'
             tempDiv.style.background = 'white'
 
             // Create station title
@@ -304,15 +318,25 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
                 stationTitle = `${newsletter.station_group.name} (${stationNames})`
             }
 
-            // Build HTML with header and content
+            // Convert content to HTML
+            const htmlContent = convertMarkdownToHTML(generatedText)
+
+            // Build modern HTML layout
             tempDiv.innerHTML = `
-                <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 40px; text-align: center; margin-bottom: 40px; border-radius: 8px;">
-                    <h1 style="font-size: 32px; font-weight: 700; margin: 0 0 8px 0;">${stationTitle}</h1>
-                    <div style="font-size: 18px; opacity: 0.9;">Veckobrev • Vecka ${newsletter?.week_number}, ${newsletter?.year}</div>
+                <div style="margin-bottom: 36px;">
+                    <div style="background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%); color: white; padding: 32px; text-align: center; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.07);">
+                        <h1 style="font-size: 28px; font-weight: 700; margin: 0 0 8px 0; letter-spacing: -0.3px;">${stationTitle}</h1>
+                        <div style="font-size: 15px; opacity: 0.95; font-weight: 500;">Veckobrev • Vecka ${newsletter?.week_number}, ${newsletter?.year}</div>
+                    </div>
                 </div>
-                <div style="white-space: pre-wrap;">${generatedText}</div>
-                <div style="margin-top: 60px; padding-top: 30px; text-align: center; border-top: 1px solid #e5e7eb; color: #9ca3af; font-size: 12px;">
-                    Genererat ${new Date().toLocaleDateString('sv-SE')} • ${stationTitle}
+                <div style="background: #f9fafb; padding: 28px; border-radius: 10px; margin-bottom: 24px;">
+                    <p style="margin: 0; line-height: 1.7; color: #374151;">${htmlContent}</p>
+                </div>
+                <div style="margin-top: 44px; padding-top: 20px; text-align: center; border-top: 2px solid #e5e7eb;">
+                    <div style="color: #6b7280; font-size: 11px; line-height: 1.6;">
+                        <div style="font-weight: 500; margin-bottom: 4px;">Genererat ${new Date().toLocaleDateString('sv-SE', { year: 'numeric', month: 'long', day: 'numeric' })}</div>
+                        <div>${stationTitle}</div>
+                    </div>
                 </div>
             `
 
