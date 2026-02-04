@@ -144,19 +144,21 @@ export async function GET(request: Request) {
         }
 
         // Helper to calculate rating score
-        // Using differentiated scale for better salary differentiation
-        const calculateAverageRating = (assessments: any[]) => {
+        // Using linear scale (0-3) summed across all criteria
+        // Max possible: 42 points (14 criteria × 3 points each)
+        const calculateTotalRating = (assessments: any[]) => {
             if (!assessments || assessments.length === 0) return 0
             const ratingMap: Record<string, number> = {
-                'behover_utvecklas': 1, 'needs_improvement': 1,
-                'bra': 5, 'good': 5,
-                'mycket_bra': 12, 'very_good': 12,
-                'utmarkt': 25, 'excellent': 25
+                'behover_utvecklas': 0, 'needs_improvement': 0,
+                'bra': 1, 'good': 1,
+                'mycket_bra': 2, 'very_good': 2,
+                'utmarkt': 3, 'excellent': 3
             }
-            // Filter out 0/undefined
-            const ratings = assessments.map(a => ratingMap[a.rating] || 0).filter(r => r > 0)
-            if (ratings.length === 0) return 0
-            return ratings.reduce((sum, r) => sum + r, 0) / ratings.length
+            // Sum all ratings (instead of average)
+            const totalPoints = assessments.reduce((sum, a) => {
+                return sum + (ratingMap[a.rating] || 0)
+            }, 0)
+            return totalPoints
         }
 
         // Process employees
@@ -165,7 +167,7 @@ export async function GET(request: Request) {
             const currentReview = reviews?.find((r: any) => r.cycle_id === targetCycleId)
             const assessments = currentReview?.salary_criteria_assessments as any[] | undefined
 
-            const averageRating = calculateAverageRating(assessments || [])
+            const totalRating = calculateTotalRating(assessments || [])
 
             // Map categories
             // VUB/SSK -> Vårdförbundet
@@ -178,7 +180,7 @@ export async function GET(request: Request) {
                 category: emp.category,
                 unionGroup,
                 current_salary: emp.current_salary || 0,
-                average_rating: Math.round(averageRating * 100) / 100,
+                average_rating: totalRating, // Now contains total points (0-42)
                 review_id: currentReview?.id || null,
                 is_particularly_skilled: currentReview?.is_particularly_skilled || false,
                 existing_final: currentReview?.final_increase || null
