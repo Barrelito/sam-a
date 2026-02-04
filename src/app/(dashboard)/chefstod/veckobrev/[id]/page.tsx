@@ -376,6 +376,10 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
             // Add first page
             pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
             heightLeft -= contentHeight
+            // Add white masks for clean margins
+            pdf.setFillColor(255, 255, 255)
+            pdf.rect(0, 0, pageWidth, marginTop, 'F')
+            pdf.rect(0, pageHeight - marginBottom, pageWidth, marginBottom, 'F')
 
             // Add additional pages if content exceeds one page
             while (heightLeft > 0) {
@@ -383,6 +387,10 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
                 pdf.addPage()
                 pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight)
                 heightLeft -= contentHeight
+                // Add white masks for clean margins
+                pdf.setFillColor(255, 255, 255)
+                pdf.rect(0, 0, pageWidth, marginTop, 'F')
+                pdf.rect(0, pageHeight - marginBottom, pageWidth, marginBottom, 'F')
             }
 
             pdf.save(`veckobrev-v${newsletter?.week_number}-${newsletter?.year}.pdf`)
