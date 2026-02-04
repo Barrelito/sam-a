@@ -7,11 +7,12 @@ import SalaryDistribution from '@/components/salary-review/SalaryDistribution'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
+import DistributionSelector from '@/components/salary-review/DistributionSelector'
 
 export default async function DistributionPage({
     searchParams
 }: {
-    searchParams: Promise<{ station_id?: string }>
+    searchParams: Promise<{ station_id?: string; station_group_id?: string }>
 }) {
     const supabase = await createClient()
     const params = await searchParams
@@ -41,33 +42,68 @@ export default async function DistributionPage({
         )
     }
 
-    // Get station_id from query params or user's stations
-    let stationId = params.station_id
+    // Get user's stations and station groups
+    const { data: userStations } = await supabase
+        .from('user_stations')
+        .select('station_id, station:stations(id, name)')
+        .eq('user_id', user.id)
 
-    if (!stationId) {
-        // Get user's first station
-        const { data: userStation } = await supabase
-            .from('user_stations')
-            .select('station_id')
-            .eq('user_id', user.id)
-            .limit(1)
-            .single()
-
-        if (!userStation) {
-            notFound()
-        }
-        stationId = userStation.station_id
+    if (!userStations || userStations.length === 0) {
+        return (
+            <div className="container mx-auto py-8">
+                <h1 className="text-2xl font-bold text-red-600">Inga stationer</h1>
+                <p className="text-muted-foreground mt-2">
+                    Du är inte kopplad till några stationer.
+                </p>
+            </div>
+        )
     }
 
-    // Get station info
-    const { data: station } = await supabase
-        .from('stations')
-        .select('id, name')
-        .eq('id', stationId)
-        .single()
+    const userStationIds = userStations.map(us => us.station_id)
 
-    if (!station) {
-        notFound()
+    // Get station groups where user manages at least one member station
+    const { data: stationGroups } = await supabase
+        .from('station_groups')
+        .select(`
+            id,
+            name,
+            station_group_members!inner(station_id)
+        `)
+        .in('station_group_members.station_id', userStationIds)
+
+    // Determine what to display
+    let displayMode: 'station' | 'group' = 'station'
+    let selectedStationId: string | null = null
+    let selectedStationName: string | null = null
+    let selectedGroupId: string | null = null
+    let selectedGroupName: string | null = null
+
+    if (params.station_group_id && stationGroups) {
+        // Station group mode
+        const group = stationGroups.find(g => g.id === params.station_group_id)
+        if (group) {
+            displayMode = 'group'
+            selectedGroupId = group.id
+            selectedGroupName = group.name
+        }
+    }
+
+    if (!selectedGroupId && params.station_id) {
+        // Individual station mode from URL
+        const station = userStations.find(us => us.station_id === params.station_id)
+        if (station && station.station) {
+            // @ts-ignore
+            selectedStationId = station.station.id
+            // @ts-ignore
+            selectedStationName = station.station.name
+        }
+    }
+
+    // Default to first station if nothing selected
+    if (!selectedStationId && !selectedGroupId && userStations[0]?.station) {
+        selectedStationId = userStations[0].station_id
+        // @ts-ignore
+        selectedStationName = userStations[0].station.name
     }
 
     // Get active cycle
@@ -88,6 +124,19 @@ export default async function DistributionPage({
         )
     }
 
+    // Prepare options for selector
+    const stations = userStations.map(us => ({
+        // @ts-ignore
+        id: us.station?.id || us.station_id,
+        // @ts-ignore
+        name: us.station?.name || 'Unknown Station'
+    }))
+
+    const groups = (stationGroups || []).map(g => ({
+        id: g.id,
+        name: g.name
+    }))
+
     return (
         <div className="container mx-auto py-8">
             <Link href="/salary-review/employees">
@@ -97,11 +146,22 @@ export default async function DistributionPage({
                 </Button>
             </Link>
 
-            <SalaryDistribution
-                stationId={station.id}
-                stationName={station.name}
-                cycleId={activeCycle.id}
+            <DistributionSelector
+                stations={stations}
+                stationGroups={groups}
+                selectedStationId={selectedStationId}
+                selectedGroupId={selectedGroupId}
             />
+
+            <div className="mt-6">
+                <SalaryDistribution
+                    stationId={selectedStationId || undefined}
+                    stationName={selectedStationName || undefined}
+                    stationGroupId={selectedGroupId || undefined}
+                    stationGroupName={selectedGroupName || undefined}
+                    cycleId={activeCycle.id}
+                />
+            </div>
         </div>
     )
 }

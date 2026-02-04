@@ -5,11 +5,13 @@ import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
 // GET /api/salary-review/salary-distribution?station_id=xxx&cycle_id=xxx
+// OR /api/salary-review/salary-distribution?station_group_id=xxx&cycle_id=xxx
 export async function GET(request: Request) {
     try {
         const supabase = await createClient()
         const { searchParams } = new URL(request.url)
         const stationId = searchParams.get('station_id')
+        const stationGroupId = searchParams.get('station_group_id')
         const cycleId = searchParams.get('cycle_id')
 
         // Auth check
@@ -18,8 +20,12 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        if (!stationId) {
-            return NextResponse.json({ error: 'station_id required' }, { status: 400 })
+        if (!stationId && !stationGroupId) {
+            return NextResponse.json({ error: 'station_id or station_group_id required' }, { status: 400 })
+        }
+
+        if (stationId && stationGroupId) {
+            return NextResponse.json({ error: 'Provide either station_id or station_group_id, not both' }, { status: 400 })
         }
 
         // Get active cycle if not specified
@@ -37,48 +43,82 @@ export async function GET(request: Request) {
             targetCycleId = activeCycle.id
         }
 
-        // 1. Get Station to find VO
-        const { data: station } = await supabase
-            .from('stations')
-            .select('id, vo_id')
-            .eq('id', stationId)
-            .single()
+        // Determine which stations to query
+        let stationIds: string[] = []
+        let voId: string | null = null
 
-        if (!station) return NextResponse.json({ error: 'Station not found' }, { status: 404 })
+        if (stationGroupId) {
+            // Get all stations in the group
+            const { data: groupMembers } = await supabase
+                .from('station_group_members')
+                .select('station_id')
+                .eq('station_group_id', stationGroupId)
 
-        // 2. Get Allocations AND global settings from VO Budget via join
+            if (!groupMembers || groupMembers.length === 0) {
+                return NextResponse.json({ error: 'Station group not found or empty' }, { status: 404 })
+            }
+
+            stationIds = groupMembers.map(m => m.station_id)
+
+            // Get VO from first station
+            const { data: firstStation } = await supabase
+                .from('stations')
+                .select('vo_id')
+                .eq('id', stationIds[0])
+                .single()
+
+            if (!firstStation) {
+                return NextResponse.json({ error: 'Station not found' }, { status: 404 })
+            }
+            voId = firstStation.vo_id
+        } else {
+            // Single station mode
+            stationIds = [stationId!]
+
+            const { data: station } = await supabase
+                .from('stations')
+                .select('vo_id')
+                .eq('id', stationId!)
+                .single()
+
+            if (!station) return NextResponse.json({ error: 'Station not found' }, { status: 404 })
+            voId = station.vo_id
+        }
+
+        // 2. Get Allocations for ALL stations (will aggregate if multiple)
         const { data: allocationsData } = await supabase
             .from('station_union_allocations')
             .select(`
                 allocated_amount,
+                station_id,
                 vo_union_budget:vo_union_budgets (
                     union_type,
                     extra_skilled_amount,
                     guaranteed_per_employee
                 )
             `)
-            .eq('station_id', stationId)
+            .in('station_id', stationIds)
 
         const allocations = allocationsData || []
 
-        // Extract budgets per union
-        // Vårdförbundet
-        const vfAlloc = allocations.find((a: any) => a.vo_union_budget?.union_type === 'vardförbundet')
+        // Aggregate budgets across all stations
+        // VF settings (extra_skilled_amount) are VO-level, so same for all stations
+        const vfAllocations = allocations.filter((a: any) => a.vo_union_budget?.union_type === 'vardförbundet')
         const vfBudget = {
-            allocated_amount: vfAlloc?.allocated_amount || 0, // Poängbaserad pott
+            allocated_amount: vfAllocations.reduce((sum, a: any) => sum + (a.allocated_amount || 0), 0),
             // @ts-ignore
-            extra_skilled_amount: vfAlloc?.vo_union_budget?.extra_skilled_amount || 0 // Fast belopp
+            extra_skilled_amount: vfAllocations[0]?.vo_union_budget?.extra_skilled_amount || 0
         }
 
-        // Kommunal
-        const komAlloc = allocations.find((a: any) => a.vo_union_budget?.union_type === 'kommunal')
+        // Kommunal settings (guaranteed_per_employee) are VO-level, so same for all stations
+        const komAllocations = allocations.filter((a: any) => a.vo_union_budget?.union_type === 'kommunal')
         const komBudget = {
-            allocated_amount: komAlloc?.allocated_amount || 0, // Rörlig pott
+            allocated_amount: komAllocations.reduce((sum, a: any) => sum + (a.allocated_amount || 0), 0),
             // @ts-ignore
-            guaranteed_per_employee: komAlloc?.vo_union_budget?.guaranteed_per_employee || 0 // Fast belopp
+            guaranteed_per_employee: komAllocations[0]?.vo_union_budget?.guaranteed_per_employee || 0
         }
 
-        // 3. Get Employees with category and review data
+        // 3. Get Employees from ALL stations
         const { data: employees, error: empError } = await supabase
             .from('employees')
             .select(`
@@ -96,7 +136,7 @@ export async function GET(request: Request) {
                     salary_criteria_assessments(rating)
                 )
             `)
-            .eq('station_id', stationId)
+            .in('station_id', stationIds)
 
         if (empError) {
             console.error('Error fetching employees:', empError)

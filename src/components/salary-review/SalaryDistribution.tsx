@@ -56,12 +56,20 @@ interface DistributionData {
 }
 
 interface SalaryDistributionProps {
-    stationId: string
-    stationName: string
+    stationId?: string
+    stationName?: string
+    stationGroupId?: string
+    stationGroupName?: string
     cycleId: string
 }
 
-export default function SalaryDistribution({ stationId, stationName, cycleId }: SalaryDistributionProps) {
+export default function SalaryDistribution({
+    stationId,
+    stationName,
+    stationGroupId,
+    stationGroupName,
+    cycleId
+}: SalaryDistributionProps) {
     const { toast } = useToast()
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -73,7 +81,16 @@ export default function SalaryDistribution({ stationId, stationName, cycleId }: 
     const loadData = useCallback(async () => {
         setLoading(true)
         try {
-            const res = await fetch(`/api/salary-review/salary-distribution?station_id=${stationId}&cycle_id=${cycleId}`)
+            // Build query params based on whether we have station or station group
+            const params = new URLSearchParams()
+            if (stationGroupId) {
+                params.append('station_group_id', stationGroupId)
+            } else if (stationId) {
+                params.append('station_id', stationId)
+            }
+            params.append('cycle_id', cycleId)
+
+            const res = await fetch(`/api/salary-review/salary-distribution?${params.toString()}`)
             const jsonData = await res.json()
 
             if (!res.ok) {
@@ -98,7 +115,7 @@ export default function SalaryDistribution({ stationId, stationName, cycleId }: 
         } finally {
             setLoading(false)
         }
-    }, [stationId, cycleId, toast])
+    }, [stationId, stationGroupId, cycleId, toast])
 
     useEffect(() => {
         loadData()
@@ -199,8 +216,13 @@ export default function SalaryDistribution({ stationId, stationName, cycleId }: 
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <div>
-                    <h2 className="text-2xl font-bold">{stationName}</h2>
-                    <p className="text-muted-foreground">Lönefördelning per avtalsområde</p>
+                    <h2 className="text-2xl font-bold">
+                        {stationGroupName || stationName}
+                    </h2>
+                    <p className="text-muted-foreground">
+                        Lönefördelning per avtalsområde
+                        {stationGroupName && <span className="ml-1 text-xs">(Stationsområde)</span>}
+                    </p>
                 </div>
                 <Button variant="outline" size="sm" onClick={resetToProposed}>
                     <RefreshCw className="mr-2 h-4 w-4" />
