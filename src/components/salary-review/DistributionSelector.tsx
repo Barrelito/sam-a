@@ -46,6 +46,19 @@ export default function DistributionSelector({
             ? `station_${selectedStationId}`
             : undefined
 
+    // Helper to get display name for the selected value
+    const getDisplayName = () => {
+        if (selectedGroupId) {
+            const group = stationGroups.find(g => g.id === selectedGroupId)
+            return group ? `${group.name} (Stationsområde)` : 'Välj station eller stationsområde'
+        }
+        if (selectedStationId) {
+            const station = stations.find(s => s.id === selectedStationId)
+            return station ? station.name : 'Välj station eller stationsområde'
+        }
+        return 'Välj station eller stationsområde'
+    }
+
     return (
         <Card>
             <CardContent className="pt-6">
@@ -55,7 +68,9 @@ export default function DistributionSelector({
                     </label>
                     <Select value={currentValue} onValueChange={handleChange}>
                         <SelectTrigger className="w-full max-w-md">
-                            <SelectValue placeholder="Välj station eller stationsområde" />
+                            <SelectValue>
+                                {getDisplayName()}
+                            </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                             {stationGroups.length > 0 && (
