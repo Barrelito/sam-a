@@ -351,7 +351,7 @@ export default function MeetingGuideDisplay({
                                         size="sm"
                                         className="mt-2"
                                         onClick={() => window.open(
-                                            `/salary-review/employees/${employee.id}/meeting/assessment-view`,
+                                            `/presentation/salary-review/employees/${employee.id}/meeting/assessment-view`,
                                             'assessment',
                                             'width=1200,height=800'
                                         )}
@@ -420,7 +420,7 @@ export default function MeetingGuideDisplay({
                                         size="sm"
                                         className="mt-2"
                                         onClick={() => window.open(
-                                            `/salary-review/employees/${employee.id}/meeting/salary-view`,
+                                            `/presentation/salary-review/employees/${employee.id}/meeting/salary-view`,
                                             'salary',
                                             'width=1000,height=600'
                                         )}

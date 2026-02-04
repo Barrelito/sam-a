@@ -18,26 +18,31 @@ async function getEmployeeSalaryData(employeeId: string) {
             return null
         }
 
-        // Find active review for this employee
-        const { data: review } = await supabase
+        // Find review for this employee (get most recent one)
+        const { data: review, error: reviewError } = await supabase
             .from('salary_reviews')
             .select('proposed_increase, final_increase')
             .eq('employee_id', employeeId)
-            .eq('is_active', true)
+            .order('created_at', { ascending: false })
+            .limit(1)
             .single()
+
+        if (reviewError || !review) {
+            console.error('No active review found:', reviewError)
+            return { employee, review: { proposed_increase: 0, final_increase: 0 } }
+        }
+
+        console.log('Review data:', review)
 
         return {
             employee,
-            review: review || { proposed_increase: 0, final_increase: 0 }
+            review
         }
     } catch (error) {
         console.error('Error fetching salary data:', error)
         return null
     }
 }
-
-// Disable layout for this presentation view
-export const dynamic = 'force-dynamic'
 
 export default async function SalaryViewPage({
     params
@@ -47,14 +52,14 @@ export default async function SalaryViewPage({
     const { id } = await params
     const data = await getEmployeeSalaryData(id)
 
-    if (!data || !data.employee || !data.review) {
+    if (!data || !data.employee) {
         notFound()
     }
 
     const { employee, review } = data
 
     // Get proposed increase (use final_increase if set, otherwise proposed_increase)
-    const proposedIncrease = review.final_increase || review.proposed_increase || 0
+    const proposedIncrease = review?.final_increase || review?.proposed_increase || 0
     const newSalary = employee.current_salary + proposedIncrease
 
     return (

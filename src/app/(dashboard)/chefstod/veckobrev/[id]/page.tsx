@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast'
 import BulletEditor from '@/components/newsletter/BulletEditor'
 import AISuggestions from '@/components/newsletter/AISuggestions'
 import NewsletterPreview from '@/components/newsletter/NewsletterPreview'
+import { useAuth } from '@/lib/auth-context'
 
 interface Newsletter {
     id: string
@@ -40,6 +41,7 @@ interface Newsletter {
 export default function NewsletterEditorPage({ params }: { params: Promise<{ id: string }> }) {
     const router = useRouter()
     const { toast } = useToast()
+    const { profile } = useAuth()
 
     // Unwrap the params Promise
     const resolvedParams = use(params)
@@ -59,8 +61,10 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
 
     useEffect(() => {
         loadNewsletter()
-        loadAvailableOptions()
-    }, [newsletterId])
+        if (profile) {
+            loadAvailableOptions()
+        }
+    }, [newsletterId, profile])
 
 
 
@@ -89,11 +93,10 @@ export default function NewsletterEditorPage({ params }: { params: Promise<{ id:
 
     const loadAvailableOptions = async () => {
         try {
-            // Fetch user's stations
-            const stationsRes = await fetch('/api/stations')
-            if (stationsRes.ok) {
-                const data = await stationsRes.json()
-                setAvailableStations(data.stations || [])
+            // Get stations from user profile instead of API
+            if (profile?.user_stations) {
+                const stations = profile.user_stations.map((us: any) => us.station).filter(Boolean)
+                setAvailableStations(stations)
             }
 
             // Fetch available station groups

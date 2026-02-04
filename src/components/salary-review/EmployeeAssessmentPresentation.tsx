@@ -94,36 +94,26 @@ export default function EmployeeAssessmentPresentation({
                     </CardContent>
                 </Card>
 
-                {/* SYS Status */}
-                <Card className={allCriteriaMet ? 'border-green-200 bg-green-50' : 'border-yellow-200 bg-yellow-50'}>
-                    <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-2xl font-semibold">Särskild yrkesskicklighet</h2>
-                            <div className={`text-xl font-bold px-6 py-3 rounded-lg ${allCriteriaMet
+                {/* SYS Status - Only for VUB and SSK */}
+                {(employee.category === 'VUB' || employee.category === 'SSK') && particularlySkillfulTotal > 0 && (
+                    <Card className={allCriteriaMet ? 'border-green-200 bg-green-50' : 'border-yellow-200 bg-yellow-50'}>
+                        <CardContent className="pt-6">
+                            <div className="flex items-center justify-between">
+                                <h2 className="text-2xl font-semibold">Särskild yrkesskicklighet</h2>
+                                <div className={`text-xl font-bold px-6 py-3 rounded-lg ${allCriteriaMet
                                     ? 'bg-green-100 text-green-700 border-2 border-green-200'
                                     : 'bg-yellow-100 text-yellow-700 border-2 border-yellow-200'
-                                }`}>
-                                {allCriteriaMet ? (
-                                    <>✓ Alla {particularlySkillfulTotal} kriterier uppfyllda</>
-                                ) : (
-                                    <>{particularlySkillfulMet} av {particularlySkillfulTotal} uppfyllda (ej SYS)</>
-                                )}
+                                    }`}>
+                                    {allCriteriaMet ? (
+                                        <>✓ Alla {particularlySkillfulTotal} kriterier uppfyllda</>
+                                    ) : (
+                                        <>{particularlySkillfulMet} av {particularlySkillfulTotal} uppfyllda (ej SYS)</>
+                                    )}
+                                </div>
                             </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Criteria Overview */}
-                <Card>
-                    <CardContent className="pt-6">
-                        <div className="flex items-center justify-between">
-                            <h2 className="text-2xl font-semibold">Lönekriterier</h2>
-                            <div className="text-xl text-muted-foreground">
-                                {criteriaAssessments.length} bedömningar
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
         </div>
     )
