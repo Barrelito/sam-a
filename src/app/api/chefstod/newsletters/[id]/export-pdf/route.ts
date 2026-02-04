@@ -73,11 +73,21 @@ export async function POST(
         // Determine if running in development or production
         const isDev = process.env.NODE_ENV === 'development'
 
+        // Configure chromium for serverless
+        if (!isDev) {
+            // Optimize font loading for serverless
+            chromium.setGraphicsMode = false
+        }
+
         // Launch Puppeteer with appropriate config for environment
         const browser = await puppeteer.launch({
             args: isDev
                 ? ['--no-sandbox', '--disable-setuid-sandbox']
-                : chromium.args,
+                : [
+                    ...chromium.args,
+                    '--hide-scrollbars',
+                    '--disable-web-security',
+                ],
             executablePath: isDev
                 ? undefined // Use local Chrome in development
                 : await chromium.executablePath(),
