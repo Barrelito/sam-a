@@ -392,7 +392,7 @@ export default function SalaryDistribution({
                     ) : (
                         <Card>
                             <CardContent className="pt-6">
-                                <div className="grid gap-4 md:grid-cols-4">
+                                <div className="grid gap-4 md:grid-cols-5">
                                     <div>
                                         <p className="text-sm text-muted-foreground">Variable Budget (Pott)</p>
                                         <p className="text-2xl font-bold">{komAllocated.toLocaleString('sv-SE')} kr</p>
@@ -412,6 +412,15 @@ export default function SalaryDistribution({
                                         <p className="text-sm text-muted-foreground">Pott kvar att fördela</p>
                                         <p className={`text-2xl font-bold ${komDiff < 0 ? 'text-red-600' : 'text-green-600'}`}>
                                             {komDiff.toLocaleString('sv-SE')} kr
+                                        </p>
+                                    </div>
+                                    <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+                                        <p className="text-sm text-green-700 font-medium">Riktlinje 315 kr/person</p>
+                                        <p className="text-2xl font-bold text-green-900">
+                                            {(komEmployees.length * 315).toLocaleString('sv-SE')} kr
+                                        </p>
+                                        <p className="text-xs text-green-600 mt-1">
+                                            {komEmployees.length} pers. × 315 kr (rörlig pott)
                                         </p>
                                     </div>
                                 </div>
