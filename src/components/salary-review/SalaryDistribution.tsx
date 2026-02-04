@@ -253,7 +253,7 @@ export default function SalaryDistribution({
                     ) : (
                         <Card>
                             <CardContent className="pt-6">
-                                <div className="grid gap-4 md:grid-cols-4">
+                                <div className="grid gap-4 md:grid-cols-5">
                                     <div>
                                         <p className="text-sm text-muted-foreground">Poängbudget (Pott)</p>
                                         <p className="text-2xl font-bold">{vfAllocated.toLocaleString('sv-SE')} kr</p>
@@ -273,6 +273,15 @@ export default function SalaryDistribution({
                                         <p className="text-sm text-muted-foreground">Pott kvar att fördela</p>
                                         <p className={`text-2xl font-bold ${vfDiff < 0 ? 'text-red-600' : 'text-green-600'}`}>
                                             {vfDiff.toLocaleString('sv-SE')} kr
+                                        </p>
+                                    </div>
+                                    <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                                        <p className="text-sm text-blue-700 font-medium">Riktlinje 3%</p>
+                                        <p className="text-2xl font-bold text-blue-900">
+                                            {Math.round(vfEmployees.reduce((sum, e) => sum + e.current_salary, 0) * 0.03).toLocaleString('sv-SE')} kr
+                                        </p>
+                                        <p className="text-xs text-blue-600 mt-1">
+                                            baserat på total nuvarande lön
                                         </p>
                                     </div>
                                 </div>
@@ -352,6 +361,21 @@ export default function SalaryDistribution({
                                     )
                                 })}
                                 {vfEmployees.length === 0 && <p className="text-muted-foreground text-center py-4">Inga medarbetare.</p>}
+
+                                {/* Total Points Footer */}
+                                {vfEmployees.length > 0 && (
+                                    <div className="border-t-2 border-gray-300 pt-4 mt-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-7 gap-4 items-center">
+                                            <div className="md:col-span-2 font-bold text-lg">
+                                                Totalt
+                                            </div>
+                                            <div className="text-center font-bold text-lg">
+                                                {vfEmployees.reduce((sum, e) => sum + e.average_rating, 0)} poäng
+                                            </div>
+                                            <div className="md:col-span-4"></div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
@@ -459,6 +483,21 @@ export default function SalaryDistribution({
                                     )
                                 })}
                                 {komEmployees.length === 0 && <p className="text-muted-foreground text-center py-4">Inga medarbetare.</p>}
+
+                                {/* Total Points Footer */}
+                                {komEmployees.length > 0 && (
+                                    <div className="border-t-2 border-gray-300 pt-4 mt-4">
+                                        <div className="grid grid-cols-1 md:grid-cols-6 gap-4 items-center">
+                                            <div className="md:col-span-2 font-bold text-lg">
+                                                Totalt
+                                            </div>
+                                            <div className="text-center font-bold text-lg">
+                                                {komEmployees.reduce((sum, e) => sum + e.average_rating, 0)} poäng
+                                            </div>
+                                            <div className="md:col-span-3"></div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
