@@ -76,6 +76,7 @@ export default function SalaryDistribution({
 
     const [data, setData] = useState<DistributionData | null>(null)
     const [adjustments, setAdjustments] = useState<Record<string, number>>({})
+    const [sortBy, setSortBy] = useState<'rating-asc' | 'rating-desc' | null>(null)
 
     // Load distribution data
     const loadData = useCallback(async () => {
@@ -294,7 +295,13 @@ export default function SalaryDistribution({
                         <CardHeader>
                             <div className="grid grid-cols-1 md:grid-cols-7 gap-4 font-semibold text-sm text-muted-foreground border-b pb-2 mb-2">
                                 <div className="md:col-span-2">Medarbetare</div>
-                                <div className="text-center">Betyg</div>
+                                <div className="text-center cursor-pointer hover:text-foreground transition-colors select-none" onClick={() => {
+                                    if (sortBy === 'rating-desc') setSortBy('rating-asc')
+                                    else if (sortBy === 'rating-asc') setSortBy(null)
+                                    else setSortBy('rating-desc')
+                                }}>
+                                    Betyg {sortBy === 'rating-desc' ? '↓' : sortBy === 'rating-asc' ? '↑' : ''}
+                                </div>
                                 <div>Lönedelar</div>
                                 <div className="text-right">Nuvarande</div>
                                 <div className="text-right">Ökning</div>
@@ -303,63 +310,69 @@ export default function SalaryDistribution({
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
-                                {vfEmployees.map(emp => {
-                                    const val = adjustments[emp.id] || 0
-                                    const newSal = emp.current_salary + val
+                                {[...vfEmployees]
+                                    .sort((a, b) => {
+                                        if (!sortBy) return 0
+                                        if (sortBy === 'rating-desc') return b.average_rating - a.average_rating
+                                        return a.average_rating - b.average_rating
+                                    })
+                                    .map(emp => {
+                                        const val = adjustments[emp.id] || 0
+                                        const newSal = emp.current_salary + val
 
-                                    return (
-                                        <div key={emp.id} className="grid grid-cols-1 md:grid-cols-7 gap-4 items-center py-3 border-b">
-                                            <div className="md:col-span-2">
-                                                <div className="font-medium flex items-center gap-2">
-                                                    {emp.name}
-                                                    {emp.is_particularly_skilled && (
-                                                        <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">
-                                                            <Award className="h-3 w-3 mr-1" />
-                                                            Särskilt yrkesskicklig
+                                        return (
+                                            <div key={emp.id} className="grid grid-cols-1 md:grid-cols-7 gap-4 items-center py-3 border-b">
+                                                <div className="md:col-span-2">
+                                                    <div className="font-medium flex items-center gap-2">
+                                                        {emp.name}
+                                                        {emp.is_particularly_skilled && (
+                                                            <Badge variant="secondary" className="bg-yellow-100 text-yellow-800 hover:bg-yellow-200">
+                                                                <Award className="h-3 w-3 mr-1" />
+                                                                Särskilt yrkesskicklig
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground mt-1">
+                                                        <span>{emp.category}</span>
+                                                    </div>
+                                                </div>
+
+                                                <div className="text-center">
+                                                    {emp.average_rating > 0 ? (
+                                                        <Badge variant={emp.average_rating >= 4 ? "default" : emp.average_rating >= 3 ? "secondary" : "outline"}>
+                                                            {emp.average_rating.toFixed(1)}
                                                         </Badge>
+                                                    ) : (
+                                                        <span className="text-xs text-muted-foreground">Ej bedömd</span>
                                                     )}
                                                 </div>
-                                                <div className="text-xs text-muted-foreground mt-1">
-                                                    <span>{emp.category}</span>
+
+                                                <div className="text-sm text-muted-foreground">
+                                                    <div className="flex justify-between"><span>Poängdel:</span> <span>{emp.points_part?.toLocaleString()} kr</span></div>
+                                                    {emp.is_particularly_skilled && (
+                                                        <div className="flex justify-between text-yellow-700"><span>Skicklighet:</span> <span>+{emp.skilled_part?.toLocaleString()} kr</span></div>
+                                                    )}
+                                                </div>
+
+                                                <div className="text-right text-muted-foreground">
+                                                    {emp.current_salary.toLocaleString()} kr
+                                                </div>
+
+                                                <div className="text-right">
+                                                    <Input
+                                                        type="number"
+                                                        value={val}
+                                                        onChange={(e) => handleAdjustmentChange(emp.id, e.target.value)}
+                                                        className="w-24 ml-auto text-right"
+                                                    />
+                                                </div>
+
+                                                <div className="text-right font-medium">
+                                                    {newSal.toLocaleString()} kr
                                                 </div>
                                             </div>
-
-                                            <div className="text-center">
-                                                {emp.average_rating > 0 ? (
-                                                    <Badge variant={emp.average_rating >= 4 ? "default" : emp.average_rating >= 3 ? "secondary" : "outline"}>
-                                                        {emp.average_rating.toFixed(1)}
-                                                    </Badge>
-                                                ) : (
-                                                    <span className="text-xs text-muted-foreground">Ej bedömd</span>
-                                                )}
-                                            </div>
-
-                                            <div className="text-sm text-muted-foreground">
-                                                <div className="flex justify-between"><span>Poängdel:</span> <span>{emp.points_part?.toLocaleString()} kr</span></div>
-                                                {emp.is_particularly_skilled && (
-                                                    <div className="flex justify-between text-yellow-700"><span>Skicklighet:</span> <span>+{emp.skilled_part?.toLocaleString()} kr</span></div>
-                                                )}
-                                            </div>
-
-                                            <div className="text-right text-muted-foreground">
-                                                {emp.current_salary.toLocaleString()} kr
-                                            </div>
-
-                                            <div className="text-right">
-                                                <Input
-                                                    type="number"
-                                                    value={val}
-                                                    onChange={(e) => handleAdjustmentChange(emp.id, e.target.value)}
-                                                    className="w-24 ml-auto text-right"
-                                                />
-                                            </div>
-
-                                            <div className="text-right font-medium">
-                                                {newSal.toLocaleString()} kr
-                                            </div>
-                                        </div>
-                                    )
-                                })}
+                                        )
+                                    })}
                                 {vfEmployees.length === 0 && <p className="text-muted-foreground text-center py-4">Inga medarbetare.</p>}
 
                                 {/* Total Points Footer */}
@@ -433,7 +446,13 @@ export default function SalaryDistribution({
                         <CardHeader>
                             <div className="grid grid-cols-1 md:grid-cols-7 gap-4 font-semibold text-sm text-muted-foreground border-b pb-2 mb-2">
                                 <div className="md:col-span-2">Medarbetare</div>
-                                <div className="text-center">Betyg</div>
+                                <div className="text-center cursor-pointer hover:text-foreground transition-colors select-none" onClick={() => {
+                                    if (sortBy === 'rating-desc') setSortBy('rating-asc')
+                                    else if (sortBy === 'rating-asc') setSortBy(null)
+                                    else setSortBy('rating-desc')
+                                }}>
+                                    Betyg {sortBy === 'rating-desc' ? '↓' : sortBy === 'rating-asc' ? '↑' : ''}
+                                </div>
                                 <div>Lönedelar</div>
                                 <div className="text-right">Nuvarande</div>
                                 <div className="text-right">Ökning</div>
@@ -442,55 +461,61 @@ export default function SalaryDistribution({
                         </CardHeader>
                         <CardContent>
                             <div className="space-y-4">
-                                {komEmployees.map(emp => {
-                                    const val = adjustments[emp.id] || 0
-                                    const newSal = emp.current_salary + val
+                                {[...komEmployees]
+                                    .sort((a, b) => {
+                                        if (!sortBy) return 0
+                                        if (sortBy === 'rating-desc') return b.average_rating - a.average_rating
+                                        return a.average_rating - b.average_rating
+                                    })
+                                    .map(emp => {
+                                        const val = adjustments[emp.id] || 0
+                                        const newSal = emp.current_salary + val
 
-                                    return (
-                                        <div key={emp.id} className="grid grid-cols-1 md:grid-cols-7 gap-4 items-center py-3 border-b">
-                                            <div className="md:col-span-2">
-                                                <div className="font-medium">
-                                                    {emp.name}
+                                        return (
+                                            <div key={emp.id} className="grid grid-cols-1 md:grid-cols-7 gap-4 items-center py-3 border-b">
+                                                <div className="md:col-span-2">
+                                                    <div className="font-medium">
+                                                        {emp.name}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground mt-1">
+                                                        <span>{emp.category}</span>
+                                                    </div>
                                                 </div>
-                                                <div className="text-xs text-muted-foreground mt-1">
-                                                    <span>{emp.category}</span>
+
+                                                <div className="text-center">
+                                                    {emp.average_rating > 0 ? (
+                                                        <Badge variant={emp.average_rating >= 4 ? "default" : emp.average_rating >= 3 ? "secondary" : "outline"}>
+                                                            {emp.average_rating.toFixed(1)}
+                                                        </Badge>
+                                                    ) : (
+                                                        <span className="text-xs text-muted-foreground">Ej bedömd</span>
+                                                    )}
+                                                </div>
+
+                                                <div className="text-sm text-muted-foreground">
+                                                    <div className="flex justify-between text-green-700"><span>Garanti:</span> <span>{emp.guaranteed_part?.toLocaleString()} kr</span></div>
+                                                    <div className="flex justify-between"><span>Poängdel:</span> <span>+{emp.variable_part?.toLocaleString()} kr</span></div>
+                                                </div>
+
+                                                <div className="text-right text-muted-foreground">
+                                                    {emp.current_salary.toLocaleString()} kr
+                                                </div>
+
+                                                <div className="text-right">
+                                                    <Input
+                                                        type="number"
+                                                        value={val}
+                                                        onChange={(e) => handleAdjustmentChange(emp.id, e.target.value)}
+                                                        className="w-24 ml-auto text-right"
+                                                    />
+                                                </div>
+
+                                                <div className="text-right font-medium">
+                                                    {newSal.toLocaleString()} kr
                                                 </div>
                                             </div>
-
-                                            <div className="text-center">
-                                                {emp.average_rating > 0 ? (
-                                                    <Badge variant={emp.average_rating >= 4 ? "default" : emp.average_rating >= 3 ? "secondary" : "outline"}>
-                                                        {emp.average_rating.toFixed(1)}
-                                                    </Badge>
-                                                ) : (
-                                                    <span className="text-xs text-muted-foreground">Ej bedömd</span>
-                                                )}
-                                            </div>
-
-                                            <div className="text-sm text-muted-foreground">
-                                                <div className="flex justify-between text-green-700"><span>Garanti:</span> <span>{emp.guaranteed_part?.toLocaleString()} kr</span></div>
-                                                <div className="flex justify-between"><span>Poängdel:</span> <span>+{emp.variable_part?.toLocaleString()} kr</span></div>
-                                            </div>
-
-                                            <div className="text-right text-muted-foreground">
-                                                {emp.current_salary.toLocaleString()} kr
-                                            </div>
-
-                                            <div className="text-right">
-                                                <Input
-                                                    type="number"
-                                                    value={val}
-                                                    onChange={(e) => handleAdjustmentChange(emp.id, e.target.value)}
-                                                    className="w-24 ml-auto text-right"
-                                                />
-                                            </div>
-
-                                            <div className="text-right font-medium">
-                                                {newSal.toLocaleString()} kr
-                                            </div>
-                                        </div>
-                                    )
-                                })}
+                                        )
+                                    })}
                                 {komEmployees.length === 0 && <p className="text-muted-foreground text-center py-4">Inga medarbetare.</p>}
 
                                 {/* Total Points Footer */}
