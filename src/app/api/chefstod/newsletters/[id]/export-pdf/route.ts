@@ -78,11 +78,10 @@ export async function POST(
             args: isDev
                 ? ['--no-sandbox', '--disable-setuid-sandbox']
                 : chromium.args,
-            defaultViewport: chromium.defaultViewport,
             executablePath: isDev
                 ? undefined // Use local Chrome in development
                 : await chromium.executablePath(),
-            headless: chromium.headless
+            headless: true
         })
 
         const page = await browser.newPage()
