@@ -21,14 +21,14 @@ async function getEmployeeSalaryData(employeeId: string) {
         // Find active review for this employee
         const { data: review } = await supabase
             .from('salary_reviews')
-            .select('proposed_increase, final_increase')
+            .select('proposed_increase, final_increase, skilled_amount')
             .eq('employee_id', employeeId)
             .eq('is_active', true)
             .single()
 
         return {
             employee,
-            review: review || { proposed_increase: 0, final_increase: 0 }
+            review: review || { proposed_increase: 0, final_increase: 0, skilled_amount: 0 }
         }
     } catch (error) {
         console.error('Error fetching salary data:', error)
@@ -54,7 +54,9 @@ export default async function SalaryViewPage({
     const { employee, review } = data
 
     // Get proposed increase (use final_increase if set, otherwise proposed_increase)
-    const proposedIncrease = review.final_increase || review.proposed_increase || 0
+    const baseIncrease = review.final_increase || review.proposed_increase || 0
+    const skilledAmount = review.skilled_amount || 0
+    const proposedIncrease = baseIncrease + skilledAmount
     const newSalary = employee.current_salary + proposedIncrease
 
     return (
