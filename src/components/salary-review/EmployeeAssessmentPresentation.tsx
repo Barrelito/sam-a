@@ -62,17 +62,13 @@ export default function EmployeeAssessmentPresentation({
                             {/* Color gradient bar with position indicator */}
                             <div className="relative h-24 rounded-lg overflow-hidden border-2 border-gray-200">
                                 {/* Gradient background */}
-                                <div className="absolute inset-0 bg-gradient-to-r from-red-400 via-yellow-400 via-50% via-green-400 to-blue-400"></div>
+                                <div className="absolute inset-0 z-0" style={{ backgroundImage: 'linear-gradient(to right, #f87171, #facc15, #4ade80, #60a5fa)' }}></div>
 
                                 {/* Position indicator */}
                                 <div
-                                    className="absolute top-0 bottom-0 w-2 bg-gray-900 shadow-lg transition-all duration-300"
-                                    style={{ left: `${percentage}%` }}
+                                    className="absolute top-0 bottom-0 w-2 z-10 bg-gray-900 shadow-lg transition-all duration-500"
+                                    style={{ left: `${Math.max(0, Math.min(99, percentage))}%`, transform: 'translateX(-50%)' }}
                                 >
-                                    {/* Triangle pointer at top */}
-                                    <div className="absolute -top-3 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[12px] border-t-gray-900"></div>
-                                    {/* Triangle pointer at bottom */}
-                                    <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-b-[12px] border-b-gray-900"></div>
                                 </div>
                             </div>
 
