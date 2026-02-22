@@ -47,6 +47,7 @@ interface MeetingDocumentationFormProps {
         meeting_notes?: string
     }
     distributionIncrease?: number
+    skilledAmount?: number
 }
 
 // Helper types for API response
@@ -69,7 +70,8 @@ export default function MeetingDocumentationForm({
     employee,
     currentSalary,
     initialData,
-    distributionIncrease
+    distributionIncrease,
+    skilledAmount
 }: MeetingDocumentationFormProps) {
     const router = useRouter()
     const { toast } = useToast()
@@ -240,14 +242,14 @@ export default function MeetingDocumentationForm({
                                         </div>
                                     )}
 
-                                    {/* Särskilt yrkesskicklig (Vårdförbundet) */}
-                                    {breakdown.is_particularly_skilled && (
+                                    {/* Särskilt yrkesskicklig - visar det sparade beloppet */}
+                                    {breakdown.is_particularly_skilled && skilledAmount !== undefined && skilledAmount > 0 && (
                                         <div className="flex justify-between items-center text-blue-900 font-semibold bg-blue-100/50 px-1.5 py-0.5 rounded -mx-1.5">
                                             <span className="flex items-center gap-1">
                                                 <Award className="h-3.5 w-3.5 text-amber-600" />
                                                 Särskilt yrkesskicklig
                                             </span>
-                                            <span>+{breakdown.skilled_part?.toLocaleString()} kr</span>
+                                            <span>+{skilledAmount.toLocaleString()} kr</span>
                                         </div>
                                     )}
                                 </div>
