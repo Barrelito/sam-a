@@ -109,7 +109,8 @@ export default function MeetingGuideDisplay({
                         {(() => {
                             // Calculate total score from all assessments
                             const totalScore = criteriaAssessments.reduce((sum, assessment) => {
-                                return sum + NUMERIC_RATING_VALUES[assessment.rating as keyof typeof NUMERIC_RATING_VALUES]
+                                const val = NUMERIC_RATING_VALUES[assessment.rating as keyof typeof NUMERIC_RATING_VALUES]
+                                return sum + (typeof val === 'number' ? val : 0)
                             }, 0)
 
                             // Psychological scale with "Bra" centered at 50%:

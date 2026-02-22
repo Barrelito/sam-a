@@ -24,7 +24,8 @@ export default function EmployeeAssessmentPresentation({
 }: EmployeeAssessmentPresentationProps) {
     // Calculate total score
     const totalScore = criteriaAssessments.reduce((sum, assessment) => {
-        return sum + NUMERIC_RATING_VALUES[assessment.rating as keyof typeof NUMERIC_RATING_VALUES]
+        const val = NUMERIC_RATING_VALUES[assessment.rating as keyof typeof NUMERIC_RATING_VALUES]
+        return sum + (typeof val === 'number' ? val : 0)
     }, 0)
 
     // Psychological scale calculation (same as MeetingGuideDisplay)
