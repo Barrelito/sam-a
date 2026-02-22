@@ -32,6 +32,7 @@ interface Employee {
     // Calculation parts
     points_part?: number
     skilled_part?: number
+    skilled_amount?: number
 
     guaranteed_part?: number
     variable_part?: number
@@ -75,7 +76,8 @@ export default function SalaryDistribution({
     const [saving, setSaving] = useState(false)
 
     const [data, setData] = useState<DistributionData | null>(null)
-    const [adjustments, setAdjustments] = useState<Record<string, number>>({})
+    const [adjustments, setAdjustments] = useState<Record<string, string | number>>({})
+    const [skilledAdjustments, setSkilledAdjustments] = useState<Record<string, string | number>>({})
     const [sortBy, setSortBy] = useState<'rating-asc' | 'rating-desc' | null>(null)
 
     // Load distribution data
@@ -101,11 +103,16 @@ export default function SalaryDistribution({
             setData(jsonData)
 
             // Initialize adjustments map
-            const adj: Record<string, number> = {}
+            const adj: Record<string, string | number> = {}
+            const skilledAdj: Record<string, string | number> = {}
             jsonData.employees.forEach((emp: Employee) => {
                 adj[emp.id] = emp.final_increase
+                if (emp.is_particularly_skilled) {
+                    skilledAdj[emp.id] = emp.skilled_amount || 0
+                }
             })
             setAdjustments(adj)
+            setSkilledAdjustments(skilledAdj)
         } catch (error) {
             console.error('Error loading distribution:', error)
             toast({
@@ -124,18 +131,36 @@ export default function SalaryDistribution({
 
     // Handle adjustment change
     const handleAdjustmentChange = (empId: string, value: string) => {
-        const numValue = parseFloat(value) || 0
-        setAdjustments(prev => ({ ...prev, [empId]: numValue }))
+        if (value === '') {
+            setAdjustments(prev => ({ ...prev, [empId]: '' }))
+            return
+        }
+        const numValue = parseFloat(value)
+        setAdjustments(prev => ({ ...prev, [empId]: isNaN(numValue) ? '' : numValue }))
+    }
+
+    const handleSkilledAdjustmentChange = (empId: string, value: string) => {
+        if (value === '') {
+            setSkilledAdjustments(prev => ({ ...prev, [empId]: '' }))
+            return
+        }
+        const numValue = parseFloat(value)
+        setSkilledAdjustments(prev => ({ ...prev, [empId]: isNaN(numValue) ? '' : numValue }))
     }
 
     // Reset to proposed
     const resetToProposed = () => {
         if (!data) return
-        const adj: Record<string, number> = {}
+        const adj: Record<string, string | number> = {}
+        const skilledAdj: Record<string, string | number> = {}
         data.employees.forEach(emp => {
             adj[emp.id] = emp.proposed_increase
+            if (emp.is_particularly_skilled) {
+                skilledAdj[emp.id] = emp.skilled_amount || 0
+            }
         })
         setAdjustments(adj)
+        setSkilledAdjustments(skilledAdj)
     }
 
     // Save allocations
@@ -147,8 +172,9 @@ export default function SalaryDistribution({
                 .filter(emp => emp.review_id)
                 .map(emp => ({
                     review_id: emp.review_id,
-                    final_increase: adjustments[emp.id] || 0,
-                    proposed_increase: emp.proposed_increase // Save calculated proposed too
+                    final_increase: typeof adjustments[emp.id] === 'number' && !isNaN(adjustments[emp.id] as number) ? adjustments[emp.id] : 0,
+                    proposed_increase: emp.proposed_increase, // Save calculated proposed too
+                    skilled_amount: emp.is_particularly_skilled ? (typeof skilledAdjustments[emp.id] === 'number' && !isNaN(skilledAdjustments[emp.id] as number) ? skilledAdjustments[emp.id] : 0) : 0
                 }))
 
             const res = await fetch('/api/salary-review/salary-distribution', {
@@ -188,14 +214,14 @@ export default function SalaryDistribution({
     const vfAllocated = data.budgets.vardforbundet.allocated_amount
     const vfExtraSkilled = data.budgets.vardforbundet.extra_skilled_amount
 
-    // Total adjusted sum for VF
-    const vfTotalAdjusted = vfEmployees.reduce((sum, e) => sum + (adjustments[e.id] || 0), 0)
+    // Total adjusted sum for VF (Only variables)
+    const vfTotalAdjusted = vfEmployees.reduce((sum, e) => sum + (typeof adjustments[e.id] === 'number' && !isNaN(adjustments[e.id] as number) ? adjustments[e.id] as number : 0), 0)
 
-    // Calculate how much of the adjustment is "fixed" costs (extra skilled)
-    const vfFixedCost = vfEmployees.filter(e => e.is_particularly_skilled).length * vfExtraSkilled
+    // Total adjusted skilled amount for VF
+    const vfTotalSkilled = vfEmployees.reduce((sum, e) => sum + (e.is_particularly_skilled && typeof skilledAdjustments[e.id] === 'number' && !isNaN(skilledAdjustments[e.id] as number) ? skilledAdjustments[e.id] as number : 0), 0)
 
     // Remaining variable part used
-    const vfVariableUsed = Math.max(0, vfTotalAdjusted - vfFixedCost)
+    const vfVariableUsed = vfTotalAdjusted
     const vfDiff = vfAllocated - vfVariableUsed
 
     // Kommunal: Allocated is variable pot. Diff = Allocated - (TotalAdjusted - GuaranteedFixed)
@@ -204,7 +230,10 @@ export default function SalaryDistribution({
     const komGuaranteed = data.budgets.kommunal.guaranteed_per_employee
 
     // Total adjusted
-    const komTotalAdjusted = komEmployees.reduce((sum, e) => sum + (adjustments[e.id] || 0), 0)
+    const komTotalAdjusted = komEmployees.reduce((sum, e) => sum + (typeof adjustments[e.id] === 'number' && !isNaN(adjustments[e.id] as number) ? adjustments[e.id] as number : 0), 0)
+
+    // Total skilled for Kommunal
+    const komTotalSkilled = komEmployees.reduce((sum, e) => sum + (e.is_particularly_skilled && typeof skilledAdjustments[e.id] === 'number' && !isNaN(skilledAdjustments[e.id] as number) ? skilledAdjustments[e.id] as number : 0), 0)
 
     // Fixed cost
     const komFixedCost = komEmployees.length * komGuaranteed
@@ -268,7 +297,7 @@ export default function SalaryDistribution({
                                     <div>
                                         <p className="text-sm text-muted-foreground">Din Fördelning</p>
                                         <p className="text-2xl font-bold">{vfTotalAdjusted.toLocaleString('sv-SE')} kr</p>
-                                        <p className="text-xs text-muted-foreground">Varav {vfFixedCost.toLocaleString('sv-SE')} kr i fasta tillägg</p>
+                                        {vfTotalSkilled > 0 && <p className="text-xs text-muted-foreground">Exkl. {vfTotalSkilled.toLocaleString('sv-SE')} kr för yrkesskicklighet</p>}
                                     </div>
                                     <div>
                                         <p className="text-sm text-muted-foreground">Pott kvar att fördela</p>
@@ -317,8 +346,11 @@ export default function SalaryDistribution({
                                         return a.average_rating - b.average_rating
                                     })
                                     .map(emp => {
-                                        const val = adjustments[emp.id] || 0
-                                        const newSal = emp.current_salary + val
+                                        const val1 = adjustments[emp.id]
+                                        const val = typeof val1 === 'number' && !isNaN(val1) ? val1 : 0
+                                        const skilled1 = skilledAdjustments[emp.id]
+                                        const skilledVal = emp.is_particularly_skilled ? (typeof skilled1 === 'number' && !isNaN(skilled1) ? skilled1 : 0) : 0
+                                        const newSal = emp.current_salary + val + skilledVal
 
                                         return (
                                             <div key={emp.id} className="grid grid-cols-1 md:grid-cols-7 gap-4 items-center py-3 border-b">
@@ -350,7 +382,16 @@ export default function SalaryDistribution({
                                                 <div className="text-sm text-muted-foreground">
                                                     <div className="flex justify-between"><span>Poängdel:</span> <span>{emp.points_part?.toLocaleString()} kr</span></div>
                                                     {emp.is_particularly_skilled && (
-                                                        <div className="flex justify-between text-yellow-700"><span>Skicklighet:</span> <span>+{emp.skilled_part?.toLocaleString()} kr</span></div>
+                                                        <div className="flex justify-between text-yellow-700 items-center mt-1">
+                                                            <span>Skicklighet:</span>
+                                                            <Input
+                                                                type="text"
+                                                                value={skilledAdjustments[emp.id] === undefined ? '' : skilledAdjustments[emp.id]}
+                                                                onChange={(e) => handleSkilledAdjustmentChange(emp.id, e.target.value)}
+                                                                className="w-16 ml-2 text-right h-7 text-xs border-yellow-300 focus-visible:ring-yellow-500"
+                                                                placeholder="0"
+                                                            />
+                                                        </div>
                                                     )}
                                                 </div>
 
@@ -360,8 +401,8 @@ export default function SalaryDistribution({
 
                                                 <div className="text-right">
                                                     <Input
-                                                        type="number"
-                                                        value={val}
+                                                        type="text"
+                                                        value={adjustments[emp.id] === undefined ? '' : adjustments[emp.id]}
                                                         onChange={(e) => handleAdjustmentChange(emp.id, e.target.value)}
                                                         className="w-24 ml-auto text-right"
                                                     />
@@ -420,6 +461,7 @@ export default function SalaryDistribution({
                                         <p className="text-sm text-muted-foreground">Din Fördelning</p>
                                         <p className="text-2xl font-bold">{komTotalAdjusted.toLocaleString('sv-SE')} kr</p>
                                         <p className="text-xs text-muted-foreground">Varav {komFixedCost.toLocaleString('sv-SE')} kr i garantilön</p>
+                                        {komTotalSkilled > 0 && <p className="text-xs text-muted-foreground">Exkl. {komTotalSkilled.toLocaleString('sv-SE')} kr för yrkesskicklighet</p>}
                                     </div>
                                     <div>
                                         <p className="text-sm text-muted-foreground">Pott kvar att fördela</p>
@@ -468,8 +510,11 @@ export default function SalaryDistribution({
                                         return a.average_rating - b.average_rating
                                     })
                                     .map(emp => {
-                                        const val = adjustments[emp.id] || 0
-                                        const newSal = emp.current_salary + val
+                                        const val1 = adjustments[emp.id]
+                                        const val = typeof val1 === 'number' && !isNaN(val1) ? val1 : 0
+                                        const skilled1 = skilledAdjustments[emp.id]
+                                        const skilledVal = emp.is_particularly_skilled ? (typeof skilled1 === 'number' && !isNaN(skilled1) ? skilled1 : 0) : 0
+                                        const newSal = emp.current_salary + val + skilledVal
 
                                         return (
                                             <div key={emp.id} className="grid grid-cols-1 md:grid-cols-7 gap-4 items-center py-3 border-b">
@@ -492,9 +537,21 @@ export default function SalaryDistribution({
                                                     )}
                                                 </div>
 
-                                                <div className="text-sm text-muted-foreground">
+                                                <div className="text-sm text-muted-foreground space-y-1">
                                                     <div className="flex justify-between text-green-700"><span>Garanti:</span> <span>{emp.guaranteed_part?.toLocaleString()} kr</span></div>
                                                     <div className="flex justify-between"><span>Poängdel:</span> <span>+{emp.variable_part?.toLocaleString()} kr</span></div>
+                                                    {emp.is_particularly_skilled && (
+                                                        <div className="flex justify-between text-yellow-700 items-center mt-1 pt-1 border-t">
+                                                            <span>Skicklighet:</span>
+                                                            <Input
+                                                                type="text"
+                                                                value={skilledAdjustments[emp.id] === undefined ? '' : skilledAdjustments[emp.id]}
+                                                                onChange={(e) => handleSkilledAdjustmentChange(emp.id, e.target.value)}
+                                                                className="w-16 ml-2 text-right h-7 text-xs border-yellow-300 focus-visible:ring-yellow-500"
+                                                                placeholder="0"
+                                                            />
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 <div className="text-right text-muted-foreground">
@@ -503,8 +560,8 @@ export default function SalaryDistribution({
 
                                                 <div className="text-right">
                                                     <Input
-                                                        type="number"
-                                                        value={val}
+                                                        type="text"
+                                                        value={adjustments[emp.id] === undefined ? '' : adjustments[emp.id]}
                                                         onChange={(e) => handleAdjustmentChange(emp.id, e.target.value)}
                                                         className="w-24 ml-auto text-right"
                                                     />

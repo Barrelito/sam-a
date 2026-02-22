@@ -133,6 +133,7 @@ export async function GET(request: Request) {
                     proposed_increase,
                     final_increase,
                     is_particularly_skilled,
+                    skilled_amount,
                     salary_criteria_assessments(rating)
                 )
             `)
@@ -183,7 +184,8 @@ export async function GET(request: Request) {
                 average_rating: totalRating, // Now contains total points (0-42)
                 review_id: currentReview?.id || null,
                 is_particularly_skilled: currentReview?.is_particularly_skilled || false,
-                existing_final: currentReview?.final_increase || null
+                existing_final: currentReview?.final_increase !== undefined && currentReview?.final_increase !== null ? currentReview.final_increase : null,
+                skilled_amount: currentReview?.skilled_amount !== undefined && currentReview?.skilled_amount !== null ? currentReview.skilled_amount : null
             }
         }) || []
 
@@ -201,20 +203,19 @@ export async function GET(request: Request) {
         // Calculate proposed for VF
         vfEmployees.forEach(emp => {
             const pointsPart = emp.average_rating * vfPerPoint
-            const skilledPart = emp.is_particularly_skilled ? vfBudget.extra_skilled_amount : 0
 
             // @ts-ignore
-            emp.proposed_increase = Math.round(pointsPart + skilledPart)
+            emp.proposed_increase = Math.round(pointsPart)
             // @ts-ignore
             emp.points_part = Math.round(pointsPart)
             // @ts-ignore
-            emp.skilled_part = skilledPart
+            emp.skilled_amount = emp.skilled_amount || 0
 
             // Final defaults to proposed if not set
             // @ts-ignore
-            emp.final_increase = emp.existing_final ?? Math.round(pointsPart + skilledPart)
+            emp.final_increase = emp.existing_final ?? Math.round(pointsPart)
             // @ts-ignore
-            emp.new_salary = emp.current_salary + emp.final_increase
+            emp.new_salary = emp.current_salary + emp.final_increase + emp.skilled_amount
         })
 
         // --- Kommunal Calculation ---
@@ -235,12 +236,14 @@ export async function GET(request: Request) {
             emp.guaranteed_part = guaranteedPart
             // @ts-ignore
             emp.variable_part = Math.round(variablePart)
+            // @ts-ignore
+            emp.skilled_amount = emp.skilled_amount || 0
 
             // Final defaults to proposed
             // @ts-ignore
             emp.final_increase = emp.existing_final ?? Math.round(guaranteedPart + variablePart)
             // @ts-ignore
-            emp.new_salary = emp.current_salary + emp.final_increase
+            emp.new_salary = emp.current_salary + emp.final_increase + emp.skilled_amount
         })
 
         return NextResponse.json({
@@ -280,7 +283,7 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json()
-        const { allocations } = body // [{ review_id, final_increase, proposed_increase }]
+        const { allocations } = body // [{ review_id, final_increase, proposed_increase, skilled_amount }]
 
         if (!allocations || !Array.isArray(allocations)) {
             return NextResponse.json({ error: 'allocations array required' }, { status: 400 })
@@ -292,7 +295,8 @@ export async function POST(request: Request) {
                 .from('salary_reviews')
                 .update({
                     final_increase: alloc.final_increase,
-                    proposed_increase: alloc.proposed_increase // Optional update of proposed
+                    proposed_increase: alloc.proposed_increase, // Optional update of proposed
+                    skilled_amount: alloc.skilled_amount
                 })
                 .eq('id', alloc.review_id)
 

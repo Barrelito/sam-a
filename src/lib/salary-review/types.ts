@@ -49,6 +49,7 @@ export interface SalaryReview {
     final_salary?: number
     proposed_increase?: number
     final_increase?: number
+    skilled_amount?: number
     meeting_date?: string
     meeting_notes?: string
     created_at: string
