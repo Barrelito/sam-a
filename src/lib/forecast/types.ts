@@ -21,3 +21,16 @@ export interface TargetLevel {
     week_number: number;
     hours: number;
 }
+
+export interface ResourceTransfer {
+    id: string;
+    employee_id: string;
+    from_station_id: string;
+    to_station_id: string;
+    year: number;
+    week_number: number;
+    hours: number;
+    created_at: string;
+    created_by?: string;
+    updated_at: string;
+}
