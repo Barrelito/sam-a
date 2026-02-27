@@ -17,7 +17,8 @@ import {
     Users,
     DollarSign,
     Calendar,
-    Archive
+    Archive,
+    TrendingUp
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -34,6 +35,7 @@ const managerNavigation = [
     { name: "Arkiv", href: "/tasks/archive", icon: Archive },
     { name: "Mina Uppgifter", href: "/my-tasks", icon: User },
     { name: "Löneöversyn", href: "/salary-review", icon: DollarSign },
+    { name: "Personalprognos", href: "/forecast", icon: TrendingUp },
     { name: "Chefstöd", href: "/chefstod", icon: MessageSquare },
     { name: "Inställningar", href: "/settings", icon: Settings },
 ]
@@ -47,6 +49,7 @@ const voChiefNavigation = [
     { name: "Arkiv", href: "/tasks/archive", icon: Archive },
     { name: "Mina Uppgifter", href: "/my-tasks", icon: User },
     { name: "Löneöversyn", href: "/salary-review", icon: DollarSign },
+    { name: "Personalprognos", href: "/forecast/area", icon: TrendingUp },
     { name: "Chefstöd", href: "/chefstod", icon: MessageSquare },
     { name: "Inställningar", href: "/settings", icon: Settings },
 ]
