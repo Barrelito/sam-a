@@ -33,6 +33,8 @@ export interface Employee {
     station_id: string
     manager_id: string
     employment_date?: string
+    employment_rate?: number
+    night_share?: number
     current_salary?: number
     created_at: string
     updated_at: string
