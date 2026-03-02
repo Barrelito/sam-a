@@ -140,8 +140,11 @@ export interface Task {
     // Related data (populated separately)
     comments?: TaskComment[];
     attachments?: TaskAttachment[];
+    checklist?: TaskChecklistItem[];
     comments_count?: number;
     attachments_count?: number;
+    checklist_count?: number;
+    checklist_completed_count?: number;
 
     // Annual Cycle Integration
     is_annual_cycle?: boolean;
@@ -168,6 +171,20 @@ export interface TaskAttachment {
     uploaded_by: string;
     uploaded_by_profile?: Profile;
     created_at: string;
+}
+
+export interface TaskChecklistItem {
+    id: string;
+    task_id: string;
+    title: string;
+    is_completed: boolean;
+    completed_at: string | null;
+    completed_by: string | null;
+    completed_by_profile?: { full_name: string } | null;
+    sort_order: number;
+    created_at: string;
+    created_by: string | null;
+    updated_at: string;
 }
 
 // =============================================

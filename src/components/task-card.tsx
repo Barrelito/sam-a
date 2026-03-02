@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation"
 import { Task, TaskStatus, TaskPriority, categoryLabels, statusLabels, statusColors, categoryColors, getDaysUntilDeadline } from "@/lib/types"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Clock, CheckCircle2, Circle, MessageSquare, RefreshCw, MapPin, User, AlertCircle, ChevronDown, ChevronUp, Paperclip } from "lucide-react"
+import { Progress } from "@/components/ui/progress"
+import { Clock, CheckCircle2, Circle, MessageSquare, RefreshCw, MapPin, User, AlertCircle, ChevronDown, ChevronUp, Paperclip, UserX, ListChecks } from "lucide-react"
 import { PriorityBadge } from "@/components/priority-badge"
 import { PriorityQuickSelect } from "@/components/priority-quick-select"
 import { Button } from "@/components/ui/button"
@@ -88,6 +89,18 @@ export function TaskCard({ task, onStatusChange, onPriorityChange, showStation =
     const attachmentCount = task.attachments?.length || 0
     const hasDetails = task.description || task.notes || attachmentCount > 0
 
+    // Checklist progress
+    const checklistTotal = task.checklist_count ?? task.checklist?.length ?? 0
+    const checklistDone = task.checklist_completed_count ?? task.checklist?.filter(i => i.is_completed).length ?? 0
+    const checklistPercent = checklistTotal > 0 ? Math.round((checklistDone / checklistTotal) * 100) : 0
+    const hasChecklist = checklistTotal > 0
+
+    // Risk indicators
+    const isUnassigned = !task.assigned_to && task.owner_type === 'station'
+    const isOverdue = !!(task.deadline_day && task.status !== 'done'
+        ? getDaysUntilDeadline(task.deadline_day).text.includes('sen')
+        : false)
+
     return (
         <Card
             className={`group hover:shadow-md transition-shadow cursor-pointer ${isSelected ? 'ring-2 ring-primary' : ''}`}
@@ -140,7 +153,7 @@ export function TaskCard({ task, onStatusChange, onPriorityChange, showStation =
             </CardHeader>
 
             <CardContent className="space-y-3">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     <div
                         className="flex items-center gap-1 text-xs px-2 py-1 rounded-md cursor-pointer hover:bg-secondary/80 transition-colors"
                         style={{ backgroundColor: statusColors[task.status] + '20' }}
@@ -150,12 +163,17 @@ export function TaskCard({ task, onStatusChange, onPriorityChange, showStation =
                         <span>{status.label}</span>
                     </div>
 
-                    {task.assigned_to_profile?.full_name && (
+                    {task.assigned_to_profile?.full_name ? (
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
                             <User className="h-3 w-3" />
                             <span>{task.assigned_to_profile.full_name}</span>
                         </div>
-                    )}
+                    ) : isUnassigned ? (
+                        <Badge variant="outline" className="h-5 text-xs border-orange-300 text-orange-600 bg-orange-50 gap-1 px-1.5">
+                            <UserX className="h-3 w-3" />
+                            Ej tilldelad
+                        </Badge>
+                    ) : null}
 
                     {showStation && task.station && (
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">
@@ -171,6 +189,25 @@ export function TaskCard({ task, onStatusChange, onPriorityChange, showStation =
                         </div>
                     )}
                 </div>
+
+                {/* Checklist progress */}
+                {hasChecklist && (
+                    <div className="space-y-1">
+                        <div className="flex items-center justify-between text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                                <ListChecks className="h-3 w-3" />
+                                <span>Checklista</span>
+                            </div>
+                            <span className={checklistDone === checklistTotal ? 'text-green-600 font-medium' : ''}>
+                                {checklistDone}/{checklistTotal} klara
+                            </span>
+                        </div>
+                        <Progress
+                            value={checklistPercent}
+                            className={`h-1 ${checklistDone === checklistTotal ? '[&>div]:bg-green-500' : ''}`}
+                        />
+                    </div>
+                )}
 
                 {/* Description Preview (when collapsed) */}
                 {!expanded && task.description && (

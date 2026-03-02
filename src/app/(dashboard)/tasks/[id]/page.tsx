@@ -24,10 +24,18 @@ export default function TaskDetailPage() {
 
     const loadTask = async () => {
         try {
-            const res = await fetch(`/api/tasks/${taskId}`)
-            if (!res.ok) throw new Error('Failed to load task')
-            const data = await res.json()
-            setTask(data.task)
+            const [taskRes, checklistRes] = await Promise.all([
+                fetch(`/api/tasks/${taskId}`),
+                fetch(`/api/tasks/${taskId}/checklist`)
+            ])
+            if (!taskRes.ok) throw new Error('Failed to load task')
+            const taskData = await taskRes.json()
+            const checklistData = checklistRes.ok ? await checklistRes.json() : { items: [] }
+
+            setTask({
+                ...taskData.task,
+                checklist: checklistData.items || [],
+            })
         } catch (err) {
             setError('Kunde inte ladda uppgiften')
             console.error(err)

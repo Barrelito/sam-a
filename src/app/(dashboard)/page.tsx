@@ -7,7 +7,7 @@ import { TaskCard } from "@/components/task-card"
 import { StatusOverview } from "@/components/status-overview"
 import { StationFilter } from "@/components/station-filter"
 import { Task, TaskStatus, TaskPriority, StationGroup, getDaysUntilDeadline, TaskCategory, categoryLabels } from "@/lib/types"
-import { CalendarDays, TrendingUp, Loader2, FolderOpen, CheckCircle, AlertCircle, Target, Filter, CheckSquare, X } from "lucide-react"
+import { CalendarDays, TrendingUp, Loader2, FolderOpen, CheckCircle, AlertCircle, Target, Filter, CheckSquare, X, UserX, AlertTriangle } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -374,7 +374,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Quick Stats Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
                 {/* P1 Tasks Remaining */}
                 <Card>
                     <CardContent className="p-4">
@@ -448,6 +448,32 @@ export default function DashboardPage() {
                         </div>
                     </CardContent>
                 </Card>
+
+                {/* Unassigned Tasks */}
+                <Card
+                    className={`cursor-pointer hover:shadow-md transition-shadow ${monthTasks.filter(t => !t.assigned_to && t.owner_type === 'station').length > 0
+                        ? 'border-orange-200 bg-orange-50/50'
+                        : ''
+                        }`}
+                    onClick={() => router.push('/tasks?filter=unassigned')}
+                >
+                    <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <div className={`text-2xl font-bold ${monthTasks.filter(t => !t.assigned_to && t.owner_type === 'station').length > 0
+                                    ? 'text-orange-600'
+                                    : 'text-green-600'
+                                    }`}>
+                                    {monthTasks.filter(t => !t.assigned_to && t.owner_type === 'station').length}
+                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">
+                                    👤 Ej tilldelade
+                                </div>
+                            </div>
+                            <UserX className="h-8 w-8 text-orange-200" />
+                        </div>
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Bulk Action Toolbar (when tasks selected) */}
@@ -486,6 +512,59 @@ export default function DashboardPage() {
                     </div>
                 </div>
             )}
+
+            {/* At Risk Section */}
+            {(() => {
+                const atRiskTasks = filteredMonthTasks.filter(task => {
+                    if (task.status === 'done') return false
+                    const isOverdue = task.deadline_day && getDaysUntilDeadline(task.deadline_day).text.includes('sen')
+                    const isUnassigned = !task.assigned_to && task.owner_type === 'station'
+                    return isOverdue || isUnassigned
+                })
+                if (atRiskTasks.length === 0) return null
+                return (
+                    <section className="space-y-3">
+                        <div className="flex items-center gap-2">
+                            <AlertTriangle className="h-5 w-5 text-orange-500" />
+                            <h2 className="text-lg font-semibold text-orange-700">Uppmärksamma ({atRiskTasks.length})</h2>
+                            <span className="text-xs text-muted-foreground">Försenade eller saknar ansvarig</span>
+                        </div>
+                        <div className="space-y-2">
+                            {atRiskTasks.slice(0, 5).map(task => {
+                                const isOverdue = task.deadline_day && getDaysUntilDeadline(task.deadline_day).text.includes('sen')
+                                const isUnassigned = !task.assigned_to && task.owner_type === 'station'
+                                return (
+                                    <div
+                                        key={task.id}
+                                        className="flex items-center gap-3 p-3 rounded-lg border border-orange-200 bg-orange-50/60 cursor-pointer hover:bg-orange-100/60 transition-colors"
+                                        onClick={() => router.push(`/tasks/${task.id}`)}
+                                    >
+                                        <div className="flex-1 text-sm font-medium truncate">{task.title}</div>
+                                        <div className="flex items-center gap-2 flex-shrink-0">
+                                            {isUnassigned && (
+                                                <Badge variant="outline" className="border-orange-300 text-orange-600 bg-white text-xs gap-1">
+                                                    <UserX className="h-3 w-3" />
+                                                    Ej tilldelad
+                                                </Badge>
+                                            )}
+                                            {isOverdue && task.deadline_day && (
+                                                <Badge variant="outline" className="border-red-300 text-red-600 bg-white text-xs">
+                                                    {getDaysUntilDeadline(task.deadline_day).text}
+                                                </Badge>
+                                            )}
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                            {atRiskTasks.length > 5 && (
+                                <p className="text-xs text-muted-foreground pl-3">
+                                    + {atRiskTasks.length - 5} fler uppgifter...
+                                </p>
+                            )}
+                        </div>
+                    </section>
+                )
+            })()}
 
             {/* Current Focus Section - Active Tasks */}
             <section className="space-y-4">

@@ -1,22 +1,132 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useRouter } from "next/navigation"
 import { getMonthName } from "@/lib/utils"
-import { Task, TaskStatus, TaskCategory, statusLabels, statusColors, categoryLabels, categoryColors } from "@/lib/types"
+import { Task, TaskStatus, TaskCategory, TaskPriority, statusLabels, statusColors, categoryLabels, categoryColors, getDaysUntilDeadline } from "@/lib/types"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { useAuth } from "@/lib/auth-context"
 import { StationFilter } from "@/components/station-filter"
-import { ListFilter, Plus, Loader2, ChevronRight, MapPin } from "lucide-react"
+import { TaskCard } from "@/components/task-card"
+import { useToast } from "@/hooks/use-toast"
+import {
+    ListFilter, Plus, Loader2, ChevronRight, MapPin, LayoutGrid, List,
+    UserX, AlertTriangle, Clock, User, CheckSquare2
+} from "lucide-react"
 
 const months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 const categories: TaskCategory[] = ['HR', 'Finance', 'Safety', 'Operations']
 const statuses: TaskStatus[] = ['not_started', 'in_progress', 'done']
 
-import { TaskCard } from "@/components/task-card"
-import { useToast } from "@/hooks/use-toast"
+type AssignmentFilter = 'all' | 'unassigned' | 'mine'
+type ViewMode = 'card' | 'list'
+
+function getRiskBadges(task: Task) {
+    const badges: { label: string; color: string }[] = []
+
+    if (!task.assigned_to && task.owner_type === 'station') {
+        badges.push({ label: 'Ej tilldelad', color: 'border-orange-300 text-orange-600 bg-orange-50' })
+    }
+
+    if (task.deadline_day && task.status !== 'done') {
+        const dl = getDaysUntilDeadline(task.deadline_day)
+        if (dl.text.includes('sen')) {
+            badges.push({ label: 'Försenad', color: 'border-red-300 text-red-600 bg-red-50' })
+        } else if (dl.urgent) {
+            badges.push({ label: 'Nära deadline', color: 'border-yellow-400 text-yellow-700 bg-yellow-50' })
+        }
+    }
+
+    return badges
+}
+
+interface TaskRowProps {
+    task: Task
+    onStatusChange: (taskId: string, newStatus: TaskStatus) => void
+    onClick: () => void
+    userId?: string
+}
+
+function TaskRow({ task, onStatusChange, onClick, userId }: TaskRowProps) {
+    const riskBadges = getRiskBadges(task)
+
+    const cycleStatus = (e: React.MouseEvent) => {
+        e.stopPropagation()
+        const statusOrder: TaskStatus[] = ['not_started', 'in_progress', 'done']
+        const currentIndex = statusOrder.indexOf(task.status)
+        const nextStatus = statusOrder[(currentIndex + 1) % statusOrder.length]
+        onStatusChange(task.id, nextStatus)
+    }
+
+    return (
+        <div
+            className="flex items-center gap-3 p-3 rounded-lg border bg-card hover:bg-accent/30 cursor-pointer transition-colors group"
+            onClick={onClick}
+        >
+            {/* Status dot */}
+            <button
+                className={`flex-shrink-0 h-7 w-7 rounded-full flex items-center justify-center text-xs font-bold border-2 hover:opacity-80 transition-opacity ${statusColors[task.status]}`}
+                onClick={cycleStatus}
+                title={statusLabels[task.status]}
+            >
+                {task.status === 'done' ? '✓' : task.status === 'in_progress' ? '⏸' : '○'}
+            </button>
+
+            {/* Title */}
+            <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium truncate ${task.status === 'done' ? 'line-through text-muted-foreground' : ''}`}>
+                    {task.title}
+                </p>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                    <Badge variant="outline" className={`text-xs h-4 px-1 ${categoryColors[task.category]}`}>
+                        {categoryLabels[task.category]}
+                    </Badge>
+                    {riskBadges.map((b, i) => (
+                        <Badge key={i} variant="outline" className={`text-xs h-4 px-1 ${b.color}`}>
+                            {b.label}
+                        </Badge>
+                    ))}
+                </div>
+            </div>
+
+            {/* Assignee */}
+            <div className="hidden sm:flex items-center gap-1 w-32 text-xs text-muted-foreground flex-shrink-0">
+                {task.assigned_to_profile?.full_name ? (
+                    <>
+                        <User className="h-3 w-3 flex-shrink-0" />
+                        <span className="truncate">{task.assigned_to_profile.full_name}</span>
+                    </>
+                ) : task.owner_type === 'station' ? (
+                    <span className="text-orange-500 flex items-center gap-1">
+                        <UserX className="h-3 w-3" />
+                        Ej tilldelad
+                    </span>
+                ) : null}
+            </div>
+
+            {/* Deadline */}
+            <div className="hidden md:block w-24 text-xs flex-shrink-0 text-right">
+                {task.deadline_day && task.status !== 'done' && (() => {
+                    const dl = getDaysUntilDeadline(task.deadline_day)
+                    return <span className={dl.color}>{dl.text}</span>
+                })()}
+            </div>
+
+            {/* Priority */}
+            <div className="flex-shrink-0">
+                {task.priority && (
+                    <span className="text-xs font-medium">
+                        {task.priority === 1 ? '🔴' : task.priority === 2 ? '🟡' : task.priority === 3 ? '🔵' : '⚪'} P{task.priority}
+                    </span>
+                )}
+            </div>
+
+            <ChevronRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+        </div>
+    )
+}
 
 export default function TasksPage() {
     const router = useRouter()
@@ -29,25 +139,23 @@ export default function TasksPage() {
     const [selectedStatus, setSelectedStatus] = useState<TaskStatus | null>(null)
     const [selectedStationId, setSelectedStationId] = useState<string | null>(null)
     const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null)
+    const [assignmentFilter, setAssignmentFilter] = useState<AssignmentFilter>('all')
+    const [viewMode, setViewMode] = useState<ViewMode>('card')
     const [stationGroups, setStationGroups] = useState<{ id: string; name: string; stations?: { id: string }[] }[]>([])
 
-    // Load tasks function separated for re-use
-    async function fetchTasks() {
+    const fetchTasks = useCallback(async () => {
         if (!profile) return
         try {
             const res = await fetch(`/api/tasks?year=${new Date().getFullYear()}`)
             if (res.ok) {
                 const data = await res.json()
                 let loadedTasks = data.tasks || []
-
-                // Filter tasks based on user role (same logic as before)
                 if (profile.role === 'station_manager' || profile.role === 'assistant_manager') {
                     const userStationIds = profile.user_stations?.map(us => us.station.id) || []
                     loadedTasks = loadedTasks.filter((task: Task) => {
                         if (task.owner_type === 'station' && task.station_id && userStationIds.includes(task.station_id)) return true
                         if (task.assigned_to === profile.id) return true
                         if (task.owner_type === 'personal' && task.created_by === profile.id) return true
-                        // Annual cycle tasks are filtered by API mostly, but good to check
                         if (task.is_annual_cycle) return true
                         return false
                     })
@@ -59,17 +167,15 @@ export default function TasksPage() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [profile])
 
     useEffect(() => {
         if (!authLoading && profile) {
             fetchTasks()
-            // Load station groups for the filter
             fetch('/api/admin/station-groups')
                 .then(res => res.json())
                 .then(data => {
                     const userStationIds = profile.user_stations?.map(us => us.station.id) || []
-                    // Filter groups to only show those that include user's stations
                     const relevantGroups = (data.station_groups || []).filter((group: any) =>
                         group.stations?.some((s: any) => userStationIds.includes(s.id))
                     )
@@ -77,95 +183,78 @@ export default function TasksPage() {
                 })
                 .catch(err => console.error('Failed to load station groups:', err))
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [authLoading, profile])
+    }, [authLoading, profile, fetchTasks])
 
     const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
-        // Find task
         const task = tasks.find(t => t.id === taskId)
         if (!task) return
-
-        // Optimistic update
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t))
 
         if (task.is_annual_cycle) {
-            // Handle Annual Cycle completion/status update
             try {
                 const originalId = task.id.replace('annual-', '')
-
-                // Map UI status to API status
                 let apiStatus = 'completed'
                 if (newStatus === 'in_progress') apiStatus = 'in_progress'
                 if (newStatus === 'not_started') apiStatus = 'todo'
-
                 const res = await fetch('/api/annual-cycle/complete', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        itemId: originalId,
-                        year: task.year,
-                        status: apiStatus
-                    })
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ itemId: originalId, year: task.year, status: apiStatus })
                 })
-
-                if (!res.ok) throw new Error('Failed to update status')
-
-                toast({
-                    title: "Status uppdaterad",
-                    description: `"${task.title}" är nu ${statusLabels[newStatus]?.toLowerCase()}.`,
-                })
-            } catch (err) {
-                console.error(err)
+                if (!res.ok) throw new Error('Failed')
+                toast({ title: "Status uppdaterad", description: `"${task.title}" är nu ${statusLabels[newStatus]?.toLowerCase()}.` })
+            } catch {
                 toast({ variant: "destructive", title: "Fel", description: "Kunde inte spara status." })
-                // Revert
                 fetchTasks()
             }
         } else {
-            // Handle Regular Task Status Change
-            console.log("Status change for regular task not fully implemented in list view yet.")
-            toast({ description: "Statusändring för vanliga uppgifter kommer snart." })
+            try {
+                await fetch(`/api/tasks/${taskId}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                })
+            } catch {
+                fetchTasks()
+            }
         }
     }
 
     const handleTaskClick = (task: Task) => {
-        // Always go to detail view for better UX/consistency
-        router.push(`/tasks/${task.id}`)
+        if (task.is_annual_cycle && task.action_link) {
+            router.push(task.action_link)
+        } else {
+            router.push(`/tasks/${task.id}`)
+        }
     }
 
-    // Get user's stations for the filter
+    // Filters
     const userStations = profile?.user_stations?.map(us => us.station) || []
     const showStationFilter = userStations.length > 1 || stationGroups.length > 0
-
-    // Get station IDs from selected group
     const selectedGroupStationIds = selectedGroupId
         ? stationGroups.find(g => g.id === selectedGroupId)?.stations?.map(s => s.id) || []
         : []
 
-    // Client-side filtering (including station filter)
     const filteredTasks = tasks.filter(task => {
-        // Station group filter - show tasks from any station in the group
         if (selectedGroupId) {
-            if (!task.station_id || !selectedGroupStationIds.includes(task.station_id)) {
-                return false
-            }
-        }
-        // Single station filter
-        else if (selectedStationId && task.station_id !== selectedStationId) {
+            if (!task.station_id || !selectedGroupStationIds.includes(task.station_id)) return false
+        } else if (selectedStationId && task.station_id !== selectedStationId) {
             return false
         }
-
         if (selectedMonth !== null) {
-            if (task.is_recurring_monthly) {
-                // include
-            } else if (!task.start_month) {
-                return false
-            } else {
+            if (task.is_recurring_monthly) { /* include */ }
+            else if (!task.start_month) return false
+            else {
                 const end = task.end_month || task.start_month
                 if (selectedMonth < task.start_month || selectedMonth > end) return false
             }
         }
         if (selectedCategory && task.category !== selectedCategory) return false
         if (selectedStatus && task.status !== selectedStatus) return false
+        if (assignmentFilter === 'unassigned') {
+            if (task.assigned_to || task.owner_type !== 'station') return false
+        }
+        if (assignmentFilter === 'mine') {
+            if (task.assigned_to !== profile?.id) return false
+        }
         return true
     })
 
@@ -175,6 +264,7 @@ export default function TasksPage() {
         setSelectedStatus(null)
         setSelectedStationId(null)
         setSelectedGroupId(null)
+        setAssignmentFilter('all')
     }
 
     const tasksByMonth = filteredTasks.reduce((acc, task) => {
@@ -183,6 +273,9 @@ export default function TasksPage() {
         acc[key].push(task)
         return acc
     }, {} as Record<string, Task[]>)
+
+    // Unassigned count for indicator
+    const unassignedCount = tasks.filter(t => !t.assigned_to && t.owner_type === 'station').length
 
     if (authLoading || loading) {
         return (
@@ -201,7 +294,7 @@ export default function TasksPage() {
                         Komplett översikt av årshjulets uppgifter
                     </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                     {showStationFilter && (
                         <StationFilter
                             stations={userStations}
@@ -212,6 +305,25 @@ export default function TasksPage() {
                             onGroupChange={setSelectedGroupId}
                         />
                     )}
+                    {/* View toggle */}
+                    <div className="flex items-center border rounded-md overflow-hidden">
+                        <Button
+                            variant={viewMode === 'card' ? 'default' : 'ghost'}
+                            size="sm"
+                            className="rounded-none h-9 px-3"
+                            onClick={() => setViewMode('card')}
+                        >
+                            <LayoutGrid className="h-4 w-4" />
+                        </Button>
+                        <Button
+                            variant={viewMode === 'list' ? 'default' : 'ghost'}
+                            size="sm"
+                            className="rounded-none h-9 px-3 border-l"
+                            onClick={() => setViewMode('list')}
+                        >
+                            <List className="h-4 w-4" />
+                        </Button>
+                    </div>
                     <Button onClick={() => router.push('/tasks/new')} className="gap-2">
                         <Plus className="h-4 w-4" />
                         Ny uppgift
@@ -219,12 +331,32 @@ export default function TasksPage() {
                 </div>
             </div>
 
-            {/* Filters (preserved same structure) */}
+            {/* Unassigned alert banner */}
+            {unassignedCount > 0 && (
+                <div
+                    className="flex items-center justify-between p-3 bg-orange-50 border border-orange-200 rounded-lg cursor-pointer hover:bg-orange-100 transition-colors"
+                    onClick={() => setAssignmentFilter(assignmentFilter === 'unassigned' ? 'all' : 'unassigned')}
+                >
+                    <div className="flex items-center gap-2 text-orange-700">
+                        <UserX className="h-4 w-4" />
+                        <span className="text-sm font-medium">
+                            {unassignedCount} uppgift{unassignedCount !== 1 ? 'er' : ''} saknar ansvarig
+                        </span>
+                    </div>
+                    <Badge variant="outline" className="border-orange-300 text-orange-600 bg-white text-xs">
+                        {assignmentFilter === 'unassigned' ? 'Visa alla' : 'Visa dessa'}
+                    </Badge>
+                </div>
+            )}
+
+            {/* Filters */}
             <div className="space-y-4 p-4 bg-secondary/30 rounded-lg">
                 <div className="flex items-center gap-2 text-sm font-medium">
                     <ListFilter className="h-4 w-4" />
                     Filtrera
                 </div>
+
+                {/* Month filter */}
                 <div className="space-y-2">
                     <label className="text-sm text-muted-foreground">Månad</label>
                     <div className="flex flex-wrap gap-1">
@@ -242,6 +374,7 @@ export default function TasksPage() {
                     </div>
                 </div>
 
+                {/* Category filter */}
                 <div className="space-y-2">
                     <label className="text-sm text-muted-foreground">Kategori</label>
                     <div className="flex flex-wrap gap-2">
@@ -258,6 +391,7 @@ export default function TasksPage() {
                     </div>
                 </div>
 
+                {/* Status filter */}
                 <div className="space-y-2">
                     <label className="text-sm text-muted-foreground">Status</label>
                     <div className="flex flex-wrap gap-2">
@@ -274,7 +408,30 @@ export default function TasksPage() {
                     </div>
                 </div>
 
-                {(selectedMonth || selectedCategory || selectedStatus || selectedStationId || selectedGroupId) && (
+                {/* Assignment filter */}
+                <div className="space-y-2">
+                    <label className="text-sm text-muted-foreground">Tilldelning</label>
+                    <div className="flex flex-wrap gap-2">
+                        {([
+                            { value: 'all', label: 'Alla', icon: null },
+                            { value: 'unassigned', label: 'Ej tilldelade', icon: <UserX className="h-3 w-3" /> },
+                            { value: 'mine', label: 'Mina', icon: <User className="h-3 w-3" /> },
+                        ] as { value: AssignmentFilter; label: string; icon: React.ReactNode }[]).map(opt => (
+                            <Button
+                                key={opt.value}
+                                variant={assignmentFilter === opt.value ? "default" : "outline"}
+                                size="sm"
+                                className="h-7 gap-1 text-xs"
+                                onClick={() => setAssignmentFilter(opt.value)}
+                            >
+                                {opt.icon}
+                                {opt.label}
+                            </Button>
+                        ))}
+                    </div>
+                </div>
+
+                {(selectedMonth || selectedCategory || selectedStatus || selectedStationId || selectedGroupId || assignmentFilter !== 'all') && (
                     <Button variant="ghost" size="sm" onClick={clearFilters}>
                         Rensa filter
                     </Button>
@@ -283,6 +440,18 @@ export default function TasksPage() {
 
             {/* Task List */}
             <div className="space-y-8">
+                {/* List view header */}
+                {viewMode === 'list' && filteredTasks.length > 0 && (
+                    <div className="hidden sm:flex items-center gap-3 px-3 text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                        <div className="h-7 w-7 flex-shrink-0" />
+                        <div className="flex-1">Uppgift</div>
+                        <div className="w-32 flex-shrink-0">Ansvarig</div>
+                        <div className="hidden md:block w-24 flex-shrink-0 text-right">Deadline</div>
+                        <div className="w-12 flex-shrink-0">Prior.</div>
+                        <div className="w-4 flex-shrink-0" />
+                    </div>
+                )}
+
                 {Object.entries(tasksByMonth)
                     .sort((a, b) => {
                         if (a[0] === 'recurring') return 1
@@ -290,28 +459,49 @@ export default function TasksPage() {
                         return Number(a[0]) - Number(b[0])
                     })
                     .map(([key, monthTasks]) => (
-                        <section key={key} className="space-y-4">
-                            <h2 className="text-lg font-semibold border-b pb-2">
+                        <section key={key} className="space-y-3">
+                            <h2 className="text-lg font-semibold border-b pb-2 flex items-center gap-2">
                                 {key === 'recurring'
                                     ? 'Månatligt Återkommande'
                                     : key === '0'
                                         ? 'Utan månad'
                                         : getMonthName(Number(key))
                                 }
-                                <span className="ml-2 text-sm font-normal text-muted-foreground">
+                                <span className="ml-1 text-sm font-normal text-muted-foreground">
                                     ({monthTasks.length} uppgifter)
                                 </span>
+                                {monthTasks.filter(t => !t.assigned_to && t.owner_type === 'station').length > 0 && (
+                                    <Badge variant="outline" className="border-orange-300 text-orange-600 bg-orange-50 text-xs">
+                                        <UserX className="h-3 w-3 mr-1" />
+                                        {monthTasks.filter(t => !t.assigned_to && t.owner_type === 'station').length} ej tilldelade
+                                    </Badge>
+                                )}
                             </h2>
-                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                                {monthTasks.map(task => (
-                                    <TaskCard
-                                        key={task.id}
-                                        task={task}
-                                        onStatusChange={handleStatusChange}
-                                        onClick={() => handleTaskClick(task)}
-                                    />
-                                ))}
-                            </div>
+
+                            {viewMode === 'card' ? (
+                                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                                    {monthTasks.map(task => (
+                                        <TaskCard
+                                            key={task.id}
+                                            task={task}
+                                            onStatusChange={handleStatusChange}
+                                            onClick={() => handleTaskClick(task)}
+                                        />
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="space-y-1">
+                                    {monthTasks.map(task => (
+                                        <TaskRow
+                                            key={task.id}
+                                            task={task}
+                                            onStatusChange={handleStatusChange}
+                                            onClick={() => handleTaskClick(task)}
+                                            userId={profile?.id}
+                                        />
+                                    ))}
+                                </div>
+                            )}
                         </section>
                     ))}
 
@@ -323,6 +513,11 @@ export default function TasksPage() {
                                 : 'Inga uppgifter matchar dina filter'
                             }
                         </p>
+                        {assignmentFilter === 'unassigned' && (
+                            <p className="text-sm text-green-600 mt-2">
+                                ✓ Alla uppgifter har en ansvarig person!
+                            </p>
+                        )}
                         <Button
                             variant="outline"
                             className="mt-4"

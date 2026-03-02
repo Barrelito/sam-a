@@ -1,7 +1,8 @@
 "use client"
 
 import { useState } from "react"
-import { Task, TaskComment, TaskAttachment, TaskStatus, UserRole, statusLabels, statusColors, categoryLabels, categoryColors, ownerTypeLabels } from "@/lib/types"
+import { Task, TaskComment, TaskAttachment, TaskChecklistItem, TaskStatus, UserRole, statusLabels, statusColors, categoryLabels, categoryColors, ownerTypeLabels } from "@/lib/types"
+import { TaskChecklist } from "@/components/task-checklist"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -76,6 +77,9 @@ export function TaskDetailView({
     const [loading, setLoading] = useState(false)
     const [commentLoading, setCommentLoading] = useState(false)
     const [uploadLoading, setUploadLoading] = useState(false)
+
+    // Checklist state
+    const [checklistItems, setChecklistItems] = useState<TaskChecklistItem[]>(task.checklist || [])
 
     // Editing states
     const [editingDeadline, setEditingDeadline] = useState(false)
@@ -537,6 +541,14 @@ export function TaskDetailView({
                     </CardContent>
                 </Card>
             )}
+
+            {/* Checklist */}
+            <TaskChecklist
+                taskId={task.id}
+                items={checklistItems}
+                onItemsChange={setChecklistItems}
+                onSuggestDone={onStatusChange ? () => onStatusChange('done') : undefined}
+            />
 
             {/* Notes */}
             <Card>
