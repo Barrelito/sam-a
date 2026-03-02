@@ -6,11 +6,12 @@ import { Task, TaskStatus, TaskPriority, categoryLabels, statusLabels, statusCol
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Clock, CheckCircle2, Circle, MessageSquare, RefreshCw, MapPin, User, AlertCircle, ChevronDown, ChevronUp, Paperclip, UserX, ListChecks } from "lucide-react"
+import { Clock, CheckCircle2, Circle, MessageSquare, RefreshCw, MapPin, AlertCircle, ChevronDown, ChevronUp, Paperclip, ListChecks } from "lucide-react"
 import { PriorityBadge } from "@/components/priority-badge"
 import { PriorityQuickSelect } from "@/components/priority-quick-select"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { TaskAssignDropdown } from "@/components/task-assign-dropdown"
 
 interface TaskCardProps {
     task: Task
@@ -46,6 +47,11 @@ export function TaskCard({ task, onStatusChange, onPriorityChange, showStation =
     const router = useRouter()
     const [priorityDropdownOpen, setPriorityDropdownOpen] = useState(false)
     const [expanded, setExpanded] = useState(false)
+
+    // Local state for optimistic assignment updates
+    const [localAssignedId, setLocalAssignedId] = useState<string | null>(task.assigned_to)
+    const [localAssignedName, setLocalAssignedName] = useState<string | null>(task.assigned_to_profile?.full_name || null)
+
     const status = statusConfig[task.status] || statusConfig.not_started
     const StatusIcon = status.icon
 
@@ -96,7 +102,7 @@ export function TaskCard({ task, onStatusChange, onPriorityChange, showStation =
     const hasChecklist = checklistTotal > 0
 
     // Risk indicators
-    const isUnassigned = !task.assigned_to && task.owner_type === 'station'
+    const isUnassigned = !localAssignedId && task.owner_type === 'station'
     const isOverdue = !!(task.deadline_day && task.status !== 'done'
         ? getDaysUntilDeadline(task.deadline_day).text.includes('sen')
         : false)
@@ -163,17 +169,20 @@ export function TaskCard({ task, onStatusChange, onPriorityChange, showStation =
                         <span>{status.label}</span>
                     </div>
 
-                    {task.assigned_to_profile?.full_name ? (
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                            <User className="h-3 w-3" />
-                            <span>{task.assigned_to_profile.full_name}</span>
-                        </div>
-                    ) : isUnassigned ? (
-                        <Badge variant="outline" className="h-5 text-xs border-orange-300 text-orange-600 bg-orange-50 gap-1 px-1.5">
-                            <UserX className="h-3 w-3" />
-                            Ej tilldelad
-                        </Badge>
-                    ) : null}
+                    {task.owner_type === 'station' && (
+                        <span onClick={e => e.stopPropagation()}>
+                            <TaskAssignDropdown
+                                taskId={task.id}
+                                assignedTo={localAssignedId}
+                                assignedName={localAssignedName}
+                                stationId={task.station_id}
+                                onAssigned={(userId, userName) => {
+                                    setLocalAssignedId(userId)
+                                    setLocalAssignedName(userName)
+                                }}
+                            />
+                        </span>
+                    )}
 
                     {showStation && task.station && (
                         <div className="flex items-center gap-1 text-xs text-muted-foreground">

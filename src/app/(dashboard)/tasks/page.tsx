@@ -13,8 +13,9 @@ import { TaskCard } from "@/components/task-card"
 import { useToast } from "@/hooks/use-toast"
 import {
     ListFilter, Plus, Loader2, ChevronRight, MapPin, LayoutGrid, List,
-    UserX, AlertTriangle, Clock, User, CheckSquare2
+    UserX, AlertTriangle, Clock, CheckSquare2
 } from "lucide-react"
+import { TaskAssignDropdown } from "@/components/task-assign-dropdown"
 
 const months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 const categories: TaskCategory[] = ['HR', 'Finance', 'Safety', 'Operations']
@@ -51,6 +52,8 @@ interface TaskRowProps {
 
 function TaskRow({ task, onStatusChange, onClick, userId }: TaskRowProps) {
     const riskBadges = getRiskBadges(task)
+    const [localAssignedId, setLocalAssignedId] = useState<string | null>(task.assigned_to)
+    const [localAssignedName, setLocalAssignedName] = useState<string | null>(task.assigned_to_profile?.full_name || null)
 
     const cycleStatus = (e: React.MouseEvent) => {
         e.stopPropagation()
@@ -92,17 +95,20 @@ function TaskRow({ task, onStatusChange, onClick, userId }: TaskRowProps) {
             </div>
 
             {/* Assignee */}
-            <div className="hidden sm:flex items-center gap-1 w-32 text-xs text-muted-foreground flex-shrink-0">
-                {task.assigned_to_profile?.full_name ? (
-                    <>
-                        <User className="h-3 w-3 flex-shrink-0" />
-                        <span className="truncate">{task.assigned_to_profile.full_name}</span>
-                    </>
-                ) : task.owner_type === 'station' ? (
-                    <span className="text-orange-500 flex items-center gap-1">
-                        <UserX className="h-3 w-3" />
-                        Ej tilldelad
-                    </span>
+            <div className="hidden sm:flex items-center gap-1 w-36 text-xs flex-shrink-0" onClick={e => e.stopPropagation()}>
+                {task.owner_type === 'station' ? (
+                    <TaskAssignDropdown
+                        taskId={task.id}
+                        assignedTo={localAssignedId}
+                        assignedName={localAssignedName}
+                        stationId={task.station_id}
+                        onAssigned={(userId, userName) => {
+                            setLocalAssignedId(userId)
+                            setLocalAssignedName(userName)
+                        }}
+                    />
+                ) : task.assigned_to_profile?.full_name ? (
+                    <span className="text-muted-foreground truncate">{task.assigned_to_profile.full_name}</span>
                 ) : null}
             </div>
 
@@ -415,7 +421,7 @@ export default function TasksPage() {
                         {([
                             { value: 'all', label: 'Alla', icon: null },
                             { value: 'unassigned', label: 'Ej tilldelade', icon: <UserX className="h-3 w-3" /> },
-                            { value: 'mine', label: 'Mina', icon: <User className="h-3 w-3" /> },
+                            { value: 'mine', label: 'Mina', icon: <UserX className="h-3 w-3" /> },
                         ] as { value: AssignmentFilter; label: string; icon: React.ReactNode }[]).map(opt => (
                             <Button
                                 key={opt.value}
