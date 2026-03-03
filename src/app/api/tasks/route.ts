@@ -97,11 +97,11 @@ export async function GET(request: NextRequest) {
     }
 
     // --- 2. Fetch Annual Cycle "Virtual" Tasks ---
-    // Only if not filtering by non-matching ownerType (cycle items are 'annual_cycle' conceptually)
+    // Only if not filtering by non-matching ownerType (cycle items are 'station' now, or legacy 'annual_cycle')
     let virtualTasks: any[] = []
-    if (!ownerType || ownerType === 'annual_cycle') {
+    if (!ownerType || ownerType === 'annual_cycle' || ownerType === 'station') {
 
-        // Fetch items matching filters
+        // Fetch annual cycle items matching filters
         let itemsQuery = supabase
             .from('annual_cycle_items')
             .select('*')
@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
         const { data: cycleItems } = await itemsQuery
 
         if (cycleItems && cycleItems.length > 0) {
-            // Fetch completions
+            // Fetch completions for relevant stations / user
             let completionsQuery = supabase
                 .from('annual_task_completions')
                 .select('*')
@@ -131,46 +131,72 @@ export async function GET(request: NextRequest) {
 
             const { data: completions } = await completionsQuery
 
-            // Map to Task format
-            virtualTasks = cycleItems.map(item => {
-                // Check if a real task already exists for this cycle item
-                // This prevents duplication in the UI
-                const existingRealTask = regularTasks?.find(t =>
-                    t.annual_cycle_item_id === item.id ||
-                    (t.title === item.title && t.start_month === item.month) // Legacy support for older manual tasks
-                )
+            // Determine which stations to generate virtual tasks for.
+            // If the user is a station manager, generate one virtual task per station.
+            // Otherwise (vo_chief, admin) generate one generic task (no station_id).
+            const targetStations: Array<{ id: string; name: string } | null> =
+                userStationIds.length > 0
+                    ? userStationIds.map(sid => {
+                        // Find station name from profile context if available
+                        return { id: sid, name: '' } // name enriched below if needed
+                    })
+                    : [null] // null = no specific station (vo/admin)
 
-                if (existingRealTask) return null
+            for (const item of cycleItems) {
+                for (const stationRef of targetStations) {
+                    const virtualId = stationRef
+                        ? `annual-${item.id}-${stationRef.id}`
+                        : `annual-${item.id}`
 
-                const completion = completions?.find(c => c.annual_cycle_item_id === item.id)
-                const isCompleted = !!completion
+                    // Check if a real task already exists for this cycle item + station
+                    const existingRealTask = regularTasks?.find(t =>
+                        (t.annual_cycle_item_id === item.id && (!stationRef || t.station_id === stationRef.id)) ||
+                        (t.title === item.title && t.start_month === item.month && (!stationRef || t.station_id === stationRef.id))
+                    )
 
-                // If filtering by status, skip if mismatch
-                if (status && status === 'completed' && !isCompleted) return null
-                if (status && status !== 'completed' && isCompleted) return null
+                    if (existingRealTask) continue
 
-                return {
-                    id: `annual-${item.id}`, // Custom ID prefix
-                    original_id: item.id,
-                    title: item.title,
-                    description: item.description,
-                    status: isCompleted ? 'completed' : 'todo',
-                    category: item.category,
-                    owner_type: 'annual_cycle', // Virtual owner type
-                    year: year,
-                    start_month: item.month,
-                    end_month: item.month,
-                    deadline_day: 25, // Default deadlind
-                    is_recurring_monthly: false,
-                    is_annual_cycle: true,
-                    action_link: item.action_link,
+                    // Find the completion for this specific station (or user if no station)
+                    const completion = completions?.find(c =>
+                        c.annual_cycle_item_id === item.id &&
+                        (stationRef ? c.station_id === stationRef.id : c.user_id === user.id)
+                    )
+                    const isCompleted = !!completion
 
-                    // Add mock Profile/Station data structure to avoid frontend crashes if it expects objects
-                    created_by_profile: { full_name: 'Årshjulet', email: 'system@aisab.se' },
-                    station: null, // Global item usually
-                    verksamhetsomraden: null
+                    // If filtering by status, skip if mismatch
+                    if (status && status === 'completed' && !isCompleted) continue
+                    if (status && status !== 'completed' && isCompleted) continue
+
+                    virtualTasks.push({
+                        id: virtualId,
+                        original_id: item.id,
+                        title: item.title,
+                        description: item.description,
+                        status: completion
+                            ? (completion.status === 'completed' ? 'done'
+                                : completion.status === 'in_progress' ? 'in_progress'
+                                    : 'not_started')
+                            : 'not_started',
+                        category: item.category,
+                        // Use 'station' so the assignment dropdown is shown in the UI
+                        owner_type: stationRef ? 'station' : 'annual_cycle',
+                        station_id: stationRef ? stationRef.id : null,
+                        assigned_to: completion?.assigned_to ?? null,
+                        assigned_to_profile: completion?.assigned_to ? null : null, // resolved separately if needed
+                        year: year,
+                        start_month: item.month,
+                        end_month: item.month,
+                        deadline_day: 25,
+                        is_recurring_monthly: false,
+                        is_annual_cycle: true,
+                        action_link: item.action_link,
+                        annual_cycle_item_id: item.id,
+                        created_by_profile: { full_name: 'Årshjulet', email: 'system@aisab.se' },
+                        station: stationRef ? { id: stationRef.id, name: '' } : null,
+                        verksamhetsomraden: null
+                    })
                 }
-            }).filter(Boolean)
+            }
         }
     }
 
@@ -222,6 +248,7 @@ export async function POST(request: NextRequest) {
         is_recurring_monthly,
         deadline_day,
         assigned_to,
+        annual_cycle_item_id,
     } = body
 
     // Validate required fields
@@ -354,10 +381,12 @@ export async function POST(request: NextRequest) {
             year: year || new Date().getFullYear(),
             start_month,
             end_month,
-            is_recurring_monthly: false, // New tasks use the new system
+            is_recurring_monthly: false,
             is_recurring_master: false,
             deadline_day: deadline_day || 25,
             assigned_to,
+            // Link to annual cycle template if provided (enables deduplication)
+            annual_cycle_item_id: annual_cycle_item_id || null,
         })
         .select()
         .single()

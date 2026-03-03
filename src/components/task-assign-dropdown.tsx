@@ -78,13 +78,37 @@ export function TaskAssignDropdown({
         setSaving(true)
         setOpen(false)
         try {
-            const res = await fetch(`/api/tasks/${taskId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ assigned_to: userId }),
-            })
-            if (res.ok) {
-                onAssigned?.(userId, userName)
+            // For annual cycle virtual tasks, use the dedicated assign endpoint
+            const isVirtualAnnualTask = taskId.startsWith('annual-')
+            if (isVirtualAnnualTask) {
+                // Parse the composite virtual ID to get itemId and stationId
+                const withoutPrefix = taskId.slice('annual-'.length)
+                const itemId = withoutPrefix.length === 73 ? withoutPrefix.slice(0, 36) : withoutPrefix
+                const embeddedStationId = withoutPrefix.length === 73 ? withoutPrefix.slice(37) : (stationId ?? null)
+
+                const res = await fetch('/api/annual-cycle/assign', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        itemId,
+                        stationId: embeddedStationId,
+                        year: new Date().getFullYear(),
+                        assignedTo: userId,
+                    }),
+                })
+                if (res.ok) {
+                    onAssigned?.(userId, userName)
+                }
+            } else {
+                // Regular task: use the standard PUT endpoint
+                const res = await fetch(`/api/tasks/${taskId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ assigned_to: userId }),
+                })
+                if (res.ok) {
+                    onAssigned?.(userId, userName)
+                }
             }
         } catch (err) {
             console.error('Error assigning task:', err)

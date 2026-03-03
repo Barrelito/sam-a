@@ -48,6 +48,21 @@ export default function TaskDetailPage() {
         loadTask()
     }, [taskId])
 
+    // Auto-materialize virtual annual cycle tasks on first load.
+    // Runs once after the task loads: if it's still virtual (annual- prefix),
+    // we silently create a real DB row and redirect to its permanent ID.
+    useEffect(() => {
+        if (!task) return
+        if (!task.is_annual_cycle) return
+        if (!task.id.startsWith('annual-')) return
+        if (!task.station_id) return // Only station-bound tasks get auto-materialized
+        if (authLoading || !profile) return
+
+        // Don't block the UI — run silently in the background
+        ensureRealTask().catch(console.error)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [task?.id])
+
     const handleStatusChange = async (status: TaskStatus) => {
         // HANDLE ANNUAL CYCLE TASKS
         if (task?.id.startsWith('annual-') && task.is_annual_cycle) {
@@ -97,7 +112,7 @@ export default function TaskDetailPage() {
             category: mappedCategory,
             owner_type: 'station',
             station_id: stationId,
-            // annual_cycle_item_id: REMOVED per user request to decouple from SQL fix
+            annual_cycle_item_id: task.annual_cycle_item_id || (task as any).original_id || null,
             year: task.year || new Date().getFullYear(),
             start_month: task.start_month,
             deadline_day: task.deadline_day,
@@ -221,9 +236,9 @@ export default function TaskDetailPage() {
                 title: task.title,
                 description: task.description,
                 category: mappedCategory,
-                owner_type: 'station', // Defaulting to station task for managers
+                owner_type: 'station',
                 station_id: stationId,
-                // annual_cycle_item_id: REMOVED per user request to decouple from SQL fix
+                annual_cycle_item_id: task.annual_cycle_item_id || (task as any).original_id || null,
                 year: task.year || new Date().getFullYear(),
                 start_month: task.start_month,
                 deadline_day: task.deadline_day,

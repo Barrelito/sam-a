@@ -34,7 +34,23 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // 2. FETCH VIRTUAL ANNUAL TASK if not found as real task
     if (error && id.startsWith('annual-')) {
-        const itemUuid = id.replace('annual-', '')
+        // Parse composite virtual ID: 'annual-{itemUUID}' or 'annual-{itemUUID}-{stationUUID}'
+        // UUIDs are 36 chars (8-4-4-4-12). We strip the 'annual-' prefix then check length.
+        const withoutPrefix = id.slice('annual-'.length) // = "{itemUUID}" or "{itemUUID}-{stationUUID}"
+        let itemUuid: string
+        let embeddedStationId: string | null = null
+
+        if (withoutPrefix.length === 36) {
+            // Old format: 'annual-{itemUUID}'
+            itemUuid = withoutPrefix
+        } else if (withoutPrefix.length === 73) {
+            // New format: 'annual-{itemUUID}-{stationUUID}' (36 + 1 + 36 = 73)
+            itemUuid = withoutPrefix.slice(0, 36)
+            embeddedStationId = withoutPrefix.slice(37)
+        } else {
+            // Fallback: treat entire remainder as item UUID
+            itemUuid = withoutPrefix
+        }
 
         // Fetch the cycle item
         const { data: item } = await supabase
@@ -44,16 +60,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             .single()
 
         if (item) {
-            // Check completion status
-            const { data: completions } = await supabase
-                .from('annual_task_completions')
-                .select('*')
-                .eq('year', new Date().getFullYear()) // Assumption: current year context for detail view unless passed
-                .eq('annual_cycle_item_id', itemUuid)
-                .eq('user_id', user.id) // Or station logic if needed, simplify to user for now
-
-            const isCompleted = completions && completions.length > 0
-
             // Get user profile for role check
             const { data: profile } = await supabase
                 .from('profiles')
@@ -61,17 +67,29 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 .eq('id', user.id)
                 .single()
 
-            // Determine context for "Virtual" station assignment (Force Recompile)
+            // Determine station context
             let virtualStation = null
             let virtualOwnerType: 'annual_cycle' | 'station' = 'annual_cycle'
-            let virtualStationId = null
+            let virtualStationId: string | null = embeddedStationId
 
-            // If user is a station manager, we present this as THEIR station task
-            if (profile && (profile.role === 'station_manager' || profile.role === 'assistant_manager')) {
+            if (virtualStationId) {
+                // Fetch the specific station embedded in the virtual ID
+                const { data: stationData } = await supabase
+                    .from('stations')
+                    .select('id, name, vo_id')
+                    .eq('id', virtualStationId)
+                    .single()
+                if (stationData) {
+                    virtualStation = stationData
+                    virtualOwnerType = 'station'
+                }
+            } else if (profile && (profile.role === 'station_manager' || profile.role === 'assistant_manager')) {
+                // Fallback for old IDs: use user's default station
                 const { data: userStation } = await supabase
                     .from('user_stations')
                     .select('station:stations(id, name, vo_id)')
                     .eq('user_id', user.id)
+                    .limit(1)
                     .single()
 
                 if (userStation?.station) {
@@ -84,35 +102,49 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 }
             }
 
+            // Check completion status for this station (or user)
+            const completionQueryBase = supabase
+                .from('annual_task_completions')
+                .select('*')
+                .eq('year', new Date().getFullYear())
+                .eq('annual_cycle_item_id', itemUuid)
+
+            const { data: completions } = virtualStationId
+                ? await completionQueryBase.eq('station_id', virtualStationId)
+                : await completionQueryBase.eq('user_id', user.id)
+
+            const completion = completions && completions.length > 0 ? completions[0] : null
+
             const virtualTask = {
-                id: `annual-${item.id}`,
+                id: id, // Keep the original composite ID intact
                 original_id: item.id,
+                annual_cycle_item_id: item.id,
                 title: item.title,
                 description: item.description,
-                status: isCompleted ? 'completed' : 'todo',
+                status: completion
+                    ? (completion.status === 'completed' ? 'done'
+                        : completion.status === 'in_progress' ? 'in_progress'
+                            : 'not_started')
+                    : 'not_started',
                 category: item.category,
                 owner_type: virtualOwnerType,
                 station_id: virtualStationId,
                 station: virtualStation,
+                assigned_to: completion?.assigned_to ?? null,
                 year: new Date().getFullYear(),
                 start_month: item.month,
                 end_month: item.month,
                 deadline_day: 25,
                 is_recurring_monthly: false,
                 is_annual_cycle: true,
-                annual_cycle_item_id: item.id,
                 action_link: item.action_link,
-
-                // Mock profiles
                 created_by_profile: { full_name: 'Årshjulet', email: 'system@aisab.se' },
                 assigned_to_profile: null,
                 comments: [],
                 attachments: []
             }
 
-            return NextResponse.json({
-                task: virtualTask
-            })
+            return NextResponse.json({ task: virtualTask })
         }
     }
 

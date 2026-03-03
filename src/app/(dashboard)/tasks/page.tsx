@@ -198,13 +198,24 @@ export default function TasksPage() {
 
         if (task.is_annual_cycle) {
             try {
-                const originalId = task.id.replace('annual-', '')
+                // Parse virtual ID: format is 'annual-{itemId}' or 'annual-{itemId}-{stationId}'
+                // itemId itself may contain hyphens (UUID), stationId is also UUID
+                // We stored annual_cycle_item_id on the task object, so use that
+                const itemId = task.annual_cycle_item_id || task.id.replace(/^annual-/, '').replace(/-[^-]+-[^-]+-[^-]+-[^-]+-[^-]+$/, '')
+                const stationId = task.station_id || null
+
                 let apiStatus = 'completed'
                 if (newStatus === 'in_progress') apiStatus = 'in_progress'
                 if (newStatus === 'not_started') apiStatus = 'todo'
+
                 const res = await fetch('/api/annual-cycle/complete', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ itemId: originalId, year: task.year, status: apiStatus })
+                    body: JSON.stringify({
+                        itemId: itemId,
+                        stationId: stationId,
+                        year: task.year,
+                        status: apiStatus
+                    })
                 })
                 if (!res.ok) throw new Error('Failed')
                 toast({ title: "Status uppdaterad", description: `"${task.title}" är nu ${statusLabels[newStatus]?.toLowerCase()}.` })
@@ -225,7 +236,9 @@ export default function TasksPage() {
     }
 
     const handleTaskClick = (task: Task) => {
-        if (task.is_annual_cycle && task.action_link) {
+        // Station-bound annual cycle tasks go to the detail page (they can be edited/assigned)
+        // Only redirect to action_link for non-station annual cycle tasks (vo/admin overview links)
+        if (task.is_annual_cycle && task.action_link && !task.station_id) {
             router.push(task.action_link)
         } else {
             router.push(`/tasks/${task.id}`)
