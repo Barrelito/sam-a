@@ -179,6 +179,22 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    // Get user profile + station groups
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select(`
+            id, role, vo_id,
+            user_station_groups (
+                station_group:station_group_id (
+                    station_group_members (
+                        station:station_id (id, name)
+                    )
+                )
+            )
+        `)
+        .eq('id', user.id)
+        .single()
+
     // Get the parent task
     const { data: parentTask } = await supabase
         .from('tasks')
@@ -206,15 +222,26 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Get all stations in this VO for comparison
-    const { data: voStations } = await supabase
-        .from('stations')
-        .select('id, name')
-        .eq('vo_id', parentTask.vo_id)
-
-    // Calculate distribution stats
+    // Determine which stations to compare against for notDistributed
     const distributedStationIds = new Set(childTasks?.map(t => t.station_id) || [])
-    const notDistributed = voStations?.filter(s => !distributedStationIds.has(s.id)) || []
+    let allRelevantStations: { id: string; name: string }[] = []
+
+    if (profile?.role === 'area_manager') {
+        // Area manager: use their station_group members
+        const stationGroups = (profile as any).user_station_groups || []
+        allRelevantStations = stationGroups.flatMap((usg: any) =>
+            usg.station_group?.station_group_members?.map((m: any) => m.station).filter(Boolean) || []
+        )
+    } else if (parentTask.vo_id) {
+        // VO chief / admin: all stations in the VO
+        const { data: voStations } = await supabase
+            .from('stations')
+            .select('id, name')
+            .eq('vo_id', parentTask.vo_id)
+        allRelevantStations = voStations || []
+    }
+
+    const notDistributed = allRelevantStations.filter(s => !distributedStationIds.has(s.id))
 
     // Calculate completion stats
     const total = childTasks?.length || 0
