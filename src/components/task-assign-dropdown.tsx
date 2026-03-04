@@ -63,12 +63,15 @@ export function TaskAssignDropdown({
                 if (stationId) validStationIds.add(stationId)
 
                 const filtered = (data.profiles || [])
-                    .filter((u: any) =>
-                        (u.role === 'station_manager' || u.role === 'assistant_manager') &&
-                        u.user_stations?.some((us: any) =>
+                    .filter((u: any) => {
+                        if (!['station_manager', 'assistant_manager', 'area_manager'].includes(u.role)) return false
+                        // area_manager har inga user_stations — inkludera alltid
+                        if (u.role === 'area_manager') return true
+                        // station_manager/assistant_manager: filtrera på station om angiven
+                        return u.user_stations?.some((us: any) =>
                             us.station?.id && (validStationIds.has(us.station.id) || !stationId)
                         )
-                    )
+                    })
                     .map((u: any) => ({
                         id: u.id,
                         full_name: u.full_name,
@@ -227,7 +230,9 @@ export function TaskAssignDropdown({
                                     <div className="flex-1 min-w-0">
                                         <p className="font-medium truncate">{user.full_name}</p>
                                         <p className="text-xs text-muted-foreground">
-                                            {user.role === 'station_manager' ? 'Stationschef' : 'Bitr. chef'}
+                                            {user.role === 'station_manager' ? 'Stationschef'
+                                                : user.role === 'area_manager' ? 'SO-chef'
+                                                    : 'Bitr. chef'}
                                         </p>
                                     </div>
                                     {localId === user.id && (
