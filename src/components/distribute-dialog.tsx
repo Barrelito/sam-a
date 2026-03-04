@@ -113,6 +113,7 @@ export function DistributeDialog({
                     }
 
                     const availableStationIds = new Set(availableStations.map((s: Station) => s.id))
+                    setStations(availableStations)
 
                     // Bygg managers-lista
                     const voManagers = usersData.profiles?.filter((u: any) => {
@@ -289,8 +290,8 @@ export function DistributeDialog({
                                     <div
                                         key={station.id}
                                         className={`p-3 border rounded-lg transition-colors ${isSelected
-                                                ? 'border-primary bg-primary/5'
-                                                : 'hover:bg-secondary/50'
+                                            ? 'border-primary bg-primary/5'
+                                            : 'hover:bg-secondary/50'
                                             }`}
                                     >
                                         <div className="flex items-center justify-between">
