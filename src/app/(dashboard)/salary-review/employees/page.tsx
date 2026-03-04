@@ -64,7 +64,7 @@ function EmployeesContent() {
                 .eq('id', user.id)
                 .single()
 
-            if (!profile || !['station_manager', 'assistant_manager', 'vo_chief', 'admin'].includes(profile.role)) {
+            if (!profile || !['station_manager', 'assistant_manager', 'area_manager', 'vo_chief', 'admin'].includes(profile.role)) {
                 router.push('/salary-review')
                 return
             }
@@ -118,18 +118,33 @@ function EmployeesContent() {
                 active_review: emp.salary_reviews?.find((r: any) => r.cycle_id === activeCycle?.id) || null
             })) || []
 
-            // Fetch stations for this user
-            const { data: userStations } = await supabase
-                .from('user_stations')
-                .select(`
-                    station:stations (
-                        id,
-                        name
-                    )
-                `)
-                .eq('user_id', user.id)
+            let stationsData: { id: string; name: string }[] = []
 
-            const stationsData = userStations?.map(us => us.station as any).filter(Boolean) || []
+            if (profile.role === 'area_manager') {
+                // Area manager: hämta stationer via user_station_groups → station_group_members
+                const { data: groupStations } = await supabase
+                    .from('user_station_groups')
+                    .select(`
+                        station_group:station_group_id (
+                            station_group_members (
+                                station:station_id (id, name)
+                            )
+                        )
+                    `)
+                    .eq('user_id', user.id)
+
+                stationsData = groupStations?.flatMap((usg: any) =>
+                    usg.station_group?.station_group_members?.map((m: any) => m.station).filter(Boolean) || []
+                ) || []
+            } else {
+                // Station manager: hämta via user_stations
+                const { data: userStations } = await supabase
+                    .from('user_stations')
+                    .select(`station:stations (id, name)`)
+                    .eq('user_id', user.id)
+
+                stationsData = userStations?.map(us => us.station as any).filter(Boolean) || []
+            }
 
             setEmployees(enrichedEmployees)
             setStations(stationsData)

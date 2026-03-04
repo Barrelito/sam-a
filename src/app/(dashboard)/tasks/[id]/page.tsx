@@ -332,8 +332,8 @@ export default function TaskDetailPage() {
     const canDistribute = (
         // VO chief can distribute VO tasks
         (task.owner_type === 'vo' && (profile?.role === 'vo_chief' || profile?.role === 'admin')) ||
-        // Area manager can distribute station_group tasks to their stations
-        (profile?.role === 'area_manager' && (task.owner_type === 'station_group' || task.owner_type === 'vo'))
+        // Area manager can distribute station_group, vo, or station tasks to their stations
+        (profile?.role === 'area_manager' && (task.owner_type === 'station_group' || task.owner_type === 'vo' || task.owner_type === 'station'))
     )
 
     // Check if user can edit the task

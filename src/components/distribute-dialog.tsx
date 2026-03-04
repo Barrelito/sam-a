@@ -114,13 +114,13 @@ export function DistributeDialog({
 
                     setStations(availableStations)
 
-                    // Get station managers
+                    // Get station managers + area managers in this VO
                     const voManagers = usersData.profiles?.filter((u: any) =>
-                        (u.role === 'station_manager' || u.role === 'assistant_manager') &&
+                        (u.role === 'station_manager' || u.role === 'assistant_manager' || u.role === 'area_manager') &&
                         u.vo_id === task.vo_id
                     ).map((u: any) => ({
                         id: u.id,
-                        full_name: u.full_name,
+                        full_name: u.full_name + (u.role === 'area_manager' ? ' (SO-chef)' : ''),
                         email: u.email,
                         station_ids: u.user_stations?.map((us: any) => us.station?.id).filter(Boolean) || []
                     })) || []

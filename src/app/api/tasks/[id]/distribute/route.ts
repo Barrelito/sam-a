@@ -91,8 +91,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         }
 
     } else if (profile.role === 'area_manager') {
-        // Area manager: can distribute station_group tasks OR vo tasks (forwarded to them)
-        // to stations within their station_group
+        // Area manager: kan fördela station_group-, vo- eller station-uppgifter
+        // till stationer inom sin station_group
         const stationGroups = (profile as any).user_station_groups || []
         const allowedStationIds = new Set<string>(
             stationGroups.flatMap((usg: any) =>
