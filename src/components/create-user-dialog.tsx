@@ -166,8 +166,8 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess, editUser }: Cr
         ? stationList.filter(s => s.vo_id === voId)
         : stationList
 
-    // Determine if we need station selection (not for VO chief)
-    const needsStations = role !== 'vo_chief' && role !== 'admin'
+    // Determine if we need station selection (not for VO chief or area manager)
+    const needsStations = role !== 'vo_chief' && role !== 'admin' && role !== 'area_manager'
 
     return (
         <Dialog open={open} onOpenChange={handleClose}>
@@ -265,8 +265,8 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess, editUser }: Cr
                                     value={role}
                                     onChange={e => {
                                         setRole(e.target.value as UserRole)
-                                        // Reset stations if switching to VO chief
-                                        if (e.target.value === 'vo_chief') {
+                                        // Reset stations if switching to VO chief or area manager
+                                        if (e.target.value === 'vo_chief' || e.target.value === 'area_manager') {
                                             setStationIds([])
                                         }
                                     }}
@@ -274,6 +274,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess, editUser }: Cr
                                 >
                                     <option value="assistant_manager">{roleLabels.assistant_manager}</option>
                                     <option value="station_manager">{roleLabels.station_manager}</option>
+                                    <option value="area_manager">{roleLabels.area_manager}</option>
                                     <option value="vo_chief">{roleLabels.vo_chief}</option>
                                 </select>
                             </div>

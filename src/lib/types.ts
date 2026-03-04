@@ -4,8 +4,8 @@
 
 export type TaskStatus = 'not_started' | 'in_progress' | 'done' | 'reported';
 export type TaskCategory = 'HR' | 'Finance' | 'Safety' | 'Operations';
-export type UserRole = 'admin' | 'vo_chief' | 'station_manager' | 'assistant_manager';
-export type TaskOwnerType = 'vo' | 'station' | 'personal';
+export type UserRole = 'admin' | 'vo_chief' | 'area_manager' | 'station_manager' | 'assistant_manager';
+export type TaskOwnerType = 'vo' | 'station_group' | 'station' | 'personal';
 export type ReportPeriodType = 'month' | 'tertial';
 
 // =============================================
@@ -62,6 +62,9 @@ export interface Profile {
     user_stations?: Array<{
         station: { id: string; name: string; vo_id: string }
     }>;
+    user_station_groups?: Array<{
+        station_group: { id: string; name: string; vo_id: string }
+    }>;
     created_at: string;
     updated_at: string;
 }
@@ -72,6 +75,15 @@ export interface UserStation {
     station_id: string;
     user?: Profile;
     station?: Station;
+    created_at: string;
+}
+
+export interface UserStationGroup {
+    id: string;
+    user_id: string;
+    station_group_id: string;
+    user?: Profile;
+    station_group?: StationGroup;
     created_at: string;
 }
 
@@ -250,6 +262,7 @@ export interface TaskLog {
 export const roleLabels: Record<UserRole, string> = {
     admin: 'Administratör',
     vo_chief: 'VO Chef',
+    area_manager: 'Stationsområdeschef',
     station_manager: 'Stationschef',
     assistant_manager: 'Bitr. Stationschef',
 };
@@ -284,6 +297,7 @@ export const statusColors: Record<TaskStatus, string> = {
 
 export const ownerTypeLabels: Record<TaskOwnerType, string> = {
     vo: 'VO-uppgift',
+    station_group: 'Stationsområdesuppgift',
     station: 'Stationsuppgift',
     personal: 'Personlig',
 };

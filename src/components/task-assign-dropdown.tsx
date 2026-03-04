@@ -1,7 +1,8 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { User, UserX, Loader2, ChevronDown, Check } from "lucide-react"
+import { User, UserX, Loader2, ChevronDown, Check, AlertCircle } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 interface AssignUser {
     id: string
@@ -26,11 +27,19 @@ export function TaskAssignDropdown({
     stationGroupId,
     onAssigned,
 }: TaskAssignDropdownProps) {
+    const { toast } = useToast()
     const [open, setOpen] = useState(false)
     const [users, setUsers] = useState<AssignUser[]>([])
     const [loadingUsers, setLoadingUsers] = useState(false)
     const [saving, setSaving] = useState(false)
+    // Internal display state for optimistic updates
+    const [localId, setLocalId] = useState<string | null>(assignedTo)
+    const [localName, setLocalName] = useState<string | null>(assignedName ?? null)
     const dropdownRef = useRef<HTMLDivElement>(null)
+
+    // Sync from parent when props change
+    useEffect(() => { setLocalId(assignedTo) }, [assignedTo])
+    useEffect(() => { setLocalName(assignedName ?? null) }, [assignedName])
 
     // Close on outside click
     useEffect(() => {
@@ -77,11 +86,20 @@ export function TaskAssignDropdown({
     const handleSelect = async (userId: string | null, userName: string | null) => {
         setSaving(true)
         setOpen(false)
+
+        // --- OPTIMISTIC UPDATE: show the new value immediately ---
+        const prevId = localId
+        const prevName = localName
+        setLocalId(userId)
+        setLocalName(userName)
+        onAssigned?.(userId, userName)
+
         try {
+            let ok = false
+
             // For annual cycle virtual tasks, use the dedicated assign endpoint
             const isVirtualAnnualTask = taskId.startsWith('annual-')
             if (isVirtualAnnualTask) {
-                // Parse the composite virtual ID to get itemId and stationId
                 const withoutPrefix = taskId.slice('annual-'.length)
                 const itemId = withoutPrefix.length === 73 ? withoutPrefix.slice(0, 36) : withoutPrefix
                 const embeddedStationId = withoutPrefix.length === 73 ? withoutPrefix.slice(37) : (stationId ?? null)
@@ -96,22 +114,42 @@ export function TaskAssignDropdown({
                         assignedTo: userId,
                     }),
                 })
-                if (res.ok) {
-                    onAssigned?.(userId, userName)
+                ok = res.ok
+                if (!ok) {
+                    const err = await res.json().catch(() => ({}))
+                    console.error('Assign API error:', err)
                 }
             } else {
-                // Regular task: use the standard PUT endpoint
                 const res = await fetch(`/api/tasks/${taskId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ assigned_to: userId }),
                 })
-                if (res.ok) {
-                    onAssigned?.(userId, userName)
+                ok = res.ok
+                if (!ok) {
+                    const err = await res.json().catch(() => ({}))
+                    console.error('Task PUT error:', err)
                 }
+            }
+
+            if (!ok) {
+                // --- ROLLBACK on failure ---
+                setLocalId(prevId)
+                setLocalName(prevName)
+                onAssigned?.(prevId, prevName)
+                toast({
+                    variant: 'destructive',
+                    title: 'Kunde inte spara tilldelning',
+                    description: 'Kontrollera att migrationer körts i databasen.',
+                })
             }
         } catch (err) {
             console.error('Error assigning task:', err)
+            // Rollback
+            setLocalId(prevId)
+            setLocalName(prevName)
+            onAssigned?.(prevId, prevName)
+            toast({ variant: 'destructive', title: 'Nätverksfel', description: 'Tilldelning sparades inte.' })
         } finally {
             setSaving(false)
         }
@@ -123,7 +161,7 @@ export function TaskAssignDropdown({
         setOpen(prev => !prev)
     }
 
-    const isAssigned = !!assignedTo && !!assignedName
+    const isAssigned = !!localId && !!localName
 
     return (
         <div className="relative" ref={dropdownRef}>
@@ -148,7 +186,7 @@ export function TaskAssignDropdown({
                     <UserX className="h-3 w-3 flex-shrink-0" />
                 )}
                 <span className="max-w-[100px] truncate">
-                    {saving ? 'Sparar...' : isAssigned ? assignedName : 'Ej tilldelad'}
+                    {saving ? 'Sparar...' : isAssigned ? localName : 'Ej tilldelad'}
                 </span>
                 <ChevronDown className={`h-3 w-3 flex-shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
             </button>
@@ -171,7 +209,7 @@ export function TaskAssignDropdown({
                             >
                                 <UserX className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                                 <span className="text-muted-foreground italic">Ingen tilldelad</span>
-                                {!assignedTo && <Check className="h-3 w-3 ml-auto text-primary" />}
+                                {!localId && <Check className="h-3 w-3 ml-auto text-primary" />}
                             </button>
 
                             {users.length > 0 && <div className="h-px bg-border mx-2 my-1" />}
@@ -192,7 +230,7 @@ export function TaskAssignDropdown({
                                             {user.role === 'station_manager' ? 'Stationschef' : 'Bitr. chef'}
                                         </p>
                                     </div>
-                                    {assignedTo === user.id && (
+                                    {localId === user.id && (
                                         <Check className="h-3 w-3 ml-auto text-primary flex-shrink-0" />
                                     )}
                                 </button>

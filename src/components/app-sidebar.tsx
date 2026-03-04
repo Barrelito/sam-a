@@ -54,6 +54,20 @@ const voChiefNavigation = [
     { name: "Inställningar", href: "/settings", icon: Settings },
 ]
 
+// Navigation for area managers (Stationsområdeschefer)
+const areaManagerNavigation = [
+    { name: "Dashboard", href: "/", icon: LayoutDashboard },
+    { name: "Årshjul", href: "/annual-cycle", icon: Calendar },
+    { name: "Medarbetare", href: "/employees", icon: Users },
+    { name: "Alla Uppgifter", href: "/tasks", icon: ListTodo },
+    { name: "Arkiv", href: "/tasks/archive", icon: Archive },
+    { name: "Mina Uppgifter", href: "/my-tasks", icon: User },
+    { name: "Löneöversyn", href: "/salary-review", icon: DollarSign },
+    { name: "Personalprognos", href: "/forecast/area", icon: TrendingUp },
+    { name: "Chefstöd", href: "/chefstod", icon: MessageSquare },
+    { name: "Inställningar", href: "/settings", icon: Settings },
+]
+
 // Navigation for admin users only
 const adminNavigation = [
     { name: "Administration", href: "/admin", icon: Shield },
@@ -91,7 +105,14 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
     }
 
     const isVOChief = profile?.role === 'vo_chief'
-    const navItems = isAdmin ? adminNavigation : (isVOChief ? voChiefNavigation : managerNavigation)
+    const isAreaManager = profile?.role === 'area_manager'
+    const navItems = isAdmin
+        ? adminNavigation
+        : isVOChief
+            ? voChiefNavigation
+            : isAreaManager
+                ? areaManagerNavigation
+                : managerNavigation
 
     return (
         <nav className="flex flex-col gap-1 h-full">

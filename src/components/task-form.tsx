@@ -26,7 +26,7 @@ interface TaskFormProps {
     initialData?: Partial<Task>
     stations?: Station[]
     voId?: string
-    userRole: 'admin' | 'vo_chief' | 'station_manager' | 'assistant_manager'
+    userRole: 'admin' | 'vo_chief' | 'area_manager' | 'station_manager' | 'assistant_manager'
     onSubmit: (data: Partial<Task>) => Promise<void>
     onCancel: () => void
 }

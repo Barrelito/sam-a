@@ -49,6 +49,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                             verksamhetsomraden:vo_id (id, name),
                             user_stations (
                                 station:station_id (id, name, vo_id)
+                            ),
+                            user_station_groups (
+                                station_group:station_group_id (id, name, vo_id)
                             )
                         `)
                         .eq('id', user.id)

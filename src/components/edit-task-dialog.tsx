@@ -45,7 +45,7 @@ interface EditTaskDialogProps {
     onOpenChange: (open: boolean) => void
     task: Task
     onSave: (updates: Partial<Task>) => Promise<void>
-    userRole: 'admin' | 'vo_chief' | 'station_manager' | 'assistant_manager'
+    userRole: 'admin' | 'vo_chief' | 'area_manager' | 'station_manager' | 'assistant_manager'
     userStations?: Station[]
 }
 

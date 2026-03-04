@@ -49,6 +49,7 @@ type TabType = 'vo' | 'station_groups' | 'stations' | 'users'
 const roleColors: Record<UserRole, string> = {
     admin: "bg-purple-100 text-purple-700",
     vo_chief: "bg-blue-100 text-blue-700",
+    area_manager: "bg-indigo-100 text-indigo-700",
     station_manager: "bg-emerald-100 text-emerald-700",
     assistant_manager: "bg-amber-100 text-amber-700"
 }
