@@ -112,13 +112,18 @@ export function DistributeDialog({
                         ) || []
                     }
 
-                    setStations(availableStations)
+                    const availableStationIds = new Set(availableStations.map((s: Station) => s.id))
 
-                    // Get station managers + area managers in this VO
-                    const voManagers = usersData.profiles?.filter((u: any) =>
-                        (u.role === 'station_manager' || u.role === 'assistant_manager' || u.role === 'area_manager') &&
-                        u.vo_id === task.vo_id
-                    ).map((u: any) => ({
+                    // Bygg managers-lista: inkludera alla som har stationer i availableStations
+                    // + area_manager-användaren själv (oavsett vo_id)
+                    const voManagers = usersData.profiles?.filter((u: any) => {
+                        if (!['station_manager', 'assistant_manager', 'area_manager'].includes(u.role)) return false
+                        // area_manager utan vo_id: inkludera om någon av deras stationer matchar ELLER om de är den inloggade
+                        if (u.role === 'area_manager') return true
+                        // Station managers: inkludera om de har minst en station i listan
+                        const managerStationIds = u.user_stations?.map((us: any) => us.station?.id).filter(Boolean) || []
+                        return managerStationIds.some((id: string) => availableStationIds.has(id))
+                    }).map((u: any) => ({
                         id: u.id,
                         full_name: u.full_name + (u.role === 'area_manager' ? ' (SO-chef)' : ''),
                         email: u.email,
