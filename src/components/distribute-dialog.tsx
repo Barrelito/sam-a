@@ -11,7 +11,8 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
-import { Loader2, MapPin, User, Check, AlertCircle } from "lucide-react"
+import { Loader2, MapPin, User, Check, AlertCircle, FolderOpen } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
 
 interface Station {
     id: string
@@ -48,6 +49,7 @@ export function DistributeDialog({
     task,
     onSuccess
 }: DistributeDialogProps) {
+    const { profile } = useAuth()
     const [loading, setLoading] = useState(false)
     const [dataLoading, setDataLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
@@ -56,8 +58,10 @@ export function DistributeDialog({
     const [stations, setStations] = useState<Station[]>([])
     const [managers, setManagers] = useState<Manager[]>([])
     const [alreadyDistributed, setAlreadyDistributed] = useState<Set<string>>(new Set())
-
     const [selected, setSelected] = useState<Record<string, DistributionTarget>>({})
+
+    const isAreaManager = profile?.role === 'area_manager'
+    const areaLabel = isAreaManager ? 'stationsområde' : 'verksamhetsområde'
 
     // Load stations, managers, and current distribution status
     useEffect(() => {
@@ -72,13 +76,45 @@ export function DistributeDialog({
                 fetch(`/api/tasks/${task.id}/distribute`).then(r => r.json()),
             ])
                 .then(([stationsData, usersData, distributeData]) => {
-                    // Filter stations by VO
-                    const voStations = stationsData.stations?.filter(
-                        (s: Station) => s.vo_id === task.vo_id
-                    ) || []
-                    setStations(voStations)
+                    let availableStations: Station[] = []
 
-                    // Get station managers in this VO
+                    if (isAreaManager) {
+                        // Area manager: only show stations in their station_group(s)
+                        const stationGroupMembers = profile?.user_station_groups?.flatMap(
+                            usg => usg.station_group ? [usg.station_group.id] : []
+                        ) || []
+
+                        // Get station IDs from the distribute data (which now has station_group context)
+                        // Fall back: filter stations by cross-referencing with what API allows
+                        // We'll filter by checking distributeData.notDistributed + distributeData.childTasks
+                        const knownIds = new Set([
+                            ...(distributeData.childTasks?.map((t: any) => t.station_id) || []),
+                            ...(distributeData.notDistributed?.map((s: any) => s.id) || []),
+                        ])
+                        availableStations = stationsData.stations?.filter(
+                            (s: Station) => knownIds.has(s.id) || s.vo_id === task.vo_id
+                        ) || []
+
+                        // For area manager: use notDistributed from API as the source of truth
+                        // since the backend knows their station_group
+                        const approvedIds = new Set([
+                            ...(distributeData.notDistributed?.map((s: any) => s.id) || []),
+                            ...(distributeData.childTasks?.map((t: any) => t.station_id) || []),
+                        ])
+                        availableStations = stationsData.stations?.filter(
+                            (s: Station) => approvedIds.has(s.id)
+                        ) || []
+
+                    } else {
+                        // VO chief: all stations in this VO
+                        availableStations = stationsData.stations?.filter(
+                            (s: Station) => s.vo_id === task.vo_id
+                        ) || []
+                    }
+
+                    setStations(availableStations)
+
+                    // Get station managers
                     const voManagers = usersData.profiles?.filter((u: any) =>
                         (u.role === 'station_manager' || u.role === 'assistant_manager') &&
                         u.vo_id === task.vo_id
@@ -97,15 +133,12 @@ export function DistributeDialog({
                     setAlreadyDistributed(distributed)
 
                     // Pre-select stations that aren't yet distributed
-                    // And auto-assign manager if station has only one
                     const initialSelected: Record<string, DistributionTarget> = {}
-                    voStations.forEach((station: Station) => {
+                    availableStations.forEach((station: Station) => {
                         if (!distributed.has(station.id)) {
-                            // Find managers for this station
                             const stationManagerIds = voManagers.filter((m: Manager) =>
                                 m.station_ids.includes(station.id)
                             )
-                            // Auto-select if exactly one manager
                             const autoAssign = stationManagerIds.length === 1
                                 ? stationManagerIds[0].id
                                 : undefined
@@ -124,7 +157,7 @@ export function DistributeDialog({
                 })
                 .finally(() => setDataLoading(false))
         }
-    }, [open, task.id, task.vo_id])
+    }, [open, task.id, task.vo_id, isAreaManager])
 
     const handleToggleStation = (stationId: string) => {
         setSelected(prev => {
@@ -197,11 +230,14 @@ export function DistributeDialog({
             <DialogContent className="max-w-lg">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        <MapPin className="h-5 w-5 text-primary" />
+                        {isAreaManager
+                            ? <FolderOpen className="h-5 w-5 text-primary" />
+                            : <MapPin className="h-5 w-5 text-primary" />
+                        }
                         Fördela till stationer
                     </DialogTitle>
                     <DialogDescription>
-                        Välj vilka stationer som ska utföra "<strong>{task.title}</strong>"
+                        Välj vilka stationer inom ditt {areaLabel} som ska utföra "<strong>{task.title}</strong>"
                     </DialogDescription>
                 </DialogHeader>
 
@@ -288,7 +324,7 @@ export function DistributeDialog({
 
                             {stations.length === 0 && (
                                 <p className="text-center text-muted-foreground py-4">
-                                    Inga stationer i detta verksamhetsområde
+                                    Inga stationer i detta {areaLabel}
                                 </p>
                             )}
                         </div>

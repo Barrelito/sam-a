@@ -23,7 +23,7 @@ export default async function SalaryReviewPage() {
         .eq('id', user.id)
         .single()
 
-    if (!profile || !['station_manager', 'assistant_manager', 'vo_chief', 'admin'].includes(profile.role)) {
+    if (!profile || !['station_manager', 'assistant_manager', 'area_manager', 'vo_chief', 'admin'].includes(profile.role)) {
         return (
             <div className="container mx-auto py-8">
                 <Card>

@@ -328,9 +328,13 @@ export default function TaskDetailPage() {
         )
     }
 
-    // Check if this is a VO task that can be distributed
-    const canDistribute = task.owner_type === 'vo' &&
-        (profile?.role === 'vo_chief' || profile?.role === 'admin')
+    // Check if this is a task that can be distributed
+    const canDistribute = (
+        // VO chief can distribute VO tasks
+        (task.owner_type === 'vo' && (profile?.role === 'vo_chief' || profile?.role === 'admin')) ||
+        // Area manager can distribute station_group tasks to their stations
+        (profile?.role === 'area_manager' && (task.owner_type === 'station_group' || task.owner_type === 'vo'))
+    )
 
     // Check if user can edit the task
     const canEdit = !task.id.startsWith('annual-') && (

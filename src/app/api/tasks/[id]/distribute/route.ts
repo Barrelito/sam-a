@@ -20,10 +20,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Get user profile
+    // Get user profile + station_group membership for area_manager
     const { data: profile } = await supabase
         .from('profiles')
-        .select('id, role, vo_id')
+        .select(`
+            id, role, vo_id,
+            user_station_groups (
+                station_group_id,
+                station_group:station_group_id (
+                    id,
+                    station_group_members (station_id)
+                )
+            )
+        `)
         .eq('id', user.id)
         .single()
 
@@ -31,9 +40,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: 'Profile not found' }, { status: 404 })
     }
 
-    // Only VO chiefs and admins can distribute tasks
-    if (profile.role !== 'vo_chief' && profile.role !== 'admin') {
-        return NextResponse.json({ error: 'Only VO chiefs can distribute tasks' }, { status: 403 })
+    // Only VO chiefs, area managers and admins can distribute tasks
+    if (!['vo_chief', 'area_manager', 'admin'].includes(profile.role)) {
+        return NextResponse.json({ error: 'Du har inte behörighet att fördela uppgifter' }, { status: 403 })
     }
 
     // Get the parent task
@@ -47,16 +56,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: 'Task not found' }, { status: 404 })
     }
 
-    // Verify it's a VO task
-    if (parentTask.owner_type !== 'vo') {
-        return NextResponse.json({ error: 'Only VO tasks can be distributed' }, { status: 400 })
-    }
-
-    // VO chiefs can only distribute tasks in their own VO
-    if (profile.role === 'vo_chief' && parentTask.vo_id !== profile.vo_id) {
-        return NextResponse.json({ error: 'You can only distribute tasks in your own VO' }, { status: 403 })
-    }
-
     // Parse request body
     const body = await request.json()
     const { targets } = body as { targets: DistributionTarget[] }
@@ -65,23 +64,55 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         return NextResponse.json({ error: 'No distribution targets provided' }, { status: 400 })
     }
 
-    // Verify all stations belong to the same VO
-    const stationIds = targets.map(t => t.station_id)
-    const { data: stations } = await supabase
-        .from('stations')
-        .select('id, vo_id')
-        .in('id', stationIds)
+    // === ROLE-BASED VALIDATION ===
 
-    if (!stations || stations.length !== stationIds.length) {
-        return NextResponse.json({ error: 'Some stations not found' }, { status: 400 })
-    }
+    if (profile.role === 'vo_chief' || profile.role === 'admin') {
+        // VO chief: can only distribute VO tasks in their own VO
+        if (parentTask.owner_type !== 'vo') {
+            return NextResponse.json({ error: 'VO-chefer kan bara fördela VO-uppgifter' }, { status: 400 })
+        }
+        if (profile.role === 'vo_chief' && parentTask.vo_id !== profile.vo_id) {
+            return NextResponse.json({ error: 'Du kan bara fördela uppgifter i ditt eget VO' }, { status: 403 })
+        }
 
-    const invalidStations = stations.filter(s => s.vo_id !== parentTask.vo_id)
-    if (invalidStations.length > 0) {
-        return NextResponse.json({ error: 'All stations must belong to the same VO as the task' }, { status: 400 })
+        // Verify all stations belong to the same VO
+        const stationIds = targets.map(t => t.station_id)
+        const { data: stations } = await supabase
+            .from('stations')
+            .select('id, vo_id')
+            .in('id', stationIds)
+
+        if (!stations || stations.length !== stationIds.length) {
+            return NextResponse.json({ error: 'Some stations not found' }, { status: 400 })
+        }
+        const invalidStations = stations.filter(s => s.vo_id !== parentTask.vo_id)
+        if (invalidStations.length > 0) {
+            return NextResponse.json({ error: 'Alla stationer måste tillhöra samma VO' }, { status: 400 })
+        }
+
+    } else if (profile.role === 'area_manager') {
+        // Area manager: can distribute station_group tasks OR vo tasks (forwarded to them)
+        // to stations within their station_group
+        const stationGroups = (profile as any).user_station_groups || []
+        const allowedStationIds = new Set<string>(
+            stationGroups.flatMap((usg: any) =>
+                usg.station_group?.station_group_members?.map((m: any) => m.station_id) || []
+            )
+        )
+
+        if (allowedStationIds.size === 0) {
+            return NextResponse.json({ error: 'Du är inte kopplad till något stationsområde' }, { status: 403 })
+        }
+
+        // Check that all targets are within the area manager's station group
+        const unauthorizedTargets = targets.filter(t => !allowedStationIds.has(t.station_id))
+        if (unauthorizedTargets.length > 0) {
+            return NextResponse.json({ error: 'Du kan bara fördela till stationer inom ditt stationsområde' }, { status: 403 })
+        }
     }
 
     // Check for existing distributions to avoid duplicates
+    const stationIds = targets.map(t => t.station_id)
     const { data: existingTasks } = await supabase
         .from('tasks')
         .select('station_id')
@@ -93,7 +124,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     if (newTargets.length === 0) {
         return NextResponse.json({
-            error: 'All selected stations already have this task distributed'
+            error: 'Alla valda stationer har redan fått denna uppgift fördelad'
         }, { status: 400 })
     }
 
@@ -151,7 +182,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // Get the parent task
     const { data: parentTask } = await supabase
         .from('tasks')
-        .select('id, owner_type, vo_id')
+        .select('id, owner_type, vo_id, station_group_id')
         .eq('id', taskId)
         .single()
 
