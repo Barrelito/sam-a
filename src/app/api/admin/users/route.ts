@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabaseClient } from '@supabase/supabase-js'
 
+export const dynamic = 'force-dynamic'
+
 // Create admin client with service role
 function createAdminClient() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL

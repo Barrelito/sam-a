@@ -8,6 +8,7 @@ import { Shield, Building2, MapPin, Users, UserPlus, Edit, Loader2, FolderOpen, 
 import { roleLabels, UserRole } from "@/lib/types"
 import { CreateUserDialog } from "@/components/create-user-dialog"
 import { StationGroupDialog } from "@/components/station-group-dialog"
+import { useRouter } from "next/navigation"
 import Link from "next/link"
 
 interface Profile {
@@ -58,6 +59,7 @@ const roleColors: Record<UserRole, string> = {
 }
 
 export default function AdminPage() {
+    const router = useRouter()
     const [activeTab, setActiveTab] = useState<TabType>('vo')
     const [loading, setLoading] = useState(true)
 
@@ -83,6 +85,7 @@ export default function AdminPage() {
         station_ids: string[]
         station_group_ids?: string[]
     } | null>(null)
+    const [resettingMfaId, setResettingMfaId] = useState<string | null>(null)
 
     // Load data
     const loadData = async () => {
@@ -110,6 +113,7 @@ export default function AdminPage() {
             console.error('Failed to load admin data:', error)
         } finally {
             setLoading(false)
+            router.refresh()
         }
     }
 
@@ -162,6 +166,31 @@ export default function AdminPage() {
             console.error('Failed to delete station group:', error)
         } finally {
             setDeletingGroupId(null)
+        }
+    }
+
+    const handleResetMfa = async (userId: string, userName: string) => {
+        if (!confirm(`Är du säker på att du vill återställa MFA för ${userName || 'denna användare'}? Användaren måste registrera en ny autentiseringsapp vid nästa inloggning.`)) {
+            return
+        }
+
+        setResettingMfaId(userId)
+        try {
+            const res = await fetch(`/api/admin/users/mfa?userId=${userId}`, {
+                method: 'DELETE'
+            })
+
+            const data = await res.json()
+            if (!res.ok) {
+                throw new Error(data.error || 'Något gick fel')
+            }
+
+            alert(data.message || 'MFA har återställts')
+        } catch (error: any) {
+            console.error('Failed to reset MFA:', error)
+            alert('Kunde inte återställa MFA: ' + error.message)
+        } finally {
+            setResettingMfaId(null)
         }
     }
 
@@ -488,15 +517,31 @@ export default function AdminPage() {
                                         </div>
                                     )}
 
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="w-full gap-2"
-                                        onClick={() => handleEditUser(user)}
-                                    >
-                                        <Edit className="h-4 w-4" />
-                                        Redigera
-                                    </Button>
+                                    <div className="flex gap-2">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="flex-1 gap-2"
+                                            onClick={() => handleEditUser(user)}
+                                        >
+                                            <Edit className="h-4 w-4" />
+                                            Redigera
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            className="flex-none px-2"
+                                            onClick={() => handleResetMfa(user.id, user.full_name)}
+                                            disabled={resettingMfaId === user.id}
+                                            title="Återställ MFA för användaren"
+                                        >
+                                            {resettingMfaId === user.id ? (
+                                                <Loader2 className="h-4 w-4 animate-spin" />
+                                            ) : (
+                                                <ShieldAlert className="h-4 w-4 text-amber-600" />
+                                            )}
+                                        </Button>
+                                    </div>
                                 </CardContent>
                             </Card>
                         ))}
