@@ -114,13 +114,10 @@ export function DistributeDialog({
 
                     const availableStationIds = new Set(availableStations.map((s: Station) => s.id))
 
-                    // Bygg managers-lista: inkludera alla som har stationer i availableStations
-                    // + area_manager-användaren själv (oavsett vo_id)
+                    // Bygg managers-lista
                     const voManagers = usersData.profiles?.filter((u: any) => {
                         if (!['station_manager', 'assistant_manager', 'area_manager'].includes(u.role)) return false
-                        // area_manager utan vo_id: inkludera om någon av deras stationer matchar ELLER om de är den inloggade
                         if (u.role === 'area_manager') return true
-                        // Station managers: inkludera om de har minst en station i listan
                         const managerStationIds = u.user_stations?.map((us: any) => us.station?.id).filter(Boolean) || []
                         return managerStationIds.some((id: string) => availableStationIds.has(id))
                     }).map((u: any) => ({
@@ -131,23 +128,34 @@ export function DistributeDialog({
                     })) || []
                     setManagers(voManagers)
 
-                    // Get already distributed stations
-                    const distributed = new Set<string>(
-                        distributeData.childTasks?.map((t: any) => t.station_id) || []
+                    // Bygg map: station_id → child task (inkl. befintlig assignee)
+                    const childTaskMap = new Map<string, any>(
+                        (distributeData.childTasks || []).map((t: any) => [t.station_id, t])
                     )
+
+                    const distributed = new Set<string>(childTaskMap.keys())
                     setAlreadyDistributed(distributed)
 
-                    // Pre-select stations that aren't yet distributed
+                    // Pre-select ALLA stationer — inte bara ej-fördelade
+                    // Fördelade stationer: behåll befintlig assignee
+                    // Ej fördelade: auto-tilldela om en unik stationschef finns
                     const initialSelected: Record<string, DistributionTarget> = {}
                     availableStations.forEach((station: Station) => {
-                        if (!distributed.has(station.id)) {
+                        const existingChild = childTaskMap.get(station.id)
+                        if (existingChild) {
+                            // Redan fördelad: lägg till med befintlig assignee men markera som "existing"
+                            initialSelected[station.id] = {
+                                station_id: station.id,
+                                assigned_to: existingChild.assigned_to || undefined
+                            }
+                        } else {
+                            // Ej fördelad: auto-tilldela om unik stationschef
                             const stationManagerIds = voManagers.filter((m: Manager) =>
                                 m.station_ids.includes(station.id)
                             )
                             const autoAssign = stationManagerIds.length === 1
                                 ? stationManagerIds[0].id
                                 : undefined
-
                             initialSelected[station.id] = {
                                 station_id: station.id,
                                 assigned_to: autoAssign
@@ -201,7 +209,10 @@ export function DistributeDialog({
             const res = await fetch(`/api/tasks/${task.id}/distribute`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ targets })
+                body: JSON.stringify({
+                    targets,
+                    updateAssignees: targets.filter((t: any) => alreadyDistributed.has(t.station_id))
+                })
             })
 
             const data = await res.json()
@@ -224,11 +235,13 @@ export function DistributeDialog({
     }
 
     const getManagersForStation = (stationId: string) => {
-        return managers.filter(m => m.station_ids.includes(stationId))
+        // Returnera alla managers (area_manager visas för alla stationer)
+        return managers
     }
 
+    const newCount = Object.keys(selected).filter(id => !alreadyDistributed.has(id)).length
+    const updateCount = Object.keys(selected).filter(id => alreadyDistributed.has(id)).length
     const selectedCount = Object.keys(selected).length
-    const availableCount = stations.filter(s => !alreadyDistributed.has(s.id)).length
 
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
@@ -275,9 +288,7 @@ export function DistributeDialog({
                                 return (
                                     <div
                                         key={station.id}
-                                        className={`p-3 border rounded-lg transition-colors ${isDistributed
-                                            ? 'bg-secondary/30 opacity-60'
-                                            : isSelected
+                                        className={`p-3 border rounded-lg transition-colors ${isSelected
                                                 ? 'border-primary bg-primary/5'
                                                 : 'hover:bg-secondary/50'
                                             }`}
@@ -287,7 +298,6 @@ export function DistributeDialog({
                                                 <input
                                                     type="checkbox"
                                                     checked={isSelected}
-                                                    disabled={isDistributed}
                                                     onChange={() => handleToggleStation(station.id)}
                                                     className="w-4 h-4 rounded border-gray-300"
                                                 />
@@ -295,12 +305,12 @@ export function DistributeDialog({
                                             </label>
                                             {isDistributed && (
                                                 <Badge variant="secondary" className="text-xs">
-                                                    Redan fördelad
+                                                    Fördelad
                                                 </Badge>
                                             )}
                                         </div>
 
-                                        {isSelected && !isDistributed && (
+                                        {isSelected && (
                                             <div className="mt-2 ml-7">
                                                 <label className="text-xs text-muted-foreground flex items-center gap-1 mb-1">
                                                     <User className="h-3 w-3" />
@@ -317,9 +327,6 @@ export function DistributeDialog({
                                                             {manager.full_name}
                                                         </option>
                                                     ))}
-                                                    {stationManagers.length === 0 && (
-                                                        <option disabled>Inga chefer på denna station</option>
-                                                    )}
                                                 </select>
                                             </div>
                                         )}
@@ -337,7 +344,7 @@ export function DistributeDialog({
                         <DialogFooter>
                             <div className="flex items-center justify-between w-full">
                                 <span className="text-sm text-muted-foreground">
-                                    {selectedCount} av {availableCount} valda
+                                    {newCount > 0 && `${newCount} nya`}{newCount > 0 && updateCount > 0 && ', '}{updateCount > 0 && `${updateCount} uppdateras`}
                                 </span>
                                 <div className="flex gap-2">
                                     <Button

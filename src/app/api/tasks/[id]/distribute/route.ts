@@ -58,7 +58,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Parse request body
     const body = await request.json()
-    const { targets } = body as { targets: DistributionTarget[] }
+    const { targets, updateAssignees } = body as {
+        targets: DistributionTarget[]
+        updateAssignees?: DistributionTarget[]
+    }
 
     if (!targets || !Array.isArray(targets) || targets.length === 0) {
         return NextResponse.json({ error: 'No distribution targets provided' }, { status: 400 })
@@ -121,11 +124,44 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const existingStationIds = new Set(existingTasks?.map(t => t.station_id) || [])
     const newTargets = targets.filter(t => !existingStationIds.has(t.station_id))
+    // Befintliga stationer som vi vill uppdatera assignee på
+    const updatableTargets = (updateAssignees || targets.filter(t => existingStationIds.has(t.station_id)))
+        .filter(t => existingStationIds.has(t.station_id))
 
-    if (newTargets.length === 0) {
+    if (newTargets.length === 0 && updatableTargets.length === 0) {
         return NextResponse.json({
             error: 'Alla valda stationer har redan fått denna uppgift fördelad'
         }, { status: 400 })
+    }
+
+    // Uppdatera assigned_to på befintliga child tasks
+    let updatedCount = 0
+    if (updatableTargets.length > 0) {
+        for (const target of updatableTargets) {
+            // Hitta child task för denna station
+            const { data: childTask } = await supabase
+                .from('tasks')
+                .select('id')
+                .eq('parent_task_id', taskId)
+                .eq('station_id', target.station_id)
+                .single()
+            if (childTask) {
+                await supabase
+                    .from('tasks')
+                    .update({ assigned_to: target.assigned_to || null })
+                    .eq('id', childTask.id)
+                updatedCount++
+            }
+        }
+    }
+
+    if (newTargets.length === 0) {
+        return NextResponse.json({
+            created: [],
+            updated: updatedCount,
+            skipped: 0,
+            message: `Uppdaterade ${updatedCount} stationstilldelningar`
+        }, { status: 200 })
     }
 
     // Create station tasks
