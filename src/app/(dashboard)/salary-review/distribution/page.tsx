@@ -31,7 +31,7 @@ export default async function DistributionPage({
         .eq('id', user.id)
         .single()
 
-    if (!profile || !['station_manager', 'assistant_manager', 'admin'].includes(profile.role)) {
+    if (!profile || !['station_manager', 'assistant_manager', 'area_manager', 'vo_chief', 'admin'].includes(profile.role)) {
         return (
             <div className="container mx-auto py-8">
                 <h1 className="text-2xl font-bold text-red-600">Åtkomst nekad</h1>
@@ -42,33 +42,43 @@ export default async function DistributionPage({
         )
     }
 
-    // Get user's stations and station groups
-    const { data: userStations } = await supabase
-        .from('user_stations')
-        .select('station_id, station:stations(id, name)')
-        .eq('user_id', user.id)
+    // Hämta stationer: area_manager via user_station_groups, annars via user_stations
+    let userStationsResult: Array<{ station_id: string; station: any }> = []
 
-    if (!userStations || userStations.length === 0) {
-        return (
-            <div className="container mx-auto py-8">
-                <h1 className="text-2xl font-bold text-red-600">Inga stationer</h1>
-                <p className="text-muted-foreground mt-2">
-                    Du är inte kopplad till några stationer.
-                </p>
-            </div>
-        )
+    if (profile.role === 'area_manager') {
+        const { data: groupData } = await supabase
+            .from('user_station_groups')
+            .select(`
+                station_group:station_group_id (
+                    station_group_members (
+                        station:station_id (id, name)
+                    )
+                )
+            `)
+            .eq('user_id', user.id)
+
+        userStationsResult = groupData?.flatMap((usg: any) =>
+            usg.station_group?.station_group_members?.map((m: any) => ({
+                station_id: m.station?.id,
+                station: m.station
+            })).filter((x: any) => x.station_id) || []
+        ) || []
+    } else {
+        const { data: userStations } = await supabase
+            .from('user_stations')
+            .select('station_id, station:stations(id, name)')
+            .eq('user_id', user.id)
+        userStationsResult = userStations || []
     }
+
+    const userStations = userStationsResult
 
     const userStationIds = userStations.map(us => us.station_id)
 
-    // Get station groups where user manages at least one member station
+    // Get station groups
     const { data: stationGroups } = await supabase
         .from('station_groups')
-        .select(`
-            id,
-            name,
-            station_group_members!inner(station_id)
-        `)
+        .select(`id, name, station_group_members!inner(station_id)`)
         .in('station_group_members.station_id', userStationIds)
 
     // Determine what to display
