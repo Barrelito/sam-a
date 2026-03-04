@@ -47,6 +47,9 @@ export async function GET() {
                 verksamhetsomraden:vo_id (id, name),
                 user_stations (
                     station:station_id (id, name, vo_id)
+                ),
+                user_station_groups (
+                    station_group:station_group_id (id, name, vo_id)
                 )
             `)
             .order('created_at', { ascending: false })
@@ -64,7 +67,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { email, full_name, role, vo_id, station_ids } = body
+        const { email, full_name, role, vo_id, station_ids, station_group_ids } = body
 
         if (!email || !full_name || !role) {
             return NextResponse.json(
@@ -133,6 +136,22 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        // Create user-station-group assignments
+        if (station_group_ids && station_group_ids.length > 0) {
+            const groupAssignments = station_group_ids.map((groupId: string) => ({
+                user_id: userId,
+                station_group_id: groupId
+            }))
+
+            const { error: groupError } = await supabase
+                .from('user_station_groups')
+                .insert(groupAssignments)
+
+            if (groupError) {
+                console.error('Station group assignment error:', groupError)
+            }
+        }
+
         return NextResponse.json({
             success: true,
             user_id: userId,
@@ -150,7 +169,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
     try {
         const body = await request.json()
-        const { user_id, full_name, role, vo_id, station_ids } = body
+        const { user_id, full_name, role, vo_id, station_ids, station_group_ids } = body
 
         if (!user_id) {
             return NextResponse.json({ error: 'user_id krävs' }, { status: 400 })
@@ -191,6 +210,27 @@ export async function PUT(request: NextRequest) {
                 await supabase
                     .from('user_stations')
                     .insert(stationAssignments)
+            }
+        }
+
+        // Update station group assignments
+        if (station_group_ids !== undefined) {
+            // Remove old assignments
+            await supabase
+                .from('user_station_groups')
+                .delete()
+                .eq('user_id', user_id)
+
+            // Add new assignments
+            if (station_group_ids.length > 0) {
+                const groupAssignments = station_group_ids.map((groupId: string) => ({
+                    user_id,
+                    station_group_id: groupId
+                }))
+
+                await supabase
+                    .from('user_station_groups')
+                    .insert(groupAssignments)
             }
         }
 

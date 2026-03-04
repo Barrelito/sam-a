@@ -20,6 +20,9 @@ interface Profile {
     user_stations?: Array<{
         station: { id: string; name: string; vo_id: string }
     }>
+    user_station_groups?: Array<{
+        station_group: { id: string; name: string; vo_id: string }
+    }>
 }
 
 interface VO {
@@ -78,6 +81,7 @@ export default function AdminPage() {
         role: UserRole
         vo_id: string | null
         station_ids: string[]
+        station_group_ids?: string[]
     } | null>(null)
 
     // Load data
@@ -120,7 +124,8 @@ export default function AdminPage() {
             full_name: user.full_name,
             role: user.role,
             vo_id: user.vo_id,
-            station_ids: user.user_stations?.map(us => us.station.id) || []
+            station_ids: user.user_stations?.map(us => us.station.id) || [],
+            station_group_ids: user.user_station_groups?.map(usg => usg.station_group.id) || []
         })
         setCreateDialogOpen(true)
     }
@@ -463,6 +468,20 @@ export default function AdminPage() {
                                                 {user.user_stations.map(us => (
                                                     <Badge key={us.station.id} variant="outline" className="text-xs">
                                                         {us.station.name}
+                                                    </Badge>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Station Groups */}
+                                    {user.user_station_groups && user.user_station_groups.length > 0 && (
+                                        <div className="flex items-start gap-2 text-sm">
+                                            <FolderOpen className="h-4 w-4 text-muted-foreground mt-0.5" />
+                                            <div className="flex flex-wrap gap-1">
+                                                {user.user_station_groups.map(usg => (
+                                                    <Badge key={usg.station_group.id} variant="outline" className="text-xs">
+                                                        {usg.station_group.name}
                                                     </Badge>
                                                 ))}
                                             </div>

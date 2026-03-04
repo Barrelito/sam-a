@@ -26,6 +26,12 @@ interface VO {
     name: string
 }
 
+interface StationGroup {
+    id: string
+    name: string
+    vo_id: string
+}
+
 interface CreateUserDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
@@ -37,6 +43,7 @@ interface CreateUserDialogProps {
         role: UserRole
         vo_id: string | null
         station_ids: string[]
+        station_group_ids?: string[]
     } | null
 }
 
@@ -52,10 +59,12 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess, editUser }: Cr
     const [role, setRole] = useState<UserRole>("assistant_manager")
     const [voId, setVoId] = useState<string>("")
     const [stationIds, setStationIds] = useState<string[]>([])
+    const [stationGroupIds, setStationGroupIds] = useState<string[]>([])
 
     // Reference data
     const [voList, setVoList] = useState<VO[]>([])
     const [stationList, setStationList] = useState<Station[]>([])
+    const [stationGroupList, setStationGroupList] = useState<StationGroup[]>([])
 
     const isEditing = !!editUser
 
@@ -69,6 +78,10 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess, editUser }: Cr
             fetch('/api/admin/stations')
                 .then(res => res.json())
                 .then(data => setStationList(data.stations || []))
+
+            fetch('/api/admin/station-groups')
+                .then(res => res.json())
+                .then(data => setStationGroupList(data.station_groups || []))
         }
     }, [open])
 
@@ -80,6 +93,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess, editUser }: Cr
             setRole(editUser.role)
             setVoId(editUser.vo_id || "")
             setStationIds(editUser.station_ids || [])
+            setStationGroupIds(editUser.station_group_ids || [])
         } else {
             resetForm()
         }
@@ -91,6 +105,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess, editUser }: Cr
         setRole("assistant_manager")
         setVoId("")
         setStationIds([])
+        setStationGroupIds([])
         setError(null)
         setSuccess(null)
     }
@@ -113,7 +128,8 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess, editUser }: Cr
                 full_name: fullName,
                 role,
                 vo_id: voId || null,
-                station_ids: stationIds
+                station_ids: stationIds,
+                station_group_ids: stationGroupIds
             }
 
             const res = await fetch('/api/admin/users', {
@@ -161,13 +177,26 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess, editUser }: Cr
         )
     }
 
+    const handleStationGroupToggle = (groupId: string) => {
+        setStationGroupIds(prev =>
+            prev.includes(groupId)
+                ? prev.filter(id => id !== groupId)
+                : [...prev, groupId]
+        )
+    }
+
     // Filter stations by selected VO
     const filteredStations = voId
         ? stationList.filter(s => s.vo_id === voId)
         : stationList
 
+    const filteredStationGroups = voId
+        ? stationGroupList.filter(g => g.vo_id === voId)
+        : stationGroupList
+
     // Determine if we need station selection (not for VO chief or area manager)
     const needsStations = role !== 'vo_chief' && role !== 'admin' && role !== 'area_manager'
+    const needsStationGroups = role === 'area_manager'
 
     return (
         <Dialog open={open} onOpenChange={handleClose}>
@@ -269,6 +298,9 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess, editUser }: Cr
                                         if (e.target.value === 'vo_chief' || e.target.value === 'area_manager') {
                                             setStationIds([])
                                         }
+                                        if (e.target.value !== 'area_manager') {
+                                            setStationGroupIds([])
+                                        }
                                     }}
                                     className="w-full px-3 py-2 border rounded-lg bg-background"
                                 >
@@ -291,6 +323,7 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess, editUser }: Cr
                                         setVoId(e.target.value)
                                         // Reset stations when VO changes
                                         setStationIds([])
+                                        setStationGroupIds([])
                                     }}
                                     required={role === 'vo_chief'}
                                     className="w-full px-3 py-2 border rounded-lg bg-background"
@@ -329,13 +362,41 @@ export function CreateUserDialog({ open, onOpenChange, onSuccess, editUser }: Cr
                                     )}
                                 </div>
                             )}
+
+                            {/* Station Groups (for area managers) */}
+                            {needsStationGroups && (
+                                <div>
+                                    <label className="text-sm font-medium mb-1.5 block">
+                                        Stationsområden
+                                        <span className="text-destructive ml-1">*</span>
+                                    </label>
+                                    {filteredStationGroups.length === 0 ? (
+                                        <p className="text-sm text-muted-foreground">
+                                            {voId ? 'Inga stationsområden i valt VO-område' : 'Välj VO-område först'}
+                                        </p>
+                                    ) : (
+                                        <div className="flex flex-wrap gap-2 mt-2">
+                                            {filteredStationGroups.map(group => (
+                                                <Badge
+                                                    key={group.id}
+                                                    variant={stationGroupIds.includes(group.id) ? "default" : "outline"}
+                                                    className="cursor-pointer"
+                                                    onClick={() => handleStationGroupToggle(group.id)}
+                                                >
+                                                    {group.name}
+                                                </Badge>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
 
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={handleClose}>
                                 Avbryt
                             </Button>
-                            <Button type="submit" disabled={loading || (needsStations && stationIds.length === 0)}>
+                            <Button type="submit" disabled={loading || (needsStations && stationIds.length === 0) || (needsStationGroups && stationGroupIds.length === 0)}>
                                 {loading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                                 {isEditing ? 'Spara' : 'Skapa Användare'}
                             </Button>
