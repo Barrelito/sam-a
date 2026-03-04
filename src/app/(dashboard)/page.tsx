@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
+import { AreaManagerDashboard } from "@/components/AreaManagerDashboard"
 
 export default function DashboardPage() {
     const router = useRouter()
@@ -131,7 +132,7 @@ export default function DashboardPage() {
         }
     }, [authLoading, profile, router])
 
-    // Show loading while checking auth or if admin/vo_chief
+    // Show loading while checking auth or if admin/vo_chief (redirecting)
     if (authLoading || loading || profile?.role === 'admin' || profile?.role === 'vo_chief') {
         return (
             <div className="flex items-center justify-center h-64">
@@ -340,6 +341,16 @@ export default function DashboardPage() {
         dashboardTitle = `Ambulansledning - Station ${stationNames}`
     } else if (profile?.verksamhetsomraden) {
         dashboardTitle = `Ambulansledning - ${profile.verksamhetsomraden.name}`
+    }
+
+    // Area manager: rendera aggregerad stationsöversikt
+    if (profile?.role === 'area_manager') {
+        return (
+            <AreaManagerDashboard
+                onStatusChange={handleStatusChange}
+                onPriorityChange={handlePriorityChange}
+            />
+        )
     }
 
     return (

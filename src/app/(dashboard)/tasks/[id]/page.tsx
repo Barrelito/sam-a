@@ -8,7 +8,9 @@ import { DistributeDialog } from "@/components/distribute-dialog"
 import { EditTaskDialog } from "@/components/edit-task-dialog"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
-import { ArrowLeft, Loader2, Trash2, Share2, Edit } from "lucide-react"
+import { ArrowLeft, Loader2, Trash2, Share2, Edit, GitBranch, CheckCircle2, Clock, Circle } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function TaskDetailPage() {
     const params = useParams()
@@ -19,6 +21,20 @@ export default function TaskDetailPage() {
     const [error, setError] = useState<string | null>(null)
     const [showDistributeDialog, setShowDistributeDialog] = useState(false)
     const [showEditDialog, setShowEditDialog] = useState(false)
+    const [childTasks, setChildTasks] = useState<any[]>([])
+
+    // Ladda barnuppgifter (fördelade stationsuppgifter) när task är laddad
+    useEffect(() => {
+        if (!task) return
+        const eligibleOwnerTypes = ['vo', 'station_group', 'station']
+        const userCanDistribute = profile?.role === 'area_manager' || profile?.role === 'vo_chief' || profile?.role === 'admin'
+        if (!userCanDistribute || !eligibleOwnerTypes.includes(task.owner_type)) return
+
+        fetch(`/api/tasks/${task.id}/distribute`)
+            .then(r => r.json())
+            .then(d => setChildTasks(d.childTasks || []))
+            .catch(e => console.error('Error loading child tasks:', e))
+    }, [task?.id, profile?.role])
 
     const taskId = params.id as string
 
@@ -409,6 +425,54 @@ export default function TaskDetailPage() {
                 onVOReview={profile?.role === 'vo_chief' || profile?.role === 'admin' ? handleVOReview : undefined}
             />
 
+            {/* Barnuppgifter (fördelade stationsuppgifter) */}
+            {childTasks.length > 0 && (
+                <Card>
+                    <CardHeader className="pb-3">
+                        <CardTitle className="text-base flex items-center gap-2">
+                            <GitBranch className="h-4 w-4 text-primary" />
+                            Fördelade stationsuppgifter ({childTasks.length})
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        <div className="divide-y">
+                            {childTasks.map((child: any) => {
+                                const statusIcon = child.status === 'done' || child.status === 'reported'
+                                    ? <CheckCircle2 className="h-4 w-4 text-green-500" />
+                                    : child.status === 'in_progress'
+                                        ? <Clock className="h-4 w-4 text-blue-500" />
+                                        : <Circle className="h-4 w-4 text-muted-foreground" />
+                                const statusLabel = child.status === 'done' || child.status === 'reported' ? 'Klar'
+                                    : child.status === 'in_progress' ? 'Pågående' : 'Ej påbörjad'
+                                return (
+                                    <div
+                                        key={child.id}
+                                        className="flex items-center justify-between px-4 py-3 hover:bg-secondary/40 cursor-pointer transition-colors"
+                                        onClick={() => router.push(`/tasks/${child.id}`)}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            {statusIcon}
+                                            <div>
+                                                <div className="font-medium text-sm">{child.station?.name || 'Okänd station'}</div>
+                                                {child.assigned_to_profile && (
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {child.assigned_to_profile.full_name}
+                                                    </div>
+                                                )}
+                                                {!child.assigned_to_profile && (
+                                                    <div className="text-xs text-orange-500">Ej tilldelad</div>
+                                                )}
+                                            </div>
+                                        </div>
+                                        <Badge variant="outline" className="text-xs">{statusLabel}</Badge>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
             {/* Distribute Dialog */}
             {canDistribute && task.vo_id && (
                 <DistributeDialog
@@ -422,6 +486,10 @@ export default function TaskDetailPage() {
                     onSuccess={() => {
                         setShowDistributeDialog(false)
                         loadTask()
+                        // Refresh child tasks after distribution
+                        fetch(`/api/tasks/${task.id}/distribute`)
+                            .then(r => r.json())
+                            .then(d => setChildTasks(d.childTasks || []))
                     }}
                 />
             )}
