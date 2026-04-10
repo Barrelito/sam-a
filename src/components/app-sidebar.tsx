@@ -18,7 +18,8 @@ import {
     DollarSign,
     Calendar,
     Archive,
-    TrendingUp
+    TrendingUp,
+    Clock
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -36,6 +37,7 @@ const managerNavigation = [
     { name: "Mina Uppgifter", href: "/my-tasks", icon: User },
     { name: "Löneöversyn", href: "/salary-review", icon: DollarSign },
     { name: "Personalprognos", href: "/forecast", icon: TrendingUp },
+    { name: "Övertid", href: "/overtime", icon: Clock },
     { name: "Chefstöd", href: "/chefstod", icon: MessageSquare },
     { name: "Inställningar", href: "/settings", icon: Settings },
 ]
@@ -50,6 +52,7 @@ const voChiefNavigation = [
     { name: "Mina Uppgifter", href: "/my-tasks", icon: User },
     { name: "Löneöversyn", href: "/salary-review", icon: DollarSign },
     { name: "Personalprognos", href: "/forecast/area", icon: TrendingUp },
+    { name: "Övertid", href: "/overtime", icon: Clock },
     { name: "Chefstöd", href: "/chefstod", icon: MessageSquare },
     { name: "Inställningar", href: "/settings", icon: Settings },
 ]
@@ -64,6 +67,7 @@ const areaManagerNavigation = [
     { name: "Mina Uppgifter", href: "/my-tasks", icon: User },
     { name: "Löneöversyn", href: "/salary-review", icon: DollarSign },
     { name: "Personalprognos", href: "/forecast/area", icon: TrendingUp },
+    { name: "Övertid", href: "/overtime", icon: Clock },
     { name: "Chefstöd", href: "/chefstod", icon: MessageSquare },
     { name: "Inställningar", href: "/settings", icon: Settings },
 ]
