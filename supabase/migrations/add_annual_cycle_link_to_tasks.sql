@@ -1,1 +1,0 @@
-men din SQL hjälper inte - detta verkar vara en för svår nlr just nu. Vi gör såhär - låt fliken årshjule vara en 

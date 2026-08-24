@@ -7,6 +7,7 @@ import { TaskCard } from "@/components/task-card"
 import { StatusOverview } from "@/components/status-overview"
 import { StationFilter } from "@/components/station-filter"
 import { Task, TaskStatus, TaskPriority, StationGroup, getDaysUntilDeadline, TaskCategory, categoryLabels } from "@/lib/types"
+import { parseVirtualAnnualId, toCompletionStatus } from "@/lib/annual-cycle"
 import { CalendarDays, TrendingUp, Loader2, FolderOpen, CheckCircle, AlertCircle, Target, Filter, CheckSquare, X, UserX, AlertTriangle } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { Badge } from "@/components/ui/badge"
@@ -222,13 +223,35 @@ export default function DashboardPage() {
     })
 
     const handleStatusChange = async (taskId: string, newStatus: TaskStatus) => {
+        const task = tasks.find(t => t.id === taskId)
         try {
-            const res = await fetch(`/api/tasks/${taskId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ status: newStatus })
-            })
-            if (res.ok) {
+            let ok = false
+
+            if (task?.is_annual_cycle) {
+                // Virtual annual cycle tasks have no row in `tasks` — status lives
+                // in annual_task_completions via the dedicated endpoint
+                const itemId = task.annual_cycle_item_id || parseVirtualAnnualId(task.id).itemId
+                const res = await fetch('/api/annual-cycle/complete', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        itemId,
+                        stationId: task.station_id || null,
+                        year: task.year || new Date().getFullYear(),
+                        status: toCompletionStatus(newStatus)
+                    })
+                })
+                ok = res.ok
+            } else {
+                const res = await fetch(`/api/tasks/${taskId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: newStatus })
+                })
+                ok = res.ok
+            }
+
+            if (ok) {
                 setTasks(prev => prev.map(task =>
                     task.id === taskId
                         ? { ...task, status: newStatus, updated_at: new Date().toISOString() }
@@ -241,6 +264,8 @@ export default function DashboardPage() {
     }
 
     const handlePriorityChange = async (taskId: string, newPriority: TaskPriority) => {
+        // Virtual annual cycle tasks have no tasks row to store a priority on
+        if (tasks.find(t => t.id === taskId)?.is_annual_cycle) return
         try {
             const res = await fetch(`/api/tasks/${taskId}`, {
                 method: 'PUT',

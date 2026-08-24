@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
+import { parseVirtualAnnualId, toCompletionStatus } from "@/lib/annual-cycle"
 
 const getCurrentMonth = () => new Date().getMonth() + 1
 const getMonthNameFull = (m: number) => {
@@ -60,16 +61,12 @@ export default function MyTasksPage() {
 
         try {
             if (task.is_annual_cycle) {
-                const withoutPrefix = taskId.slice('annual-'.length)
-                const itemId = withoutPrefix.length === 73 ? withoutPrefix.slice(0, 36) : withoutPrefix
+                const itemId = task.annual_cycle_item_id || parseVirtualAnnualId(task.id).itemId
                 const stationId = task.station_id || null
-                let apiStatus = 'completed'
-                if (newStatus === 'in_progress') apiStatus = 'in_progress'
-                if (newStatus === 'not_started') apiStatus = 'todo'
                 await fetch('/api/annual-cycle/complete', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ itemId, stationId, year: task.year, status: apiStatus }),
+                    body: JSON.stringify({ itemId, stationId, year: task.year, status: toCompletionStatus(newStatus) }),
                 })
             } else {
                 await fetch(`/api/tasks/${taskId}`, {

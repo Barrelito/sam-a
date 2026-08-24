@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import { fromCompletionStatus, mapAnnualCategory, parseVirtualAnnualId } from '@/lib/annual-cycle'
 
 interface RouteParams {
     params: Promise<{ id: string }>
@@ -34,23 +35,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // 2. FETCH VIRTUAL ANNUAL TASK if not found as real task
     if (error && id.startsWith('annual-')) {
-        // Parse composite virtual ID: 'annual-{itemUUID}' or 'annual-{itemUUID}-{stationUUID}'
-        // UUIDs are 36 chars (8-4-4-4-12). We strip the 'annual-' prefix then check length.
-        const withoutPrefix = id.slice('annual-'.length) // = "{itemUUID}" or "{itemUUID}-{stationUUID}"
-        let itemUuid: string
-        let embeddedStationId: string | null = null
-
-        if (withoutPrefix.length === 36) {
-            // Old format: 'annual-{itemUUID}'
-            itemUuid = withoutPrefix
-        } else if (withoutPrefix.length === 73) {
-            // New format: 'annual-{itemUUID}-{stationUUID}' (36 + 1 + 36 = 73)
-            itemUuid = withoutPrefix.slice(0, 36)
-            embeddedStationId = withoutPrefix.slice(37)
-        } else {
-            // Fallback: treat entire remainder as item UUID
-            itemUuid = withoutPrefix
-        }
+        // Composite virtual ID: 'annual-{itemUUID}' or 'annual-{itemUUID}-{stationUUID}'
+        const { itemId: itemUuid, stationId: embeddedStationId } = parseVirtualAnnualId(id)
 
         // Fetch the cycle item
         const { data: item } = await supabase
@@ -121,12 +107,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
                 annual_cycle_item_id: item.id,
                 title: item.title,
                 description: item.description,
-                status: completion
-                    ? (completion.status === 'completed' ? 'done'
-                        : completion.status === 'in_progress' ? 'in_progress'
-                            : 'not_started')
-                    : 'not_started',
-                category: item.category,
+                status: fromCompletionStatus(completion?.status),
+                category: mapAnnualCategory(item.category),
                 owner_type: virtualOwnerType,
                 station_id: virtualStationId,
                 station: virtualStation,

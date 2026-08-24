@@ -1,5 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
+import {
+    annualCategoryFilterValues,
+    buildVirtualAnnualId,
+    fromCompletionStatus,
+    mapAnnualCategory,
+    normalizeTaskStatus,
+} from '@/lib/annual-cycle'
 
 export async function GET(request: NextRequest) {
     const supabase = await createClient()
@@ -70,13 +77,18 @@ export async function GET(request: NextRequest) {
 
     // Role-based filtering for Tasks
     let userStationIds: string[] = []
+    const stationNamesById = new Map<string, string>()
     if (profile.role === 'station_manager' || profile.role === 'assistant_manager') {
         const { data: userStations } = await supabase
             .from('user_stations')
-            .select('station_id')
+            .select('station_id, station:stations(id, name)')
             .eq('user_id', user.id)
 
         userStationIds = userStations?.map(us => us.station_id) || []
+        for (const us of userStations || []) {
+            const station = Array.isArray(us.station) ? us.station[0] : us.station
+            if (station?.id) stationNamesById.set(station.id, station.name)
+        }
 
         if (userStationIds.length > 0) {
             query = query.or(`station_id.in.(${userStationIds.join(',')}),vo_id.eq.${profile.vo_id}`)
@@ -110,7 +122,9 @@ export async function GET(request: NextRequest) {
             itemsQuery = itemsQuery.eq('month', month)
         }
         if (category) {
-            itemsQuery = itemsQuery.eq('category', category)
+            // Cycle items store lowercase categories ('hr', 'finance', ...) while the
+            // tasks API filters on TaskCategory ('HR', 'Finance', ...)
+            itemsQuery = itemsQuery.in('category', annualCategoryFilterValues(category))
         }
 
         const { data: cycleItems } = await itemsQuery
@@ -136,17 +150,12 @@ export async function GET(request: NextRequest) {
             // Otherwise (vo_chief, admin) generate one generic task (no station_id).
             const targetStations: Array<{ id: string; name: string } | null> =
                 userStationIds.length > 0
-                    ? userStationIds.map(sid => {
-                        // Find station name from profile context if available
-                        return { id: sid, name: '' } // name enriched below if needed
-                    })
+                    ? userStationIds.map(sid => ({ id: sid, name: stationNamesById.get(sid) || '' }))
                     : [null] // null = no specific station (vo/admin)
 
             for (const item of cycleItems) {
                 for (const stationRef of targetStations) {
-                    const virtualId = stationRef
-                        ? `annual-${item.id}-${stationRef.id}`
-                        : `annual-${item.id}`
+                    const virtualId = buildVirtualAnnualId(item.id, stationRef?.id)
 
                     // Check if a real task already exists for this cycle item + station
                     const existingRealTask = regularTasks?.find(t =>
@@ -172,17 +181,13 @@ export async function GET(request: NextRequest) {
                         original_id: item.id,
                         title: item.title,
                         description: item.description,
-                        status: completion
-                            ? (completion.status === 'completed' ? 'done'
-                                : completion.status === 'in_progress' ? 'in_progress'
-                                    : 'not_started')
-                            : 'not_started',
-                        category: item.category,
+                        status: fromCompletionStatus(completion?.status),
+                        category: mapAnnualCategory(item.category),
                         // Use 'station' so the assignment dropdown is shown in the UI
                         owner_type: stationRef ? 'station' : 'annual_cycle',
                         station_id: stationRef ? stationRef.id : null,
                         assigned_to: completion?.assigned_to ?? null,
-                        assigned_to_profile: completion?.assigned_to ? null : null, // resolved separately if needed
+                        assigned_to_profile: null, // resolved separately if needed
                         year: year,
                         start_month: item.month,
                         end_month: item.month,
@@ -192,7 +197,7 @@ export async function GET(request: NextRequest) {
                         action_link: item.action_link,
                         annual_cycle_item_id: item.id,
                         created_by_profile: { full_name: 'Årshjulet', email: 'system@aisab.se' },
-                        station: stationRef ? { id: stationRef.id, name: '' } : null,
+                        station: stationRef ? { id: stationRef.id, name: stationRef.name } : null,
                         verksamhetsomraden: null
                     })
                 }
@@ -249,6 +254,7 @@ export async function POST(request: NextRequest) {
         deadline_day,
         assigned_to,
         annual_cycle_item_id,
+        status,
     } = body
 
     // Validate required fields
@@ -257,6 +263,10 @@ export async function POST(request: NextRequest) {
             error: 'Missing required fields: title, category, owner_type'
         }, { status: 400 })
     }
+
+    // Normalize status if provided ('todo'/'completed' legacy values are mapped);
+    // fall back to 'not_started' so materialized annual cycle tasks keep their state
+    const initialStatus = normalizeTaskStatus(status) || 'not_started'
 
     // Permission checks
     if (owner_type === 'station') {
@@ -367,6 +377,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Create regular task (non-recurring)
+    const taskYear = year || new Date().getFullYear()
     const { data: task, error } = await supabase
         .from('tasks')
         .insert({
@@ -378,13 +389,16 @@ export async function POST(request: NextRequest) {
             station_id,
             station_group_id,
             created_by: user.id,
-            year: year || new Date().getFullYear(),
+            year: taskYear,
             start_month,
             end_month,
             is_recurring_monthly: false,
             is_recurring_master: false,
             deadline_day: deadline_day || 25,
             assigned_to,
+            status: initialStatus,
+            completed_at: initialStatus === 'done' ? new Date().toISOString() : null,
+            completed_by: initialStatus === 'done' ? user.id : null,
             // Link to annual cycle template if provided (enables deduplication)
             annual_cycle_item_id: annual_cycle_item_id || null,
         })
@@ -392,6 +406,21 @@ export async function POST(request: NextRequest) {
         .single()
 
     if (error) {
+        // A materialized annual cycle task already exists for this (item, station, year) —
+        // return the existing row instead of failing, so concurrent clients converge on it
+        if (error.code === '23505' && annual_cycle_item_id && station_id) {
+            const { data: existing } = await supabase
+                .from('tasks')
+                .select('*')
+                .eq('annual_cycle_item_id', annual_cycle_item_id)
+                .eq('station_id', station_id)
+                .eq('year', taskYear)
+                .single()
+
+            if (existing) {
+                return NextResponse.json({ task: existing }, { status: 200 })
+            }
+        }
         console.error('Error creating task:', error)
         return NextResponse.json({ error: error.message }, { status: 500 })
     }

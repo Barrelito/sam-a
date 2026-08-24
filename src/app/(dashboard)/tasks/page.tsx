@@ -16,6 +16,7 @@ import {
     UserX, AlertTriangle, Clock, CheckSquare2
 } from "lucide-react"
 import { TaskAssignDropdown } from "@/components/task-assign-dropdown"
+import { parseVirtualAnnualId, toCompletionStatus } from "@/lib/annual-cycle"
 
 const months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 const categories: TaskCategory[] = ['HR', 'Finance', 'Safety', 'Operations']
@@ -198,15 +199,8 @@ export default function TasksPage() {
 
         if (task.is_annual_cycle) {
             try {
-                // Parse virtual ID: format is 'annual-{itemId}' or 'annual-{itemId}-{stationId}'
-                // itemId itself may contain hyphens (UUID), stationId is also UUID
-                // We stored annual_cycle_item_id on the task object, so use that
-                const itemId = task.annual_cycle_item_id || task.id.replace(/^annual-/, '').replace(/-[^-]+-[^-]+-[^-]+-[^-]+-[^-]+$/, '')
+                const itemId = task.annual_cycle_item_id || parseVirtualAnnualId(task.id).itemId
                 const stationId = task.station_id || null
-
-                let apiStatus = 'completed'
-                if (newStatus === 'in_progress') apiStatus = 'in_progress'
-                if (newStatus === 'not_started') apiStatus = 'todo'
 
                 const res = await fetch('/api/annual-cycle/complete', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -214,7 +208,7 @@ export default function TasksPage() {
                         itemId: itemId,
                         stationId: stationId,
                         year: task.year,
-                        status: apiStatus
+                        status: toCompletionStatus(newStatus)
                     })
                 })
                 if (!res.ok) throw new Error('Failed')

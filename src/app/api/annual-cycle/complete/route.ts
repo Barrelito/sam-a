@@ -43,6 +43,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Upsert completion
+    const newStatus = status || 'completed'
+    const isCompleted = newStatus === 'completed'
     const { data, error } = await supabase
         .from('annual_task_completions')
         .upsert({
@@ -50,13 +52,13 @@ export async function POST(request: NextRequest) {
             station_id: targetStationId,
             user_id: targetUserId,
             year: year,
-            status: status || 'completed',
-            completed_by: user.id,
-            completed_at: new Date().toISOString()
+            status: newStatus,
+            completed_by: isCompleted ? user.id : null,
+            completed_at: isCompleted ? new Date().toISOString() : null
         }, {
             onConflict: targetStationId
-                ? 'annual_cycle_item_id, station_id, year'
-                : 'annual_cycle_item_id, user_id, year'
+                ? 'annual_cycle_item_id,station_id,year'
+                : 'annual_cycle_item_id,user_id,year'
         })
         .select()
         .single()

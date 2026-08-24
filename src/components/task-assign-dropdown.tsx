@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { User, UserX, Loader2, ChevronDown, Check, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
+import { isVirtualAnnualId, parseVirtualAnnualId } from "@/lib/annual-cycle"
 
 interface AssignUser {
     id: string
@@ -101,11 +102,10 @@ export function TaskAssignDropdown({
             let ok = false
 
             // For annual cycle virtual tasks, use the dedicated assign endpoint
-            const isVirtualAnnualTask = taskId.startsWith('annual-')
-            if (isVirtualAnnualTask) {
-                const withoutPrefix = taskId.slice('annual-'.length)
-                const itemId = withoutPrefix.length === 73 ? withoutPrefix.slice(0, 36) : withoutPrefix
-                const embeddedStationId = withoutPrefix.length === 73 ? withoutPrefix.slice(37) : (stationId ?? null)
+            if (isVirtualAnnualId(taskId)) {
+                const parsed = parseVirtualAnnualId(taskId)
+                const itemId = parsed.itemId
+                const embeddedStationId = parsed.stationId ?? stationId ?? null
 
                 const res = await fetch('/api/annual-cycle/assign', {
                     method: 'POST',

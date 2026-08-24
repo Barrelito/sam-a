@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Task, TaskStatus } from "@/lib/types"
+import { isVirtualAnnualId, mapAnnualCategory } from "@/lib/annual-cycle"
 import { TaskDetailView } from "@/components/task-detail-view"
 import { DistributeDialog } from "@/components/distribute-dialog"
 import { EditTaskDialog } from "@/components/edit-task-dialog"
@@ -64,30 +65,11 @@ export default function TaskDetailPage() {
         loadTask()
     }, [taskId])
 
-    // Auto-materialize virtual annual cycle tasks on first load.
-    // Runs once after the task loads: if it's still virtual (annual- prefix),
-    // we silently create a real DB row and redirect to its permanent ID.
-    useEffect(() => {
-        if (!task) return
-        if (!task.is_annual_cycle) return
-        if (!task.id.startsWith('annual-')) return
-        if (!task.station_id) return // Only station-bound tasks get auto-materialized
-        if (authLoading || !profile) return
-
-        // Don't block the UI — run silently in the background
-        ensureRealTask().catch(console.error)
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [task?.id])
-
     const handleStatusChange = async (status: TaskStatus) => {
-        // HANDLE ANNUAL CYCLE TASKS
+        // HANDLE ANNUAL CYCLE TASKS: materialize into a real task carrying the new status.
+        // ensureRealTask redirects to the new permanent id on success.
         if (task?.id.startsWith('annual-') && task.is_annual_cycle) {
-            const targetId = await ensureRealTask({ status })
-            if (targetId) {
-                // Redirect is handled in ensureRealTask usually, but if we want to be safe:
-                // router.push is called there.
-                // We might want to reload or just let the redirect happen.
-            }
+            await ensureRealTask({ status })
             return
         }
 
@@ -103,48 +85,32 @@ export default function TaskDetailPage() {
         }
     }
 
-    // Helper to materialize task if needed
+    // Helper to materialize a virtual annual cycle task into a real tasks row.
+    // Prefer the station embedded in the virtual task (set from the composite id)
+    // over the user's first station, so multi-station managers hit the right one.
     const ensureRealTask = async (overrides: Partial<Task> = {}): Promise<string | null> => {
         if (!task) return null
-        if (!task.id.startsWith('annual-')) return task.id
+        if (!isVirtualAnnualId(task.id)) return task.id
 
-        // Materialize logic
-        const stationId = profile?.user_stations?.[0]?.station?.id
+        const stationId = task.station_id || profile?.user_stations?.[0]?.station?.id
         if (!stationId && profile?.role !== 'admin' && profile?.role !== 'vo_chief') {
             setError("Du måste ha en station för att spara denna uppgift.")
             return null
         }
 
-        // Map categories (Annual cycle uses lowercase, Task table uses Capitalized)
-        let mappedCategory = task.category
-        if (task.category.toLowerCase() === 'hr') mappedCategory = 'HR'
-        else if (task.category.toLowerCase() === 'finance') mappedCategory = 'Finance'
-        else if (task.category.toLowerCase() === 'safety') mappedCategory = 'Safety'
-        else if (task.category.toLowerCase() === 'operations' || task.category.toLowerCase() === 'drift') mappedCategory = 'Operations'
-
         const payload = {
             title: task.title,
             description: task.description,
-            category: mappedCategory,
+            category: mapAnnualCategory(task.category),
             owner_type: 'station',
             station_id: stationId,
             annual_cycle_item_id: task.annual_cycle_item_id || (task as any).original_id || null,
             year: task.year || new Date().getFullYear(),
             start_month: task.start_month,
             deadline_day: task.deadline_day,
-            status: task.status === 'not_started' ? 'todo' : task.status === 'in_progress' ? 'in_progress' : 'completed',
+            // Carry over the current status (from any completion) unless overridden
+            status: task.status,
             ...overrides
-        }
-
-        // Map overrides for status specifically if passed (TaskStatus vs API string)
-        if (overrides.status) {
-            // Explicitly cast to API compatible string if needed needed, but API usually handles matching strings
-            // Our API expects 'todo', 'in_progress', 'completed' usually? 
-            // Wait, our TaskStatus type is 'not_started' | 'in_progress' | 'done' | 'reported'
-            // DB enum in tasks table? Let's check api/tasks/route.ts
-            // POST route just takes the string. 
-            // tasks table constraint usually "tasks_status_check" CHECK (status = ANY (ARRAY['todo'::text, 'not_started'::text, 'in_progress'::text, 'done'::text, 'completed'::text, 'reported'::text])) 
-            // Actually let's just pass it as is, or map it if it's 'not_started' -> 'todo' if we want to be safe.
         }
 
         try {
@@ -228,60 +194,12 @@ export default function TaskDetailPage() {
         }
     }
 
-    const handleUpdateTask = async (updates: Partial<typeof task>) => {
+    const handleUpdateTask = async (updates: Partial<Task>) => {
         if (!task) return
 
         // HANDLE VIRTUAL TASKS: "Materialize" them into real tasks on first edit
-        if (task.id.startsWith('annual-') && task.is_annual_cycle) {
-            // We need to create a new task based on the virtual one + updates
-            const stationId = profile?.user_stations?.[0]?.station?.id // Default to user's first station
-
-            if (!stationId && profile?.role !== 'admin' && profile?.role !== 'vo_chief') {
-                setError("Du måste ha en station för att spara denna uppgift.")
-                return
-            }
-
-            // Map categories (Annual cycle uses lowercase, Task table uses Capitalized)
-            let mappedCategory = task.category
-            if (task.category.toLowerCase() === 'hr') mappedCategory = 'HR'
-            else if (task.category.toLowerCase() === 'finance') mappedCategory = 'Finance'
-            else if (task.category.toLowerCase() === 'safety') mappedCategory = 'Safety'
-            else if (task.category.toLowerCase() === 'operations' || task.category.toLowerCase() === 'drift') mappedCategory = 'Operations'
-
-            const payload = {
-                title: task.title,
-                description: task.description,
-                category: mappedCategory,
-                owner_type: 'station',
-                station_id: stationId,
-                annual_cycle_item_id: task.annual_cycle_item_id || (task as any).original_id || null,
-                year: task.year || new Date().getFullYear(),
-                start_month: task.start_month,
-                deadline_day: task.deadline_day,
-                // Overwrite with updates
-                ...updates
-            }
-
-            try {
-                const res = await fetch('/api/tasks', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload),
-                })
-
-                if (res.ok) {
-                    const data = await res.json()
-                    // Redirect to the NEW real task ID
-                    router.push(`/tasks/${data.task.id}`)
-                } else {
-                    const err = await res.json()
-                    console.error("Failed to materialize task:", err)
-                    setError("Kunde inte skapa uppgiften: " + err.error)
-                }
-            } catch (e) {
-                console.error(e)
-                setError("Ett fel uppstod.")
-            }
+        if (isVirtualAnnualId(task.id) && task.is_annual_cycle) {
+            await ensureRealTask(updates)
             return
         }
 
