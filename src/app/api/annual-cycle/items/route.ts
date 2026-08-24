@@ -5,13 +5,12 @@ import { NextResponse } from "next/server"
 export async function GET(request: Request) {
     const supabase = await createClient()
 
-    // Get current month if not specified? 
-    // Or just return all? Or filter by query param?
-    // Let's support filtering by month if provided, else all.
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    // Actually, for the dashboard we might want just current month or a specific month.
-    // The previous component logic wanted current month.
-
+    // Returns all annual cycle templates, optionally filtered by month
     const { searchParams } = new URL(request.url)
     const month = searchParams.get('month')
 
