@@ -1,12 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextRequest, NextResponse } from 'next/server'
-import {
-    annualCategoryFilterValues,
-    buildVirtualAnnualId,
-    fromCompletionStatus,
-    mapAnnualCategory,
-    normalizeTaskStatus,
-} from '@/lib/annual-cycle'
+import { normalizeTaskStatus } from '@/lib/annual-cycle'
+import { ensureAnnualTasksForStations } from '@/lib/annual-cycle-server'
 
 export async function GET(request: NextRequest) {
     const supabase = await createClient()
@@ -46,7 +41,8 @@ export async function GET(request: NextRequest) {
             verksamhetsomraden:vo_id(id, name),
             station:station_id(id, name, vo_id),
             created_by_profile:created_by(id, full_name, email),
-            assigned_to_profile:assigned_to(id, full_name, email)
+            assigned_to_profile:assigned_to(id, full_name, email),
+            annual_cycle_item:annual_cycle_item_id(action_link)
         `)
         .eq('year', year)
         .order('start_month', { ascending: true, nullsFirst: false })
@@ -77,18 +73,13 @@ export async function GET(request: NextRequest) {
 
     // Role-based filtering for Tasks
     let userStationIds: string[] = []
-    const stationNamesById = new Map<string, string>()
     if (profile.role === 'station_manager' || profile.role === 'assistant_manager') {
         const { data: userStations } = await supabase
             .from('user_stations')
-            .select('station_id, station:stations(id, name)')
+            .select('station_id')
             .eq('user_id', user.id)
 
         userStationIds = userStations?.map(us => us.station_id) || []
-        for (const us of userStations || []) {
-            const station = Array.isArray(us.station) ? us.station[0] : us.station
-            if (station?.id) stationNamesById.set(station.id, station.name)
-        }
 
         if (userStationIds.length > 0) {
             query = query.or(`station_id.in.(${userStationIds.join(',')}),vo_id.eq.${profile.vo_id}`)
@@ -101,6 +92,10 @@ export async function GET(request: NextRequest) {
         }
     }
 
+    // Make sure the annual cycle is materialized as real tasks rows for the
+    // user's stations before fetching (idempotent, no-op when rows exist)
+    await ensureAnnualTasksForStations(supabase, user.id, userStationIds, year)
+
     const { data: regularTasks, error } = await query
 
     if (error) {
@@ -108,108 +103,14 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // --- 2. Fetch Annual Cycle "Virtual" Tasks ---
-    // Only if not filtering by non-matching ownerType (cycle items are 'station' now, or legacy 'annual_cycle')
-    let virtualTasks: any[] = []
-    if (!ownerType || ownerType === 'annual_cycle' || ownerType === 'station') {
+    // Annual cycle tasks are ordinary rows now; expose their template's
+    // action_link and a convenience flag for the UI
+    const allTasks = (regularTasks || []).map(({ annual_cycle_item, ...task }) => ({
+        ...task,
+        is_annual_cycle: !!task.annual_cycle_item_id,
+        action_link: annual_cycle_item?.action_link ?? null,
+    }))
 
-        // Fetch annual cycle items matching filters
-        let itemsQuery = supabase
-            .from('annual_cycle_items')
-            .select('*')
-
-        if (month) {
-            itemsQuery = itemsQuery.eq('month', month)
-        }
-        if (category) {
-            // Cycle items store lowercase categories ('hr', 'finance', ...) while the
-            // tasks API filters on TaskCategory ('HR', 'Finance', ...)
-            itemsQuery = itemsQuery.in('category', annualCategoryFilterValues(category))
-        }
-
-        const { data: cycleItems } = await itemsQuery
-
-        if (cycleItems && cycleItems.length > 0) {
-            // Fetch completions for relevant stations / user
-            let completionsQuery = supabase
-                .from('annual_task_completions')
-                .select('*')
-                .eq('year', year)
-                .in('annual_cycle_item_id', cycleItems.map(i => i.id))
-
-            if (userStationIds.length > 0) {
-                completionsQuery = completionsQuery.or(`station_id.in.(${userStationIds.join(',')}),user_id.eq.${user.id}`)
-            } else {
-                completionsQuery = completionsQuery.eq('user_id', user.id)
-            }
-
-            const { data: completions } = await completionsQuery
-
-            // Determine which stations to generate virtual tasks for.
-            // If the user is a station manager, generate one virtual task per station.
-            // Otherwise (vo_chief, admin) generate one generic task (no station_id).
-            const targetStations: Array<{ id: string; name: string } | null> =
-                userStationIds.length > 0
-                    ? userStationIds.map(sid => ({ id: sid, name: stationNamesById.get(sid) || '' }))
-                    : [null] // null = no specific station (vo/admin)
-
-            for (const item of cycleItems) {
-                for (const stationRef of targetStations) {
-                    const virtualId = buildVirtualAnnualId(item.id, stationRef?.id)
-
-                    // Check if a real task already exists for this cycle item + station
-                    const existingRealTask = regularTasks?.find(t =>
-                        (t.annual_cycle_item_id === item.id && (!stationRef || t.station_id === stationRef.id)) ||
-                        (t.title === item.title && t.start_month === item.month && (!stationRef || t.station_id === stationRef.id))
-                    )
-
-                    if (existingRealTask) continue
-
-                    // Find the completion for this specific station (or user if no station)
-                    const completion = completions?.find(c =>
-                        c.annual_cycle_item_id === item.id &&
-                        (stationRef ? c.station_id === stationRef.id : c.user_id === user.id)
-                    )
-                    const isCompleted = !!completion
-
-                    // If filtering by status, skip if mismatch
-                    if (status && status === 'completed' && !isCompleted) continue
-                    if (status && status !== 'completed' && isCompleted) continue
-
-                    virtualTasks.push({
-                        id: virtualId,
-                        original_id: item.id,
-                        title: item.title,
-                        description: item.description,
-                        status: fromCompletionStatus(completion?.status),
-                        category: mapAnnualCategory(item.category),
-                        // Use 'station' so the assignment dropdown is shown in the UI
-                        owner_type: stationRef ? 'station' : 'annual_cycle',
-                        station_id: stationRef ? stationRef.id : null,
-                        assigned_to: completion?.assigned_to ?? null,
-                        assigned_to_profile: null, // resolved separately if needed
-                        year: year,
-                        start_month: item.month,
-                        end_month: item.month,
-                        deadline_day: 25,
-                        is_recurring_monthly: false,
-                        is_annual_cycle: true,
-                        action_link: item.action_link,
-                        annual_cycle_item_id: item.id,
-                        created_by_profile: { full_name: 'Årshjulet', email: 'system@aisab.se' },
-                        station: stationRef ? { id: stationRef.id, name: stationRef.name } : null,
-                        verksamhetsomraden: null
-                    })
-                }
-            }
-        }
-    }
-
-    // Combine and Sort
-    const allTasks = [...(regularTasks || []), ...virtualTasks]
-
-    // Sort logic (Deadline ASC, Title ASC)
-    // Here simplifying to Title for now, or maybe month/deadline
     allTasks.sort((a, b) => {
         if (a.start_month !== b.start_month) return (a.start_month || 0) - (b.start_month || 0)
         return a.title.localeCompare(b.title)

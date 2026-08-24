@@ -10,7 +10,6 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { useToast } from "@/hooks/use-toast"
-import { parseVirtualAnnualId, toCompletionStatus } from "@/lib/annual-cycle"
 
 const getCurrentMonth = () => new Date().getMonth() + 1
 const getMonthNameFull = (m: number) => {
@@ -60,21 +59,11 @@ export default function MyTasksPage() {
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t))
 
         try {
-            if (task.is_annual_cycle) {
-                const itemId = task.annual_cycle_item_id || parseVirtualAnnualId(task.id).itemId
-                const stationId = task.station_id || null
-                await fetch('/api/annual-cycle/complete', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ itemId, stationId, year: task.year, status: toCompletionStatus(newStatus) }),
-                })
-            } else {
-                await fetch(`/api/tasks/${taskId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status: newStatus }),
-                })
-            }
+            await fetch(`/api/tasks/${taskId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus }),
+            })
         } catch (err) {
             console.error('Error updating status:', err)
             fetchTasks() // Rollback
@@ -96,11 +85,7 @@ export default function MyTasksPage() {
     }
 
     const handleTaskClick = (task: Task) => {
-        if (task.is_annual_cycle && task.action_link && !task.station_id) {
-            router.push(task.action_link)
-        } else {
-            router.push(`/tasks/${task.id}`)
-        }
+        router.push(`/tasks/${task.id}`)
     }
 
     const toggleMonthCollapse = (key: string) => {
@@ -319,7 +304,7 @@ export default function MyTasksPage() {
                                                     key={task.id}
                                                     task={task}
                                                     onStatusChange={handleStatusChange}
-                                                    onPriorityChange={task.is_annual_cycle ? undefined : handlePriorityChange}
+                                                    onPriorityChange={handlePriorityChange}
                                                     onClick={() => handleTaskClick(task)}
                                                     showStation={false}
                                                 />

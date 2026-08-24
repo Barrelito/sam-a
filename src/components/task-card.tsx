@@ -6,7 +6,7 @@ import { Task, TaskStatus, TaskPriority, categoryLabels, statusLabels, statusCol
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { Clock, CheckCircle2, Circle, MessageSquare, RefreshCw, MapPin, AlertCircle, ChevronDown, ChevronUp, Paperclip, ListChecks } from "lucide-react"
+import { Clock, CheckCircle2, Circle, MessageSquare, RefreshCw, MapPin, AlertCircle, ChevronDown, ChevronUp, Paperclip, ListChecks, CalendarDays } from "lucide-react"
 import { PriorityBadge } from "@/components/priority-badge"
 import { PriorityQuickSelect } from "@/components/priority-quick-select"
 import { Button } from "@/components/ui/button"
@@ -75,11 +75,7 @@ export function TaskCard({ task, onStatusChange, onPriorityChange, showStation =
             return
         }
 
-        if (task.is_annual_cycle && task.action_link) {
-            router.push(task.action_link)
-        } else {
-            router.push(`/tasks/${task.id}`)
-        }
+        router.push(`/tasks/${task.id}`)
     }
 
     const handlePriorityBadgeClick = (e: React.MouseEvent) => {
@@ -137,6 +133,12 @@ export function TaskCard({ task, onStatusChange, onPriorityChange, showStation =
                                 <CardDescription className="flex items-center gap-1">
                                     <RefreshCw className="h-3 w-3" />
                                     Månadsvis
+                                </CardDescription>
+                            )}
+                            {task.is_annual_cycle && (
+                                <CardDescription className="flex items-center gap-1">
+                                    <CalendarDays className="h-3 w-3" />
+                                    Årshjul
                                 </CardDescription>
                             )}
                         </div>

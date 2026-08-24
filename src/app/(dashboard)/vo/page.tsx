@@ -32,14 +32,6 @@ interface Station {
     vo_id: string
 }
 
-interface AnnualCompletion {
-    id: string
-    annual_cycle_item_id: string
-    station_id: string | null
-    user_id: string | null
-    status: string
-    year: number
-}
 
 interface StationStats {
     station: Station
@@ -57,7 +49,6 @@ export default function VODashboardPage() {
     const [tasks, setTasks] = useState<Task[]>([])
     const [stations, setStations] = useState<Station[]>([])
     const [annualItems, setAnnualItems] = useState<any[]>([])
-    const [completions, setCompletions] = useState<AnnualCompletion[]>([])
     const [loading, setLoading] = useState(true)
 
     // Distribution dialog state
@@ -72,11 +63,10 @@ export default function VODashboardPage() {
     const loadData = async () => {
         try {
             const year = new Date().getFullYear()
-            const [tasksRes, stationsRes, annualItemsRes, completionsRes] = await Promise.all([
+            const [tasksRes, stationsRes, annualItemsRes] = await Promise.all([
                 fetch(`/api/tasks?year=${year}`),
                 fetch('/api/admin/stations'),
-                fetch('/api/annual-cycle/items'), // Fetch ALL items for filtering
-                fetch(`/api/annual-cycle/completions?year=${year}`) // Station-reported status (RLS: this VO)
+                fetch('/api/annual-cycle/items') // Fetch ALL items for filtering
             ])
 
             if (tasksRes.ok) {
@@ -97,11 +87,6 @@ export default function VODashboardPage() {
             if (annualItemsRes.ok) {
                 const data = await annualItemsRes.json()
                 setAnnualItems(data.items || [])
-            }
-
-            if (completionsRes.ok) {
-                const data = await completionsRes.json()
-                setCompletions(data.completions || [])
             }
 
         } catch (err) {
@@ -233,24 +218,17 @@ export default function VODashboardPage() {
                 ) : (
                     <div className="grid gap-4 md:grid-cols-2">
                         {currentAnnualItems.map(item => {
-                            // Station progress for this item, from both status stores:
-                            // materialized/distributed tasks and station-reported completions
+                            // Station progress for this item — annual cycle tasks are
+                            // materialized as real tasks rows, so tasks is the single source
                             const voStationIds = new Set(stations.map(s => s.id))
                             const matchingTasks = stationTasks.filter(t => taskMatchesItem(t, item))
-                            const matchingCompletions = completions.filter(c =>
-                                c.annual_cycle_item_id === item.id && c.station_id && voStationIds.has(c.station_id)
-                            )
 
                             const startedStationIds = new Set<string>()
                             const completedStationIds = new Set<string>()
                             for (const t of matchingTasks) {
                                 if (!t.station_id || !voStationIds.has(t.station_id)) continue
-                                startedStationIds.add(t.station_id)
+                                if (t.status !== 'not_started') startedStationIds.add(t.station_id)
                                 if (t.status === 'done' || t.status === 'reported') completedStationIds.add(t.station_id)
-                            }
-                            for (const c of matchingCompletions) {
-                                if (c.status === 'completed' || c.status === 'in_progress') startedStationIds.add(c.station_id!)
-                                if (c.status === 'completed') completedStationIds.add(c.station_id!)
                             }
 
                             const stationsWithTask = startedStationIds.size

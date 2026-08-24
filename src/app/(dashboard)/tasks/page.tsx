@@ -16,7 +16,6 @@ import {
     UserX, AlertTriangle, Clock, CheckSquare2
 } from "lucide-react"
 import { TaskAssignDropdown } from "@/components/task-assign-dropdown"
-import { parseVirtualAnnualId, toCompletionStatus } from "@/lib/annual-cycle"
 
 const months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 const categories: TaskCategory[] = ['HR', 'Finance', 'Safety', 'Operations']
@@ -163,7 +162,6 @@ export default function TasksPage() {
                         if (task.owner_type === 'station' && task.station_id && userStationIds.includes(task.station_id)) return true
                         if (task.assigned_to === profile.id) return true
                         if (task.owner_type === 'personal' && task.created_by === profile.id) return true
-                        if (task.is_annual_cycle) return true
                         return false
                     })
                 }
@@ -197,46 +195,21 @@ export default function TasksPage() {
         if (!task) return
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t))
 
-        if (task.is_annual_cycle) {
-            try {
-                const itemId = task.annual_cycle_item_id || parseVirtualAnnualId(task.id).itemId
-                const stationId = task.station_id || null
-
-                const res = await fetch('/api/annual-cycle/complete', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        itemId: itemId,
-                        stationId: stationId,
-                        year: task.year,
-                        status: toCompletionStatus(newStatus)
-                    })
-                })
-                if (!res.ok) throw new Error('Failed')
-                toast({ title: "Status uppdaterad", description: `"${task.title}" är nu ${statusLabels[newStatus]?.toLowerCase()}.` })
-            } catch {
-                toast({ variant: "destructive", title: "Fel", description: "Kunde inte spara status." })
-                fetchTasks()
-            }
-        } else {
-            try {
-                await fetch(`/api/tasks/${taskId}`, {
-                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status: newStatus })
-                })
-            } catch {
-                fetchTasks()
-            }
+        try {
+            const res = await fetch(`/api/tasks/${taskId}`, {
+                method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status: newStatus })
+            })
+            if (!res.ok) throw new Error('Failed')
+            toast({ title: "Status uppdaterad", description: `"${task.title}" är nu ${statusLabels[newStatus]?.toLowerCase()}.` })
+        } catch {
+            toast({ variant: "destructive", title: "Fel", description: "Kunde inte spara status." })
+            fetchTasks()
         }
     }
 
     const handleTaskClick = (task: Task) => {
-        // Station-bound annual cycle tasks go to the detail page (they can be edited/assigned)
-        // Only redirect to action_link for non-station annual cycle tasks (vo/admin overview links)
-        if (task.is_annual_cycle && task.action_link && !task.station_id) {
-            router.push(task.action_link)
-        } else {
-            router.push(`/tasks/${task.id}`)
-        }
+        router.push(`/tasks/${task.id}`)
     }
 
     // Filters

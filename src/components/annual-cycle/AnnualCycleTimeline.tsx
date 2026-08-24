@@ -9,7 +9,9 @@ export interface AnnualCycleStationStatus {
     stationId: string | null
     stationName: string | null
     status: 'not_started' | 'in_progress' | 'done' | 'reported'
-    href: string
+    // Link to the task; null when no task row exists (e.g. a year outside
+    // the materialization window)
+    href: string | null
 }
 
 export interface AnnualCycleItemWithStatus {
@@ -55,22 +57,25 @@ function StationChip({ status }: { status: AnnualCycleStationStatus }) {
         : status.status === 'in_progress'
             ? 'border-yellow-200 bg-yellow-50 text-yellow-700'
             : 'border-gray-200 bg-gray-50 text-gray-500'
-    return (
-        <Link
-            href={status.href}
-            className={cn(
-                'inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border transition-colors hover:shadow-sm',
-                color
-            )}
-        >
+    const className = cn(
+        'inline-flex items-center gap-1 text-[11px] px-1.5 py-0.5 rounded border transition-colors',
+        status.href && 'hover:shadow-sm',
+        color
+    )
+    const content = (
+        <>
             {isDone(status.status)
                 ? <CheckCircle2 className="h-3 w-3" />
                 : status.status === 'in_progress'
                     ? <Clock className="h-3 w-3" />
                     : <Circle className="h-3 w-3" />}
             {status.stationName || 'Uppgift'}
-        </Link>
+        </>
     )
+    if (status.href) {
+        return <Link href={status.href} className={className}>{content}</Link>
+    }
+    return <span className={className}>{content}</span>
 }
 
 function ItemRow({ item }: { item: AnnualCycleItemWithStatus }) {
@@ -105,9 +110,9 @@ function ItemRow({ item }: { item: AnnualCycleItemWithStatus }) {
 
     const rowClass = 'group flex flex-col gap-1 p-2 rounded-md hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-100 transition-all'
 
-    // Single target: the whole row links to its (virtual or real) task.
+    // Single target: the whole row links to its task.
     // Multiple stations: the per-station chips carry the links instead.
-    if (statuses.length === 1) {
+    if (statuses.length === 1 && statuses[0].href) {
         return (
             <Link href={statuses[0].href} className={rowClass}>
                 {content}

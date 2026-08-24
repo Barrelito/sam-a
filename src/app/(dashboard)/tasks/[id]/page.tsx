@@ -3,13 +3,12 @@
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Task, TaskStatus } from "@/lib/types"
-import { isVirtualAnnualId, mapAnnualCategory } from "@/lib/annual-cycle"
 import { TaskDetailView } from "@/components/task-detail-view"
 import { DistributeDialog } from "@/components/distribute-dialog"
 import { EditTaskDialog } from "@/components/edit-task-dialog"
 import { Button } from "@/components/ui/button"
 import { useAuth } from "@/lib/auth-context"
-import { ArrowLeft, Loader2, Trash2, Share2, Edit, GitBranch, CheckCircle2, Clock, Circle } from "lucide-react"
+import { ArrowLeft, Loader2, Trash2, Share2, Edit, GitBranch, CheckCircle2, Clock, Circle, ExternalLink } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
@@ -66,14 +65,6 @@ export default function TaskDetailPage() {
     }, [taskId])
 
     const handleStatusChange = async (status: TaskStatus) => {
-        // HANDLE ANNUAL CYCLE TASKS: materialize into a real task carrying the new status.
-        // ensureRealTask redirects to the new permanent id on success.
-        if (task?.id.startsWith('annual-') && task.is_annual_cycle) {
-            await ensureRealTask({ status })
-            return
-        }
-
-        // REGULAR TASKS
         const res = await fetch(`/api/tasks/${taskId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -85,88 +76,27 @@ export default function TaskDetailPage() {
         }
     }
 
-    // Helper to materialize a virtual annual cycle task into a real tasks row.
-    // Prefer the station embedded in the virtual task (set from the composite id)
-    // over the user's first station, so multi-station managers hit the right one.
-    const ensureRealTask = async (overrides: Partial<Task> = {}): Promise<string | null> => {
-        if (!task) return null
-        if (!isVirtualAnnualId(task.id)) return task.id
-
-        const stationId = task.station_id || profile?.user_stations?.[0]?.station?.id
-        if (!stationId && profile?.role !== 'admin' && profile?.role !== 'vo_chief') {
-            setError("Du måste ha en station för att spara denna uppgift.")
-            return null
-        }
-
-        const payload = {
-            title: task.title,
-            description: task.description,
-            category: mapAnnualCategory(task.category),
-            owner_type: 'station',
-            station_id: stationId,
-            annual_cycle_item_id: task.annual_cycle_item_id || (task as any).original_id || null,
-            year: task.year || new Date().getFullYear(),
-            start_month: task.start_month,
-            deadline_day: task.deadline_day,
-            // Carry over the current status (from any completion) unless overridden
-            status: task.status,
-            ...overrides
-        }
-
-        try {
-            const res = await fetch('/api/tasks', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload),
-            })
-
-            if (res.ok) {
-                const data = await res.json()
-                const newId = data.task.id
-                // Updates URL silently so we can continue working
-                window.history.replaceState(null, '', `/tasks/${newId}`)
-                // Also force a reload of the task data or router push to be sure
-                // Using router.push to ensure full state refresh
-                router.push(`/tasks/${newId}`)
-                return newId
-            } else {
-                const err = await res.json()
-                setError("Kunde inte spara uppgiften: " + err.error)
-            }
-        } catch (e) {
-            console.error(e)
-            setError("Ett fel uppstod vid sparande.")
-        }
-        return null
-    }
-
     const handleAddComment = async (content: string) => {
-        const targetId = await ensureRealTask()
-        if (!targetId) return
-
-        const res = await fetch(`/api/tasks/${targetId}/comments`, {
+        const res = await fetch(`/api/tasks/${taskId}/comments`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ content }),
         })
         if (res.ok) {
-            router.push(`/tasks/${targetId}`) // Force full reload to get fresh state
+            await loadTask()
         }
     }
 
     const handleUploadFile = async (file: File) => {
-        const targetId = await ensureRealTask()
-        if (!targetId) return
-
         const formData = new FormData()
         formData.append('file', file)
 
-        const res = await fetch(`/api/tasks/${targetId}/attachments`, {
+        const res = await fetch(`/api/tasks/${taskId}/attachments`, {
             method: 'POST',
             body: formData,
         })
         if (res.ok) {
-            router.push(`/tasks/${targetId}`)
+            await loadTask()
         }
     }
 
@@ -181,29 +111,19 @@ export default function TaskDetailPage() {
     }
 
     const handleUpdateNotes = async (notes: string) => {
-        const targetId = await ensureRealTask()
-        if (!targetId) return
-
-        const res = await fetch(`/api/tasks/${targetId}`, {
+        const res = await fetch(`/api/tasks/${taskId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ notes }),
         })
         if (res.ok) {
-            router.push(`/tasks/${targetId}`)
+            await loadTask()
         }
     }
 
     const handleUpdateTask = async (updates: Partial<Task>) => {
         if (!task) return
 
-        // HANDLE VIRTUAL TASKS: "Materialize" them into real tasks on first edit
-        if (isVirtualAnnualId(task.id) && task.is_annual_cycle) {
-            await ensureRealTask(updates)
-            return
-        }
-
-        // STANDARD UPDATE for existing real tasks
         const res = await fetch(`/api/tasks/${taskId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
@@ -271,7 +191,7 @@ export default function TaskDetailPage() {
     )
 
     // Check if user can edit the task
-    const canEdit = !task.id.startsWith('annual-') && (
+    const canEdit = (
         profile?.id === task.created_by ||
         profile?.role === 'vo_chief' ||
         profile?.role === 'admin' ||
@@ -291,6 +211,20 @@ export default function TaskDetailPage() {
                 </Button>
 
                 <div className="flex items-center gap-2">
+                    {/* Deep link to the tool for annual cycle tasks (e.g. /salary-review) */}
+                    {task.action_link && (
+                        <Button asChild variant="outline" size="sm">
+                            <a
+                                href={task.action_link}
+                                target={task.action_link.startsWith('http') ? '_blank' : undefined}
+                                rel={task.action_link.startsWith('http') ? 'noopener noreferrer' : undefined}
+                            >
+                                <ExternalLink className="h-4 w-4 mr-2" />
+                                Öppna verktyg
+                            </a>
+                        </Button>
+                    )}
+
                     {/* Distribute button for VO tasks */}
                     {canDistribute && (
                         <Button

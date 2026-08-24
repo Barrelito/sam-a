@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react"
 import { User, UserX, Loader2, ChevronDown, Check, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { isVirtualAnnualId, parseVirtualAnnualId } from "@/lib/annual-cycle"
 
 interface AssignUser {
     id: string
@@ -99,40 +98,15 @@ export function TaskAssignDropdown({
         onAssigned?.(userId, userName)
 
         try {
-            let ok = false
-
-            // For annual cycle virtual tasks, use the dedicated assign endpoint
-            if (isVirtualAnnualId(taskId)) {
-                const parsed = parseVirtualAnnualId(taskId)
-                const itemId = parsed.itemId
-                const embeddedStationId = parsed.stationId ?? stationId ?? null
-
-                const res = await fetch('/api/annual-cycle/assign', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        itemId,
-                        stationId: embeddedStationId,
-                        year: new Date().getFullYear(),
-                        assignedTo: userId,
-                    }),
-                })
-                ok = res.ok
-                if (!ok) {
-                    const err = await res.json().catch(() => ({}))
-                    console.error('Assign API error:', err)
-                }
-            } else {
-                const res = await fetch(`/api/tasks/${taskId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ assigned_to: userId }),
-                })
-                ok = res.ok
-                if (!ok) {
-                    const err = await res.json().catch(() => ({}))
-                    console.error('Task PUT error:', err)
-                }
+            const res = await fetch(`/api/tasks/${taskId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ assigned_to: userId }),
+            })
+            const ok = res.ok
+            if (!ok) {
+                const err = await res.json().catch(() => ({}))
+                console.error('Task PUT error:', err)
             }
 
             if (!ok) {
