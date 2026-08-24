@@ -24,11 +24,21 @@ import {
     Users
 } from "lucide-react"
 import { getMonthName, getCurrentMonth } from "@/lib/utils"
+import { mapAnnualCategory } from "@/lib/annual-cycle"
 
 interface Station {
     id: string
     name: string
     vo_id: string
+}
+
+interface AnnualCompletion {
+    id: string
+    annual_cycle_item_id: string
+    station_id: string | null
+    user_id: string | null
+    status: string
+    year: number
 }
 
 interface StationStats {
@@ -47,6 +57,7 @@ export default function VODashboardPage() {
     const [tasks, setTasks] = useState<Task[]>([])
     const [stations, setStations] = useState<Station[]>([])
     const [annualItems, setAnnualItems] = useState<any[]>([])
+    const [completions, setCompletions] = useState<AnnualCompletion[]>([])
     const [loading, setLoading] = useState(true)
 
     // Distribution dialog state
@@ -60,10 +71,12 @@ export default function VODashboardPage() {
 
     const loadData = async () => {
         try {
-            const [tasksRes, stationsRes, annualItemsRes] = await Promise.all([
-                fetch(`/api/tasks?year=${new Date().getFullYear()}`),
+            const year = new Date().getFullYear()
+            const [tasksRes, stationsRes, annualItemsRes, completionsRes] = await Promise.all([
+                fetch(`/api/tasks?year=${year}`),
                 fetch('/api/admin/stations'),
-                fetch('/api/annual-cycle/items') // Fetch ALL items for filtering
+                fetch('/api/annual-cycle/items'), // Fetch ALL items for filtering
+                fetch(`/api/annual-cycle/completions?year=${year}`) // Station-reported status (RLS: this VO)
             ])
 
             if (tasksRes.ok) {
@@ -84,6 +97,11 @@ export default function VODashboardPage() {
             if (annualItemsRes.ok) {
                 const data = await annualItemsRes.json()
                 setAnnualItems(data.items || [])
+            }
+
+            if (completionsRes.ok) {
+                const data = await completionsRes.json()
+                setCompletions(data.completions || [])
             }
 
         } catch (err) {
@@ -119,44 +137,37 @@ export default function VODashboardPage() {
     // 1. Station Tasks (Real work)
     const stationTasks = tasks.filter(t => t.owner_type === 'station')
 
-    // 2. Extrainsatta (VO Tasks not in annual cycle)
-    const KNOWN_ANNUAL_TITLES = [
-        "Kontroll av övertid",
-        "Kör provlön i Heroma",
-        "Uppföljning av sjukfrånvaro",
-        "Handlingsplan OSA kartläggning",
-        "Helårsuppföljning av kort- och långtidssjukfrånvaro",
-        "Lansering kompetenstorget",
-        "Uppföljning av LAS-tid i Heroma",
-        "Kontrollera bisyssla",
-        "Löneöversyn",
-        "Nominering morgondagens chef",
-        "Uppföljning handlingsplan OSA",
-        "Uppföljning av övertid",
-        "Uppföljning och stopp av övertid",
-        "Avsluta ej aktuella intermittent anställda"
-    ]
+    // 2. Extrainsatta (VO tasks not linked to the annual cycle)
+    // Annual cycle tasks are identified by their annual_cycle_item_id link.
+    // Legacy seeded VO tasks may still lack the link (run the backfill migration
+    // 20260824120000_backfill_annual_cycle_item_links.sql), so an exact
+    // case/whitespace-insensitive title match against the templates also counts.
+    const normalizeTitle = (s: string) => s.toLowerCase().trim()
+    const annualItemTitles = new Set(annualItems.map(i => normalizeTitle(i.title)))
+    const taskById = new Map(tasks.map(t => [t.id, t]))
 
     const voTasks = tasks.filter(t => t.owner_type === 'vo')
     const tasksToDistribute = voTasks.filter(t => {
         const hasChildren = stationTasks.some(st => st.parent_task_id === t.id)
         if (hasChildren) return false
-
-        // 1. Check against loaded annual items
-        const matchDynamic = annualItems.some(item =>
-            t.title.toLowerCase().trim().includes(item.title.toLowerCase().trim()) ||
-            item.title.toLowerCase().trim().includes(t.title.toLowerCase().trim())
-        )
-        if (matchDynamic) return false
-
-        // 2. Check against detailed known list (Backup)
-        const matchStatic = KNOWN_ANNUAL_TITLES.some(known =>
-            t.title.toLowerCase().includes(known.toLowerCase())
-        )
-        if (matchStatic) return false
-
+        if (t.annual_cycle_item_id) return false
+        if (annualItemTitles.has(normalizeTitle(t.title))) return false
         return true
     })
+
+    // Does a station task belong to a specific annual cycle item?
+    // 1) its own annual_cycle_item_id (materialized tasks)
+    // 2) its parent VO task's link (tasks distributed from a seeded VO task)
+    // 3) exact title + month match (legacy rows without any link)
+    const taskMatchesItem = (t: Task, item: { id: string; title: string; month: number }) => {
+        if (t.annual_cycle_item_id) return t.annual_cycle_item_id === item.id
+        if (t.parent_task_id) {
+            const parent = taskById.get(t.parent_task_id)
+            if (parent?.annual_cycle_item_id) return parent.annual_cycle_item_id === item.id
+        }
+        return normalizeTitle(t.title) === normalizeTitle(item.title) &&
+            (t.start_month === item.month || t.is_recurring_monthly)
+    }
 
     // 3. Needs Review
     const needsReview = stationTasks.filter(t => t.status === 'done' && !t.vo_reviewed)
@@ -222,32 +233,47 @@ export default function VODashboardPage() {
                 ) : (
                     <div className="grid gap-4 md:grid-cols-2">
                         {currentAnnualItems.map(item => {
-                            // Find matching tasks across ALL stations
-                            // Match by TITLE (fuzzyish). 
-                            const matchingTasks = stationTasks.filter(t =>
-                                t.title.toLowerCase().includes(item.title.toLowerCase()) ||
-                                item.title.toLowerCase().includes(t.title.toLowerCase())
+                            // Station progress for this item, from both status stores:
+                            // materialized/distributed tasks and station-reported completions
+                            const voStationIds = new Set(stations.map(s => s.id))
+                            const matchingTasks = stationTasks.filter(t => taskMatchesItem(t, item))
+                            const matchingCompletions = completions.filter(c =>
+                                c.annual_cycle_item_id === item.id && c.station_id && voStationIds.has(c.station_id)
                             )
 
-                            // Station progress
-                            const stationsWithTask = new Set(matchingTasks.map(t => t.station_id)).size
-                            const stationsCompleted = matchingTasks.filter(t => t.status === 'done' || t.status === 'reported').length
+                            const startedStationIds = new Set<string>()
+                            const completedStationIds = new Set<string>()
+                            for (const t of matchingTasks) {
+                                if (!t.station_id || !voStationIds.has(t.station_id)) continue
+                                startedStationIds.add(t.station_id)
+                                if (t.status === 'done' || t.status === 'reported') completedStationIds.add(t.station_id)
+                            }
+                            for (const c of matchingCompletions) {
+                                if (c.status === 'completed' || c.status === 'in_progress') startedStationIds.add(c.station_id!)
+                                if (c.status === 'completed') completedStationIds.add(c.station_id!)
+                            }
+
+                            const stationsWithTask = startedStationIds.size
+                            const stationsCompleted = completedStationIds.size
                             const totalStations = stations.length
 
                             const percent = totalStations > 0 ? Math.round((stationsWithTask / totalStations) * 100) : 0
                             const completionPercent = totalStations > 0 ? Math.round((stationsCompleted / totalStations) * 100) : 0
 
+                            // Templates use lowercase categories — normalize to TaskCategory for the UI
+                            const itemCategory = mapAnnualCategory(item.category)
+
                             return (
                                 <Card key={item.id} className="overflow-hidden">
-                                    <div className={`h-1 w-full ${(categoryColors as Record<string, string>)[item.category]?.replace('text-', 'bg-') || 'bg-gray-200'}`} />
+                                    <div className={`h-1 w-full ${categoryColors[itemCategory]?.replace('text-', 'bg-') || 'bg-gray-200'}`} />
                                     <CardContent className="pt-4">
                                         <div className="flex justify-between items-start mb-4">
                                             <div>
                                                 <h3 className="font-medium text-lg">{item.title}</h3>
                                                 <p className="text-sm text-muted-foreground line-clamp-1">{item.description}</p>
                                             </div>
-                                            <Badge variant="outline" className={(categoryColors as Record<string, string>)[item.category]}>
-                                                {(categoryLabels as Record<string, string>)[item.category]}
+                                            <Badge variant="outline" className={categoryColors[itemCategory]}>
+                                                {categoryLabels[itemCategory]}
                                             </Badge>
                                         </div>
 
