@@ -16,8 +16,20 @@ const EMPLOYEE_SELECT = `
     )
 `
 
-// GET /api/employees - Hämtar alla medarbetare som inloggad chef får se.
-// Stödjer valfria filter: ?station_id=<uuid>&category=<VUB|SSK|AMB>
+const DEFAULT_PAGE_SIZE = 25
+const MAX_PAGE_SIZE = 100
+
+/**
+ * Tar bort tecken som har egen betydelse i PostgRESTs or()-syntax, så att en
+ * söksträng aldrig kan bryta sig ur sitt filter.
+ */
+function sanitizeSearchToken(token: string): string {
+    return token.replace(/[,()"\\*]/g, '').trim()
+}
+
+// GET /api/employees - Hämtar medarbetare som inloggad chef får se.
+// Stödjer ?search=&station_id=&category=&page=&page_size=
+// Svar: { employees, total, page, page_size }
 export async function GET(request: NextRequest) {
     try {
         const supabase = await createClient()
@@ -31,24 +43,74 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url)
         const stationId = searchParams.get('station_id')
         const category = searchParams.get('category')
+        const search = (searchParams.get('search') || '').trim()
+
+        const page = Math.max(1, Number.parseInt(searchParams.get('page') || '1', 10) || 1)
+        const requestedSize = Number.parseInt(
+            searchParams.get('page_size') || String(DEFAULT_PAGE_SIZE),
+            10
+        )
+        const pageSize = Math.min(
+            MAX_PAGE_SIZE,
+            Math.max(1, Number.isFinite(requestedSize) ? requestedSize : DEFAULT_PAGE_SIZE)
+        )
 
         // RLS-policyerna på 'employees' filtrerar automatiskt vad som är synligt
         let query = supabase
             .from('employees')
-            .select(EMPLOYEE_SELECT)
+            .select(EMPLOYEE_SELECT, { count: 'exact' })
             .order('last_name', { ascending: true })
+            .order('first_name', { ascending: true })
 
         if (stationId) query = query.eq('station_id', stationId)
         if (category) query = query.eq('category', category)
 
-        const { data: employees, error } = await query
+        if (search) {
+            // Varje sökord måste matcha något fält (kedjade or() blir AND mellan orden),
+            // så "anna norrtälje" hittar Anna på Norrtälje.
+            const tokens = search
+                .split(/\s+/)
+                .map(sanitizeSearchToken)
+                .filter(Boolean)
+                .slice(0, 5)
+
+            for (const token of tokens) {
+                const conditions = [
+                    `first_name.ilike.%${token}%`,
+                    `last_name.ilike.%${token}%`,
+                    `employee_number.ilike.%${token}%`,
+                    `email.ilike.%${token}%`,
+                ]
+
+                // Stationsnamn ligger i en annan tabell - slå upp id:n och matcha på dem
+                const { data: matchingStations } = await supabase
+                    .from('stations')
+                    .select('id')
+                    .ilike('name', `%${token}%`)
+                    .limit(50)
+
+                if (matchingStations && matchingStations.length > 0) {
+                    conditions.push(`station_id.in.(${matchingStations.map((s) => s.id).join(',')})`)
+                }
+
+                query = query.or(conditions.join(','))
+            }
+        }
+
+        const from = (page - 1) * pageSize
+        const { data: employees, error, count } = await query.range(from, from + pageSize - 1)
 
         if (error) {
             console.error('Error fetching employees:', error)
             return NextResponse.json({ error: error.message }, { status: 500 })
         }
 
-        return NextResponse.json({ employees })
+        return NextResponse.json({
+            employees,
+            total: count ?? 0,
+            page,
+            page_size: pageSize,
+        })
     } catch (error) {
         console.error('Unexpected error:', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -14,8 +14,9 @@ type Client = SupabaseClient<any, 'public', any>
 export const EMPLOYEE_CATEGORIES = ['VUB', 'SSK', 'AMB'] as const
 export type EmployeeCategory = (typeof EMPLOYEE_CATEGORIES)[number]
 
-export const EXPERIENCE_LEVELS = ['0-3', '3-5', '5-10', '10+'] as const
-export type ExperienceLevel = (typeof EXPERIENCE_LEVELS)[number]
+// Erfarenhetsnivåerna bor i experience.ts tillsammans med härledningslogiken
+export { EXPERIENCE_LEVELS, EXPERIENCE_LABELS } from './experience'
+export type { ExperienceLevel } from './experience'
 
 export const CATEGORY_LABELS: Record<EmployeeCategory, string> = {
     VUB: 'VUB - Specialistsjuksköterska',

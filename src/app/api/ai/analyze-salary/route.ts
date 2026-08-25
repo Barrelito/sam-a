@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { streamText, StreamData } from 'ai'
 import { openai } from '@ai-sdk/openai'
+import { resolveExperience } from '@/lib/employees/experience'
 
 export const runtime = 'edge'
 
@@ -56,14 +57,15 @@ export async function POST(req: Request) {
         const supabase = await createClient()
 
         // 1. Fetch all employees with salary data
+        // Erfarenheten härleds i steg 2 - därför hämtas employment_date med, och
+        // employees utan manuellt experience_level filtreras inte längre bort.
         const { data: employees, error } = await supabase
             .from('employees')
             .select(`
-        id, first_name, last_name, category, experience_level, current_salary,
+        id, first_name, last_name, category, experience_level, employment_date, current_salary,
         station:stations(name)
       `)
             .not('current_salary', 'is', null)
-            .not('experience_level', 'is', null)
 
         if (error) throw error
 
@@ -71,12 +73,16 @@ export async function POST(req: Request) {
         const groups: Record<string, GroupStats> = {}
 
         employees.forEach((emp: any) => {
-            const key = `${emp.category}-${emp.experience_level}`
+            // Anställningsdatum går före det manuella fältet (se lib/employees/experience.ts)
+            const experienceLevel = resolveExperience(emp).level
+            if (!experienceLevel) return
+
+            const key = `${emp.category}-${experienceLevel}`
 
             if (!groups[key]) {
                 groups[key] = {
                     category: emp.category,
-                    experience_level: emp.experience_level,
+                    experience_level: experienceLevel,
                     count: 0,
                     avg_salary: 0,
                     median_salary: 0,
@@ -95,7 +101,7 @@ export async function POST(req: Request) {
                 first_name: emp.first_name,
                 last_name: emp.last_name,
                 category: emp.category,
-                experience_level: emp.experience_level,
+                experience_level: experienceLevel,
                 current_salary: salary,
                 station_name: emp.station?.name || 'Unknown'
             })

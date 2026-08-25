@@ -25,6 +25,11 @@ import {
 } from '@/components/ui/select'
 import { Loader2 } from 'lucide-react'
 import { useToast } from '@/hooks/use-toast'
+import {
+    EXPERIENCE_LABELS,
+    experienceLevelFromEmploymentDate,
+    yearsOfService,
+} from '@/lib/employees/experience'
 
 export interface EmployeeFormValues {
     id?: string
@@ -64,12 +69,9 @@ const CATEGORY_OPTIONS = [
     { value: 'AMB', label: 'AMB - Ambulanssjukvårdare' },
 ]
 
-const EXPERIENCE_OPTIONS = [
-    { value: '0-3', label: '0-3 år' },
-    { value: '3-5', label: '3-5 år' },
-    { value: '5-10', label: '5-10 år' },
-    { value: '10+', label: '10+ år' },
-]
+const EXPERIENCE_OPTIONS = (Object.keys(EXPERIENCE_LABELS) as Array<keyof typeof EXPERIENCE_LABELS>).map(
+    (value) => ({ value, label: EXPERIENCE_LABELS[value] })
+)
 
 function toFormState(employee: EmployeeFormValues | undefined, stations: Array<{ id: string }>) {
     return {
@@ -120,6 +122,11 @@ export function EmployeeFormDialog({
 
     const setField = (key: keyof ReturnType<typeof toFormState>, value: string) =>
         setFormData((prev) => ({ ...prev, [key]: value }))
+
+    // Erfarenhet räknas ut från anställningsdatum när det är ifyllt.
+    // Det manuella fältet används bara när anställningsdatum saknas.
+    const derivedLevel = experienceLevelFromEmploymentDate(formData.employment_date)
+    const derivedYears = yearsOfService(formData.employment_date)
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -341,24 +348,44 @@ export function EmployeeFormDialog({
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="experience_level">Erfarenhet</Label>
-                                    <Select
-                                        value={formData.experience_level || NONE}
-                                        onValueChange={(value) =>
-                                            setField('experience_level', value === NONE ? '' : value)
-                                        }
-                                    >
-                                        <SelectTrigger id="experience_level">
-                                            <SelectValue placeholder="Välj erfarenhet" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value={NONE}>Ej angiven</SelectItem>
-                                            {EXPERIENCE_OPTIONS.map((option) => (
-                                                <SelectItem key={option.value} value={option.value}>
-                                                    {option.label}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
+                                    {derivedLevel ? (
+                                        <>
+                                            <div
+                                                id="experience_level"
+                                                className="flex h-10 items-center rounded-md border border-input bg-muted px-3 py-2 text-sm text-muted-foreground"
+                                            >
+                                                {EXPERIENCE_LABELS[derivedLevel]}
+                                                {derivedYears !== null && ` (${derivedYears} år)`}
+                                            </div>
+                                            <p className="text-xs text-muted-foreground">
+                                                Räknas ut från anställningsdatum.
+                                            </p>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Select
+                                                value={formData.experience_level || NONE}
+                                                onValueChange={(value) =>
+                                                    setField('experience_level', value === NONE ? '' : value)
+                                                }
+                                            >
+                                                <SelectTrigger id="experience_level">
+                                                    <SelectValue placeholder="Välj erfarenhet" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value={NONE}>Ej angiven</SelectItem>
+                                                    {EXPERIENCE_OPTIONS.map((option) => (
+                                                        <SelectItem key={option.value} value={option.value}>
+                                                            {option.label}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <p className="text-xs text-muted-foreground">
+                                                Fyll i anställningsdatum så räknas erfarenheten ut automatiskt.
+                                            </p>
+                                        </>
+                                    )}
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="employment_rate">Sysselsättningsgrad (%)</Label>

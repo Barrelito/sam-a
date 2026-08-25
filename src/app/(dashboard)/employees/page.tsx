@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import Link from "next/link"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import {
     AlertCircle,
+    ChevronLeft,
     ChevronRight,
     Loader2,
     MapPin,
@@ -71,16 +72,20 @@ const CATEGORY_COLORS: Record<string, string> = {
 }
 
 const ALL = "all"
+const PAGE_SIZE = 25
 
 export default function EmployeesPage() {
     const { toast } = useToast()
 
     const [employees, setEmployees] = useState<Employee[]>([])
     const [stations, setStations] = useState<Station[]>([])
+    const [total, setTotal] = useState(0)
+    const [page, setPage] = useState(1)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
 
     const [search, setSearch] = useState("")
+    const [debouncedSearch, setDebouncedSearch] = useState("")
     const [categoryFilter, setCategoryFilter] = useState<string>(ALL)
     const [stationFilter, setStationFilter] = useState<string>(ALL)
 
@@ -88,95 +93,120 @@ export default function EmployeesPage() {
     const [editing, setEditing] = useState<Employee | null>(null)
     const [deleting, setDeleting] = useState<Employee | null>(null)
 
-    const loadData = useCallback(async () => {
-        setError(null)
-        try {
-            const [employeesRes, stationsRes] = await Promise.all([
-                fetch("/api/employees"),
-                fetch("/api/stations"),
-            ])
+    // Räknare så att ett långsamt svar inte skriver över ett nyare
+    const requestId = useRef(0)
 
-            if (!employeesRes.ok) {
-                const data = await employeesRes.json().catch(() => ({}))
-                throw new Error(data?.error || "Kunde inte hämta medarbetare")
+    // Nytt filter eller ny sökning innebär att sidnumret börjar om
+    const changeSearch = (value: string) => {
+        setSearch(value)
+        setPage(1)
+    }
+    const changeCategory = (value: string) => {
+        setCategoryFilter(value)
+        setPage(1)
+    }
+    const changeStation = (value: string) => {
+        setStationFilter(value)
+        setPage(1)
+    }
+
+    // Sökningen görs server-side - vänta tills användaren slutat skriva
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(search.trim()), 300)
+        return () => clearTimeout(timer)
+    }, [search])
+
+    // Stationerna hämtas en gång - de används både i filtret och i formulären
+    useEffect(() => {
+        let cancelled = false
+
+        const loadStations = async () => {
+            try {
+                const res = await fetch("/api/stations")
+                if (!res.ok) return
+                const data = await res.json()
+                if (!cancelled) setStations(data.stations || [])
+            } catch (err) {
+                // Stationslistan är inte kritisk för att kunna visa medarbetarna
+                console.error(err)
             }
+        }
 
-            const employeesData = await employeesRes.json()
-            setEmployees(employeesData.employees || [])
-
-            // Stationslistan är bara till för formulären - fel här ska inte blockera vyn
-            if (stationsRes.ok) {
-                const stationsData = await stationsRes.json()
-                setStations(stationsData.stations || [])
-            } else {
-                setStations([])
-            }
-        } catch (err) {
-            setError(err instanceof Error ? err.message : "Kunde inte hämta medarbetare")
-        } finally {
-            setLoading(false)
+        loadStations()
+        return () => {
+            cancelled = true
         }
     }, [])
 
-    useEffect(() => {
-        loadData()
-    }, [loadData])
+    const loadEmployees = useCallback(async () => {
+        const currentRequest = ++requestId.current
+        setLoading(true)
+        setError(null)
+        try {
+            const params = new URLSearchParams({
+                page: String(page),
+                page_size: String(PAGE_SIZE),
+            })
+            if (debouncedSearch) params.set("search", debouncedSearch)
+            if (categoryFilter !== ALL) params.set("category", categoryFilter)
+            if (stationFilter !== ALL) params.set("station_id", stationFilter)
 
-    const handleSaved = (saved: Employee | undefined) => {
+            const res = await fetch(`/api/employees?${params.toString()}`)
+            const data = await res.json().catch(() => ({}))
+
+            // Ett nyare anrop har hunnit starta - släng det här svaret
+            if (currentRequest !== requestId.current) return
+
+            if (!res.ok) {
+                throw new Error(data?.error || "Kunde inte hämta medarbetare")
+            }
+
+            setEmployees(data.employees || [])
+            setTotal(data.total || 0)
+        } catch (err) {
+            if (currentRequest !== requestId.current) return
+            setError(err instanceof Error ? err.message : "Kunde inte hämta medarbetare")
+            setEmployees([])
+            setTotal(0)
+        } finally {
+            if (currentRequest === requestId.current) setLoading(false)
+        }
+    }, [page, debouncedSearch, categoryFilter, stationFilter])
+
+    useEffect(() => {
+        loadEmployees()
+    }, [loadEmployees])
+
+    const handleSaved = () => {
         setAddOpen(false)
         setEditing(null)
-        if (!saved?.id) {
-            loadData()
-            return
-        }
-        setEmployees((prev) => {
-            const exists = prev.some((e) => e.id === saved.id)
-            return exists ? prev.map((e) => (e.id === saved.id ? saved : e)) : [...prev, saved]
-        })
+        // Hämta om sidan: namn, kategori och station kan ha ändrats så att raden
+        // hamnar någon annanstans i sorteringen - eller utanför filtret.
+        loadEmployees()
     }
 
     const handleDeleted = (employeeId: string) => {
         setDeleting(null)
         setEmployees((prev) => prev.filter((e) => e.id !== employeeId))
+        setTotal((prev) => Math.max(0, prev - 1))
+
+        // Sista raden på sista sidan? Backa ett steg, annars fyll på sidan igen
+        if (employees.length === 1 && page > 1) {
+            setPage((prev) => prev - 1)
+        } else {
+            loadEmployees()
+        }
     }
 
-    const filtered = useMemo(() => {
-        const term = search.trim().toLowerCase()
+    const stationOptions = useMemo(
+        () => [...stations].sort((a, b) => a.name.localeCompare(b.name, "sv")),
+        [stations]
+    )
 
-        return employees
-            .filter((employee) => {
-                const matchesSearch =
-                    term === "" ||
-                    [
-                        `${employee.first_name} ${employee.last_name}`,
-                        employee.employee_number,
-                        employee.email,
-                        employee.station?.name,
-                    ]
-                        .filter(Boolean)
-                        .some((value) => String(value).toLowerCase().includes(term))
-
-                const matchesCategory = categoryFilter === ALL || employee.category === categoryFilter
-                const matchesStation = stationFilter === ALL || employee.station_id === stationFilter
-
-                return matchesSearch && matchesCategory && matchesStation
-            })
-            .sort((a, b) =>
-                `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`, "sv")
-            )
-    }, [employees, search, categoryFilter, stationFilter])
-
-    const stationOptions = useMemo(() => {
-        // Slå ihop stationer från medarbetarlistan och de användaren får placera på
-        const map = new Map<string, Station>()
-        stations.forEach((station) => map.set(station.id, station))
-        employees.forEach((employee) => {
-            if (employee.station?.id && !map.has(employee.station.id)) {
-                map.set(employee.station.id, employee.station)
-            }
-        })
-        return [...map.values()].sort((a, b) => a.name.localeCompare(b.name, "sv"))
-    }, [stations, employees])
+    const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
+    const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1
+    const rangeEnd = Math.min(page * PAGE_SIZE, total)
+    const hasFilters = Boolean(debouncedSearch) || categoryFilter !== ALL || stationFilter !== ALL
 
     const canAdd = stations.length > 0
 
@@ -218,7 +248,7 @@ export default function EmployeesPage() {
                     <AlertTitle>Ett fel uppstod</AlertTitle>
                     <AlertDescription className="flex flex-col items-start gap-2">
                         <span>{error}</span>
-                        <Button variant="outline" size="sm" onClick={loadData}>
+                        <Button variant="outline" size="sm" onClick={loadEmployees}>
                             Försök igen
                         </Button>
                     </AlertDescription>
@@ -234,11 +264,11 @@ export default function EmployeesPage() {
                                 placeholder="Sök på namn, personalnummer, e-post eller station..."
                                 className="pl-9"
                                 value={search}
-                                onChange={(e) => setSearch(e.target.value)}
+                                onChange={(e) => changeSearch(e.target.value)}
                             />
                         </div>
 
-                        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                        <Select value={categoryFilter} onValueChange={changeCategory}>
                             <SelectTrigger className="w-full lg:w-[180px]">
                                 <SelectValue placeholder="Kategori" />
                             </SelectTrigger>
@@ -251,7 +281,7 @@ export default function EmployeesPage() {
                         </Select>
 
                         {stationOptions.length > 1 && (
-                            <Select value={stationFilter} onValueChange={setStationFilter}>
+                            <Select value={stationFilter} onValueChange={changeStation}>
                                 <SelectTrigger className="w-full lg:w-[200px]">
                                     <SelectValue placeholder="Station" />
                                 </SelectTrigger>
@@ -269,7 +299,9 @@ export default function EmployeesPage() {
 
                     {!loading && (
                         <p className="text-sm text-muted-foreground">
-                            Visar {filtered.length} av {employees.length} medarbetare
+                            {total === 0
+                                ? "Inga medarbetare"
+                                : `Visar ${rangeStart}-${rangeEnd} av ${total} medarbetare`}
                         </p>
                     )}
                 </CardHeader>
@@ -280,26 +312,26 @@ export default function EmployeesPage() {
                             <Loader2 className="h-4 w-4 animate-spin" />
                             Laddar medarbetare...
                         </div>
-                    ) : filtered.length === 0 ? (
+                    ) : employees.length === 0 ? (
                         <div className="flex flex-col items-center gap-3 py-12 text-center">
                             <UserPlus className="h-10 w-10 text-muted-foreground" />
                             <div>
                                 <p className="font-medium">
-                                    {employees.length === 0
-                                        ? "Inga medarbetare registrerade ännu"
-                                        : "Inga medarbetare matchar filtret"}
+                                    {hasFilters
+                                        ? "Inga medarbetare matchar filtret"
+                                        : "Inga medarbetare registrerade ännu"}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
-                                    {employees.length === 0
-                                        ? "Lägg till din första medarbetare för att bygga upp personakterna."
-                                        : "Justera sökningen eller filtren för att se fler."}
+                                    {hasFilters
+                                        ? "Justera sökningen eller filtren för att se fler."
+                                        : "Lägg till din första medarbetare för att bygga upp personakterna."}
                                 </p>
                             </div>
-                            {employees.length === 0 && addButton}
+                            {!hasFilters && addButton}
                         </div>
                     ) : (
                         <div className="grid gap-3">
-                            {filtered.map((employee) => (
+                            {employees.map((employee) => (
                                 <div
                                     key={employee.id}
                                     className="flex items-center justify-between gap-2 p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
@@ -383,6 +415,34 @@ export default function EmployeesPage() {
                                     </div>
                                 </div>
                             ))}
+                        </div>
+                    )}
+
+                    {totalPages > 1 && (
+                        <div className="flex items-center justify-between gap-4 pt-6">
+                            <p className="text-sm text-muted-foreground">
+                                Sida {page} av {totalPages}
+                            </p>
+                            <div className="flex gap-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={page <= 1 || loading}
+                                    onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+                                >
+                                    <ChevronLeft className="h-4 w-4 mr-1" />
+                                    Föregående
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    disabled={page >= totalPages || loading}
+                                    onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+                                >
+                                    Nästa
+                                    <ChevronRight className="h-4 w-4 ml-1" />
+                                </Button>
+                            </div>
                         </div>
                     )}
                 </CardContent>

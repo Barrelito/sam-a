@@ -1,12 +1,12 @@
 // Validering/normalisering av medarbetardata + robusta skrivningar mot Supabase.
 
 import type { PostgrestError } from '@supabase/supabase-js'
+import { EMPLOYEE_CATEGORIES, type EmployeeCategory } from './access'
 import {
-    EMPLOYEE_CATEGORIES,
     EXPERIENCE_LEVELS,
-    type EmployeeCategory,
+    experienceLevelFromEmploymentDate,
     type ExperienceLevel,
-} from './access'
+} from './experience'
 
 export interface EmployeeWritePayload {
     first_name?: string
@@ -157,12 +157,22 @@ export function normalizeEmployeeInput(
     }
 
     // --- Erfarenhetsnivå ---
+    // Anställningsdatum är källan när det finns: då härleds nivån automatiskt och
+    // ett manuellt värde ignoreras. Utan anställningsdatum sparas det manuella
+    // värdet som fallback. Se src/lib/employees/experience.ts.
     if (has('experience_level')) {
         const level = text(body.experience_level)
         if (level && !EXPERIENCE_LEVELS.includes(level as ExperienceLevel)) {
             return { payload: {}, error: 'Ogiltig erfarenhetsnivå' }
         }
         payload.experience_level = (level as ExperienceLevel) ?? null
+    }
+
+    if (has('employment_date')) {
+        const derived = experienceLevelFromEmploymentDate(payload.employment_date)
+        if (derived) {
+            payload.experience_level = derived
+        }
     }
 
     // --- Lön ---

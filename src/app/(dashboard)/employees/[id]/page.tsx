@@ -24,6 +24,7 @@ import {
 import { EmployeeLogbook } from "@/components/employee-logbook"
 import EmployeeFormDialog from "@/components/employees/employee-form-dialog"
 import DeleteEmployeeDialog from "@/components/employees/delete-employee-dialog"
+import { formatExperience, resolveExperience } from "@/lib/employees/experience"
 
 interface EmployeeDetail {
     id: string
@@ -59,13 +60,6 @@ const CATEGORY_LABELS: Record<string, string> = {
     VUB: "VUB - Specialistsjuksköterska",
     SSK: "SSK - Grundsjuksköterska",
     AMB: "AMB - Ambulanssjukvårdare",
-}
-
-const EXPERIENCE_LABELS: Record<string, string> = {
-    "0-3": "0-3 år",
-    "3-5": "3-5 år",
-    "5-10": "5-10 år",
-    "10+": "10+ år",
 }
 
 function formatDate(value?: string | null) {
@@ -272,9 +266,7 @@ export default function EmployeeDetailPage() {
                             <div className="flex justify-between gap-2">
                                 <span className="text-muted-foreground">Erfarenhet</span>
                                 <span className="font-medium">
-                                    {employee.experience_level
-                                        ? EXPERIENCE_LABELS[employee.experience_level] || employee.experience_level
-                                        : "Ej angiven"}
+                                    {formatExperience(resolveExperience(employee))}
                                 </span>
                             </div>
                             <div className="flex justify-between gap-2">
@@ -343,6 +335,10 @@ export default function EmployeeDetailPage() {
                                                 <InfoRow
                                                     label="Anställningsdatum"
                                                     value={formatDate(employee.employment_date)}
+                                                />
+                                                <InfoRow
+                                                    label="Erfarenhet"
+                                                    value={formatExperience(resolveExperience(employee))}
                                                 />
                                                 <InfoRow
                                                     label="Sysselsättningsgrad"
