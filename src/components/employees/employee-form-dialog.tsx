@@ -182,16 +182,23 @@ export function EmployeeFormDialog({
                 throw new Error(data?.error || 'Kunde inte spara medarbetaren')
             }
 
-            toast({
-                title: isEdit ? 'Medarbetare uppdaterad' : 'Medarbetare tillagd',
-                description: `${payload.first_name} ${payload.last_name} är sparad.`,
-            })
+            const skipped: string[] = Array.isArray(data?.skipped_columns) ? data.skipped_columns : []
 
-            if (Array.isArray(data?.skipped_columns) && data.skipped_columns.length > 0) {
+            // Bara en toast åt gången visas (TOAST_LIMIT = 1), så resultatet och
+            // varningen måste rymmas i samma meddelande - annars ser det ut som
+            // att hela sparningen misslyckades.
+            if (skipped.length > 0) {
                 toast({
                     variant: 'destructive',
-                    title: 'Vissa fält kunde inte sparas',
-                    description: `Databasen saknar kolumnerna: ${data.skipped_columns.join(', ')}. Kör migrationerna i supabase/migrations.`,
+                    title: isEdit
+                        ? 'Sparad, men vissa fält utelämnades'
+                        : 'Tillagd, men vissa fält utelämnades',
+                    description: `Övriga uppgifter är sparade. Databasen saknar kolumnerna ${skipped.join(', ')} - kör migrationerna i supabase/migrations.`,
+                })
+            } else {
+                toast({
+                    title: isEdit ? 'Medarbetare uppdaterad' : 'Medarbetare tillagd',
+                    description: `${payload.first_name} ${payload.last_name} är sparad.`,
                 })
             }
 
