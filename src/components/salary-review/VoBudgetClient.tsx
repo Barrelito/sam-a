@@ -282,7 +282,7 @@ export default function VoBudgetClient({ vo, cycle, stations }: VoBudgetClientPr
                                         id="vf-total"
                                         type="number"
                                         min="0"
-                                        step="1000"
+                                        step="any"
                                         value={vfBudget.total_budget || ''}
                                         onChange={(e) => setVfBudget(prev => ({
                                             ...prev,
@@ -303,7 +303,7 @@ export default function VoBudgetClient({ vo, cycle, stations }: VoBudgetClientPr
                                         id="vf-skilled"
                                         type="number"
                                         min="0"
-                                        step="100"
+                                        step="any"
                                         value={vfBudget.extra_skilled_amount || ''}
                                         onChange={(e) => setVfBudget(prev => ({
                                             ...prev,
@@ -403,7 +403,7 @@ export default function VoBudgetClient({ vo, cycle, stations }: VoBudgetClientPr
                                         id="kom-guaranteed"
                                         type="number"
                                         min="0"
-                                        step="100"
+                                        step="any"
                                         value={komBudget.guaranteed_per_employee || ''}
                                         onChange={(e) => setKomBudget(prev => ({
                                             ...prev,
@@ -421,7 +421,7 @@ export default function VoBudgetClient({ vo, cycle, stations }: VoBudgetClientPr
                                         id="kom-variable"
                                         type="number"
                                         min="0"
-                                        step="1000"
+                                        step="any"
                                         value={komBudget.variable_budget || ''}
                                         onChange={(e) => setKomBudget(prev => ({
                                             ...prev,
