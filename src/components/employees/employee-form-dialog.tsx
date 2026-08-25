@@ -394,7 +394,7 @@ export function EmployeeFormDialog({
                                         type="number"
                                         min={0}
                                         max={100}
-                                        step="1"
+                                        step="any"
                                         value={formData.employment_rate}
                                         onChange={(e) => setField('employment_rate', e.target.value)}
                                         placeholder="t.ex. 100"
@@ -407,7 +407,7 @@ export function EmployeeFormDialog({
                                         type="number"
                                         min={0}
                                         max={100}
-                                        step="1"
+                                        step="any"
                                         value={formData.night_share}
                                         onChange={(e) => setField('night_share', e.target.value)}
                                         placeholder="t.ex. 30"
@@ -428,7 +428,7 @@ export function EmployeeFormDialog({
                                         id="current_salary"
                                         type="number"
                                         min={0}
-                                        step="100"
+                                        step="any"
                                         value={formData.current_salary}
                                         onChange={(e) => setField('current_salary', e.target.value)}
                                         placeholder="t.ex. 35000"
