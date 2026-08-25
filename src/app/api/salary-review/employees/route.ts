@@ -3,6 +3,12 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { getAssignableStations } from '@/lib/employees/access'
+import {
+    describeEmployeeError,
+    normalizeEmployeeInput,
+    writeWithOptionalColumns,
+} from '@/lib/employees/validation'
 
 export async function GET() {
     try {
@@ -75,66 +81,38 @@ export async function POST(request: Request) {
             )
         }
 
-        const body = await request.json()
-        const {
-            employee_number,
-            first_name,
-            last_name,
-            email,
-            category,
-            station_id,
-            experience_level,
-            current_salary
-        } = body
-
-        // Validera required fields
-        if (!first_name || !last_name || !category || !station_id ||
-            first_name.trim() === '' || last_name.trim() === '' ||
-            category.trim() === '' || station_id.trim() === '') {
-            return NextResponse.json(
-                { error: 'Missing required fields: first_name, last_name, category, station_id' },
-                { status: 400 }
-            )
+        let body: unknown
+        try {
+            body = await request.json()
+        } catch {
+            return NextResponse.json({ error: 'Ogiltig data' }, { status: 400 })
         }
 
-        // Validera kategori
-        if (!['VUB', 'SSK', 'AMB'].includes(category)) {
-            return NextResponse.json(
-                { error: 'Invalid category. Must be VUB, SSK, or AMB' },
-                { status: 400 }
-            )
+        const { payload, error: validationError } = normalizeEmployeeInput(body, { requireAll: true })
+        if (validationError) {
+            return NextResponse.json({ error: validationError }, { status: 400 })
         }
 
-        // Verifiera att användaren har tillgång till stationen
-        const { data: userStation } = await supabase
-            .from('user_stations')
-            .select('station_id')
-            .eq('user_id', user.id)
-            .eq('station_id', station_id)
-            .single()
-
-        if (!userStation) {
+        // Verifiera att användaren har tillgång till stationen.
+        // Speglar RLS och fungerar även för områdeschefer (stationsområden),
+        // VO-chefer och admin - inte bara direkta user_stations-kopplingar.
+        const { stations } = await getAssignableStations(supabase, user.id)
+        if (!stations.some((s) => s.id === payload.station_id)) {
             return NextResponse.json(
-                { error: 'You do not have access to this station' },
+                { error: 'Du har inte behörighet att lägga till medarbetare på den stationen' },
                 { status: 403 }
             )
         }
 
         // Skapa medarbetare
-        const { data: employee, error } = await supabase
-            .from('employees')
-            .insert({
-                employee_number,
-                first_name,
-                last_name,
-                email,
-                category,
-                station_id,
-                manager_id: user.id, // Keep for backwards compatibility
-                experience_level,
-                current_salary
-            })
-            .select(`
+        const { data: employee, error } = await writeWithOptionalColumns(payload, (values) =>
+            supabase
+                .from('employees')
+                .insert({
+                    ...values,
+                    manager_id: user.id, // Keep for backwards compatibility
+                })
+                .select(`
         *,
         station:stations (
           id,
@@ -142,29 +120,45 @@ export async function POST(request: Request) {
           vo_id
         )
       `)
-            .single()
+                .single()
+        )
 
         if (error) {
             console.error('Error creating employee:', error)
-            console.error('Error details:', JSON.stringify(error, null, 2))
-            return NextResponse.json(
-                { error: `Failed to create employee: ${error.message || 'Unknown error'}` },
-                { status: 500 }
-            )
+            const { message, status } = describeEmployeeError(error)
+            return NextResponse.json({ error: message }, { status })
         }
 
-        // Create entry in employee_managers junction table
-        const { error: managerError } = await supabase
-            .from('employee_managers')
-            .insert({
-                employee_id: employee.id,
-                manager_id: user.id,
-                role: 'primary'
-            })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const createdId = (employee as any)?.id
 
-        if (managerError) {
-            console.error('Error creating employee manager relationship:', managerError)
-            // Don't fail the whole request, employee is already created
+        // Create entry in employee_managers junction table
+        if (createdId) {
+            const { error: managerError } = await supabase
+                .from('employee_managers')
+                .insert({
+                    employee_id: createdId,
+                    manager_id: user.id,
+                    role: 'primary'
+                })
+
+            if (managerError && managerError.code !== '23505') {
+                console.error('Error creating employee manager relationship:', managerError)
+                // Don't fail the whole request, employee is already created
+            }
+        }
+
+        // Audit log (bästa försök)
+        try {
+            await supabase.from('audit_logs').insert({
+                user_id: user.id,
+                action: 'CREATE_EMPLOYEE',
+                resource_id: createdId,
+                resource_type: 'employee',
+                details: { fields: Object.keys(payload), via: 'api/salary-review/employees' }
+            })
+        } catch (e) {
+            console.warn('Audit log failed', e)
         }
 
         return NextResponse.json({ employee }, { status: 201 })

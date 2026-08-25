@@ -3,7 +3,7 @@
 // Medarbetare - Lista och hantering
 // /salary-review/employees
 
-import { useEffect, useState, Suspense } from 'react'
+import { useCallback, useEffect, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -44,115 +44,100 @@ function EmployeesContent() {
     const [selectedStation, setSelectedStation] = useState<string | null>(null)
     const [error, setError] = useState<string | null>(null)
 
-    useEffect(() => {
-        async function loadData() {
-            setLoading(true)
-            const supabase = createClient()
+    const loadData = useCallback(async () => {
+        setLoading(true)
+        const supabase = createClient()
 
-            // Check authentication
-            const { data: { user } } = await supabase.auth.getUser()
+        // Check authentication
+        const { data: { user } } = await supabase.auth.getUser()
 
-            if (!user) {
-                router.push('/login')
-                return
-            }
-
-            // Check user role
-            const { data: profile } = await supabase
-                .from('profiles')
-                .select('role')
-                .eq('id', user.id)
-                .single()
-
-            if (!profile || !['station_manager', 'assistant_manager', 'area_manager', 'vo_chief', 'admin'].includes(profile.role)) {
-                router.push('/salary-review')
-                return
-            }
-
-            // Fetch active cycle
-            const { data: activeCycle } = await supabase
-                .from('salary_review_cycles')
-                .select('id')
-                .eq('status', 'active')
-                .single()
-
-            // Fetch employees for this manager
-            // Removed 'count' aggregation which might be problematic, using generic select
-            const { data: employeesData, error: employeesError } = await supabase
-                .from('employees')
-                .select(`
-                    *,
-                    station:stations (
-                        id,
-                        name,
-                        vo_id
-                    ),
-                    employee_managers (
-                        role,
-                        manager:manager_id (
-                            id,
-                            full_name,
-                            email
-                        )
-                    ),
-                    salary_reviews (
-                        id,
-                        status,
-                        cycle_id,
-                        final_salary,
-                        salary_criteria_assessments(id)
-                    )
-                `)
-                .order('last_name', { ascending: true })
-
-            if (employeesError) {
-                console.error('Error fetching employees:', employeesError)
-                setError(employeesError.message)
-                setLoading(false)
-                return
-            }
-
-            // Filter reviews to match active cycle
-            const enrichedEmployees = employeesData?.map(emp => ({
-                ...emp,
-                active_review: emp.salary_reviews?.find((r: any) => r.cycle_id === activeCycle?.id) || null
-            })) || []
-
-            let stationsData: { id: string; name: string }[] = []
-
-            if (profile.role === 'area_manager') {
-                // Area manager: hämta stationer via user_station_groups → station_group_members
-                const { data: groupStations } = await supabase
-                    .from('user_station_groups')
-                    .select(`
-                        station_group:station_group_id (
-                            station_group_members (
-                                station:station_id (id, name)
-                            )
-                        )
-                    `)
-                    .eq('user_id', user.id)
-
-                stationsData = groupStations?.flatMap((usg: any) =>
-                    usg.station_group?.station_group_members?.map((m: any) => m.station).filter(Boolean) || []
-                ) || []
-            } else {
-                // Station manager: hämta via user_stations
-                const { data: userStations } = await supabase
-                    .from('user_stations')
-                    .select(`station:stations (id, name)`)
-                    .eq('user_id', user.id)
-
-                stationsData = userStations?.map(us => us.station as any).filter(Boolean) || []
-            }
-
-            setEmployees(enrichedEmployees)
-            setStations(stationsData)
-            setLoading(false)
+        if (!user) {
+            router.push('/login')
+            return
         }
 
-        loadData()
+        // Check user role
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single()
+
+        if (!profile || !['station_manager', 'assistant_manager', 'area_manager', 'vo_chief', 'admin'].includes(profile.role)) {
+            router.push('/salary-review')
+            return
+        }
+
+        // Fetch active cycle
+        const { data: activeCycle } = await supabase
+            .from('salary_review_cycles')
+            .select('id')
+            .eq('status', 'active')
+            .maybeSingle()
+
+        // Fetch employees for this manager
+        // Removed 'count' aggregation which might be problematic, using generic select
+        const { data: employeesData, error: employeesError } = await supabase
+            .from('employees')
+            .select(`
+                *,
+                station:stations (
+                    id,
+                    name,
+                    vo_id
+                ),
+                employee_managers (
+                    role,
+                    manager:manager_id (
+                        id,
+                        full_name,
+                        email
+                    )
+                ),
+                salary_reviews (
+                    id,
+                    status,
+                    cycle_id,
+                    final_salary,
+                    salary_criteria_assessments(id)
+                )
+            `)
+            .order('last_name', { ascending: true })
+
+        if (employeesError) {
+            console.error('Error fetching employees:', employeesError)
+            setError(employeesError.message)
+            setLoading(false)
+            return
+        }
+
+        // Filter reviews to match active cycle
+        const enrichedEmployees = employeesData?.map(emp => ({
+            ...emp,
+            active_review: emp.salary_reviews?.find((r: any) => r.cycle_id === activeCycle?.id) || null
+        })) || []
+
+        // Stationer som användaren får placera medarbetare på.
+        // Hanterar stationschef, områdeschef, VO-chef och admin på ett ställe.
+        let stationsData: { id: string; name: string }[] = []
+        try {
+            const stationsRes = await fetch('/api/stations')
+            if (stationsRes.ok) {
+                const json = await stationsRes.json()
+                stationsData = json.stations || []
+            }
+        } catch (e) {
+            console.error('Error fetching stations:', e)
+        }
+
+        setEmployees(enrichedEmployees)
+        setStations(stationsData)
+        setLoading(false)
     }, [router])
+
+    useEffect(() => {
+        loadData()
+    }, [loadData])
 
     // Filter employees by selected station
     const filteredEmployees = selectedStation
@@ -162,6 +147,18 @@ function EmployeesContent() {
     // Handle employee deletion
     const handleEmployeeDeleted = (employeeId: string) => {
         setEmployees(prev => prev.filter(e => e.id !== employeeId))
+    }
+
+    // Handle employee update - listan hämtas klient-sida, så state måste uppdateras
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const handleEmployeeUpdated = (updated: any) => {
+        if (!updated?.id) {
+            loadData()
+            return
+        }
+        setEmployees(prev =>
+            prev.map(e => (e.id === updated.id ? { ...e, ...updated } : e))
+        )
     }
 
     if (loading) {
@@ -193,7 +190,7 @@ function EmployeesContent() {
                         Hantera och registrera medarbetare för löneöversyn
                     </p>
                 </div>
-                <RegisterEmployeeDialog stations={stations} />
+                <RegisterEmployeeDialog stations={stations} onRegistered={() => loadData()} />
             </div>
 
             {/* Station Filter */}
@@ -220,9 +217,10 @@ function EmployeesContent() {
                             employees={filteredEmployees}
                             stations={stations}
                             onEmployeeDeleted={handleEmployeeDeleted}
+                            onEmployeeUpdated={handleEmployeeUpdated}
                         />
                     ) : (
-                        <EmptyState selectedStation={selectedStation} stations={stations} />
+                        <EmptyState selectedStation={selectedStation} stations={stations} onRegistered={loadData} />
                     )}
                 </TabsContent>
 
@@ -237,6 +235,7 @@ function EmployeesContent() {
                         }) || []}
                         stations={stations}
                         onEmployeeDeleted={handleEmployeeDeleted}
+                        onEmployeeUpdated={handleEmployeeUpdated}
                     />
                 </TabsContent>
 
@@ -248,6 +247,7 @@ function EmployeesContent() {
                         }) || []}
                         stations={stations}
                         onEmployeeDeleted={handleEmployeeDeleted}
+                        onEmployeeUpdated={handleEmployeeUpdated}
                     />
                 </TabsContent>
             </Tabs>
@@ -263,7 +263,7 @@ export default function EmployeesPage() {
     )
 }
 
-function EmptyState({ selectedStation, stations }: { selectedStation: string | null, stations: any[] }) {
+function EmptyState({ selectedStation, stations, onRegistered }: { selectedStation: string | null, stations: any[], onRegistered?: () => void }) {
     return (
         <Card>
             <CardHeader>
@@ -282,7 +282,7 @@ function EmptyState({ selectedStation, stations }: { selectedStation: string | n
                     <p className="text-sm text-muted-foreground mb-4">
                         Du behöver registrera medarbetare i kategorierna VUB (Vårdare), SSK (Sjuksköterska) eller AMB (Ambulanssjukvårdare).
                     </p>
-                    <RegisterEmployeeDialog stations={stations} />
+                    <RegisterEmployeeDialog stations={stations} onRegistered={onRegistered} />
                 </CardContent>
             )}
         </Card>

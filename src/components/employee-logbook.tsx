@@ -1,7 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { useParams } from "next/navigation"
+import { useCallback, useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
@@ -15,18 +14,20 @@ import {
     SelectTrigger,
     SelectValue,
 } from "@/components/ui/select"
-import { Loader2, Calendar, User, FileText, CheckCircle2, AlertCircle, TrendingUp } from "lucide-react"
+import { Loader2, User, FileText, CheckCircle2, AlertCircle, TrendingUp } from "lucide-react"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { useToast } from "@/hooks/use-toast"
 
 interface Note {
     id: string
     content: string
-    note_type: 'general' | 'performance' | 'check_in' | 'incident' | 'development'
+    note_type: keyof typeof TYPE_CONFIG
     event_date: string
     created_at: string
-    author: {
+    author?: {
         full_name: string
         role: string
-    }
+    } | null
 }
 
 const TYPE_CONFIG = {
@@ -37,32 +38,39 @@ const TYPE_CONFIG = {
     development: { label: 'Utveckling', icon: User, color: 'text-purple-500', bg: 'bg-purple-100' }
 }
 
+const DEFAULT_TYPE_CONFIG = TYPE_CONFIG.general
+
 export function EmployeeLogbook({ employeeId }: { employeeId: string }) {
+    const { toast } = useToast()
     const [notes, setNotes] = useState<Note[]>([])
     const [loading, setLoading] = useState(true)
     const [submitting, setSubmitting] = useState(false)
+    const [loadError, setLoadError] = useState<string | null>(null)
 
     // Form state
     const [content, setContent] = useState("")
     const [type, setType] = useState<string>("general")
     const [date, setDate] = useState(new Date().toISOString().split('T')[0])
 
-    useEffect(() => {
-        loadNotes()
-    }, [employeeId])
-
-    const loadNotes = async () => {
+    const loadNotes = useCallback(async () => {
+        setLoadError(null)
         try {
             const res = await fetch(`/api/employees/${employeeId}/notes`)
-            if (!res.ok) throw new Error('Failed to load notes')
-            const data = await res.json()
+            const data = await res.json().catch(() => ({}))
+            if (!res.ok) throw new Error(data?.error || 'Kunde inte hämta loggboken')
             setNotes(data.notes || [])
         } catch (error) {
             console.error(error)
+            setLoadError(error instanceof Error ? error.message : 'Kunde inte hämta loggboken')
         } finally {
             setLoading(false)
         }
-    }
+    }, [employeeId])
+
+    useEffect(() => {
+        setLoading(true)
+        loadNotes()
+    }, [loadNotes])
 
     const handleSubmit = async () => {
         if (!content.trim()) return
@@ -79,14 +87,26 @@ export function EmployeeLogbook({ employeeId }: { employeeId: string }) {
                 })
             })
 
-            if (res.ok) {
-                setContent("")
-                // Reload notes to show the new one
-                loadNotes()
+            const data = await res.json().catch(() => ({}))
+
+            if (!res.ok) {
+                throw new Error(data?.error || 'Kunde inte spara anteckningen')
             }
+
+            setContent("")
+            toast({
+                title: "Anteckning sparad",
+                description: "Anteckningen är tillagd i personakten.",
+            })
+            // Reload notes to show the new one
+            await loadNotes()
         } catch (error) {
             console.error(error)
-            alert("Kunde inte spara anteckningen")
+            toast({
+                variant: "destructive",
+                title: "Kunde inte spara anteckningen",
+                description: error instanceof Error ? error.message : "Ett oväntat fel uppstod",
+            })
         } finally {
             setSubmitting(false)
         }
@@ -110,6 +130,19 @@ export function EmployeeLogbook({ employeeId }: { employeeId: string }) {
                     </Badge>
                 </div>
 
+                {loadError && (
+                    <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>Kunde inte hämta loggboken</AlertTitle>
+                        <AlertDescription className="flex flex-col items-start gap-2">
+                            <span>{loadError}</span>
+                            <Button variant="outline" size="sm" onClick={loadNotes}>
+                                Försök igen
+                            </Button>
+                        </AlertDescription>
+                    </Alert>
+                )}
+
                 <div className="space-y-4">
                     {notes.length === 0 ? (
                         <Card className="bg-muted/30 border-dashed">
@@ -121,7 +154,7 @@ export function EmployeeLogbook({ employeeId }: { employeeId: string }) {
                     ) : (
                         <div className="relative border-l border-muted ml-3 space-y-8 pb-8">
                             {notes.map((note) => {
-                                const Config = TYPE_CONFIG[note.note_type]
+                                const Config = TYPE_CONFIG[note.note_type] || DEFAULT_TYPE_CONFIG
                                 return (
                                     <div key={note.id} className="relative pl-8">
                                         {/* Timeline dot */}
@@ -139,7 +172,7 @@ export function EmployeeLogbook({ employeeId }: { employeeId: string }) {
                                                     {Config.label}
                                                 </span>
                                                 <span className="ml-auto text-xs">
-                                                    Skrivet av {note.author?.full_name}
+                                                    Skrivet av {note.author?.full_name || 'Okänd'}
                                                 </span>
                                             </div>
 

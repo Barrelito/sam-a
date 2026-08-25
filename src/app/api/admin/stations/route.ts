@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { createClient as createServerClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 
 function createAdminClient() {
@@ -15,6 +16,14 @@ function createAdminClient() {
 // GET - List all stations
 export async function GET() {
     try {
+        // Rutten använder service role-nyckeln och kringgår RLS - kräv därför
+        // åtminstone en inloggad användare innan stationslistan lämnas ut.
+        const authClient = await createServerClient()
+        const { data: { user } } = await authClient.auth.getUser()
+        if (!user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
         const supabase = createAdminClient()
 
         const { data, error } = await supabase

@@ -23,13 +23,15 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Search, UserCircle, MoreHorizontal, Pencil, Trash2, Eye, ClipboardCheck, MessageSquare } from 'lucide-react'
 import Link from 'next/link'
-import EditEmployeeDialog from './EditEmployeeDialog'
-import DeleteEmployeeDialog from './DeleteEmployeeDialog'
+import EmployeeFormDialog from '@/components/employees/employee-form-dialog'
+import DeleteEmployeeDialog from '@/components/employees/delete-employee-dialog'
 
 interface EmployeeListProps {
     employees: any[] // TODO: Type this properly once we have the full type from Supabase
     stations?: { id: string; name: string }[]
     onEmployeeDeleted?: (employeeId: string) => void
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onEmployeeUpdated?: (employee: any) => void
 }
 
 const CATEGORY_LABELS = {
@@ -44,8 +46,13 @@ const CATEGORY_COLORS = {
     AMB: 'bg-purple-100 text-purple-800 border-purple-200'
 }
 
-export default function EmployeeList({ employees, stations = [], onEmployeeDeleted }: EmployeeListProps) {
+export default function EmployeeList({ employees, stations = [], onEmployeeDeleted, onEmployeeUpdated }: EmployeeListProps) {
     const [searchTerm, setSearchTerm] = useState('')
+    // Dialogerna renderas utanför dropdown-menyn, annars avmonteras de när menyn stängs
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [editing, setEditing] = useState<any | null>(null)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const [deleting, setDeleting] = useState<any | null>(null)
     const [categoryFilter, setCategoryFilter] = useState<string>('all')
     const [stationFilter, setStationFilter] = useState<string>('all')
     const [sortBy, setSortBy] = useState<'name' | 'salary_asc' | 'salary_desc'>('name')
@@ -319,29 +326,19 @@ export default function EmployeeList({ employees, stations = [], onEmployeeDelet
                                                                 Hantera lönesamtal
                                                             </Link>
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                                            <EditEmployeeDialog
-                                                                employee={employee}
-                                                                stations={stations}
-                                                                trigger={
-                                                                    <div className="flex items-center w-full cursor-pointer">
-                                                                        <Pencil className="mr-2 h-4 w-4" />
-                                                                        Redigera
-                                                                    </div>
-                                                                }
-                                                            />
+                                                        <DropdownMenuItem
+                                                            className="cursor-pointer"
+                                                            onSelect={() => setEditing(employee)}
+                                                        >
+                                                            <Pencil className="mr-2 h-4 w-4" />
+                                                            Redigera
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                                            <DeleteEmployeeDialog
-                                                                employee={employee}
-                                                                onDeleteSuccess={() => onEmployeeDeleted?.(employee.id)}
-                                                                trigger={
-                                                                    <div className="flex items-center w-full cursor-pointer text-destructive">
-                                                                        <Trash2 className="mr-2 h-4 w-4" />
-                                                                        Ta bort
-                                                                    </div>
-                                                                }
-                                                            />
+                                                        <DropdownMenuItem
+                                                            className="cursor-pointer text-destructive focus:text-destructive"
+                                                            onSelect={() => setDeleting(employee)}
+                                                        >
+                                                            <Trash2 className="mr-2 h-4 w-4" />
+                                                            Ta bort
                                                         </DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
@@ -353,6 +350,31 @@ export default function EmployeeList({ employees, stations = [], onEmployeeDelet
                         </CardContent>
                     </Card>
                 ))
+            )}
+
+            {editing && (
+                <EmployeeFormDialog
+                    stations={stations}
+                    employee={editing}
+                    open
+                    onOpenChange={(open) => !open && setEditing(null)}
+                    onSaved={(saved) => {
+                        setEditing(null)
+                        onEmployeeUpdated?.(saved)
+                    }}
+                />
+            )}
+
+            {deleting && (
+                <DeleteEmployeeDialog
+                    employee={deleting}
+                    open
+                    onOpenChange={(open) => !open && setDeleting(null)}
+                    onDeleted={(employeeId) => {
+                        setDeleting(null)
+                        onEmployeeDeleted?.(employeeId)
+                    }}
+                />
             )}
         </div>
     )

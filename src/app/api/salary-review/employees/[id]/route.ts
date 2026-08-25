@@ -3,6 +3,29 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { getAssignableStations } from '@/lib/employees/access'
+import {
+    describeEmployeeError,
+    normalizeEmployeeInput,
+    writeWithOptionalColumns,
+} from '@/lib/employees/validation'
+
+const EMPLOYEE_SELECT = `
+    *,
+    station:stations (
+        id,
+        name,
+        vo_id
+    ),
+    managers:employee_managers (
+        role,
+        manager:profiles (
+            id,
+            full_name,
+            email
+        )
+    )
+`
 
 // GET /api/salary-review/employees/[id]
 // Fetch a single employee with managers and station details
@@ -27,29 +50,18 @@ export async function GET(
         // Fetch employee with managers and station
         const { data: employee, error } = await supabase
             .from('employees')
-            .select(`
-                *,
-                station:stations (
-                    id,
-                    name,
-                    vo_id
-                ),
-                managers:employee_managers (
-                    manager:profiles (
-                        id,
-                        full_name,
-                        email
-                    ),
-                    role
-                )
-            `)
+            .select(EMPLOYEE_SELECT)
             .eq('id', id)
-            .single()
+            .maybeSingle()
 
         if (error) {
             console.error('Error fetching employee:', error)
+            return NextResponse.json({ error: error.message }, { status: 500 })
+        }
+
+        if (!employee) {
             return NextResponse.json(
-                { error: 'Employee not found' },
+                { error: 'Medarbetaren hittades inte' },
                 { status: 404 }
             )
         }
@@ -97,58 +109,57 @@ export async function PATCH(
             )
         }
 
-        const body = await request.json()
-        const {
-            employee_number,
-            first_name,
-            last_name,
-            email,
-            category,
-            station_id,
-            experience_level,
-            current_salary,
-            manager_ids // Array of manager IDs: [{ id: string, role: 'primary' | 'secondary' }]
-        } = body
-
-        // Validate required fields
-        if (!first_name || !last_name || !category || !station_id) {
-            return NextResponse.json(
-                { error: 'Missing required fields: first_name, last_name, category, station_id' },
-                { status: 400 }
-            )
+        let body: Record<string, unknown>
+        try {
+            body = await request.json()
+        } catch {
+            return NextResponse.json({ error: 'Ogiltig data' }, { status: 400 })
         }
 
-        // Validate category
-        if (!['VUB', 'SSK', 'AMB'].includes(category)) {
-            return NextResponse.json(
-                { error: 'Invalid category. Must be VUB, SSK, or AMB' },
-                { status: 400 }
-            )
+        // Array of manager IDs: [{ id: string, role: 'primary' | 'secondary' }]
+        const manager_ids = body.manager_ids
+
+        const { payload, error: validationError } = normalizeEmployeeInput(body, { requireAll: false })
+        if (validationError) {
+            return NextResponse.json({ error: validationError }, { status: 400 })
+        }
+
+        if (Object.keys(payload).length === 0 && !Array.isArray(manager_ids)) {
+            return NextResponse.json({ error: 'Inga fält att uppdatera' }, { status: 400 })
+        }
+
+        // Byte av station: verifiera behörighet till den nya stationen
+        if (payload.station_id) {
+            const { stations } = await getAssignableStations(supabase, user.id)
+            if (!stations.some((s) => s.id === payload.station_id)) {
+                return NextResponse.json(
+                    { error: 'Du har inte behörighet till den valda stationen' },
+                    { status: 403 }
+                )
+            }
         }
 
         // Update employee basic info
-        const { data: employee, error: updateError } = await supabase
-            .from('employees')
-            .update({
-                employee_number,
-                first_name,
-                last_name,
-                email,
-                category,
-                station_id,
-                experience_level,
-                current_salary
-            })
-            .eq('id', id)
-            .select()
-            .single()
-
-        if (updateError) {
-            console.error('Error updating employee:', updateError)
-            return NextResponse.json(
-                { error: `Failed to update employee: ${updateError.message}` },
-                { status: 500 }
+        if (Object.keys(payload).length > 0) {
+            const { data: updatedRow, error: updateError } = await writeWithOptionalColumns(
+                payload,
+                (values) =>
+                    supabase.from('employees').update(values).eq('id', id).select('id').maybeSingle()
             )
+
+            if (updateError) {
+                console.error('Error updating employee:', updateError)
+                const { message, status } = describeEmployeeError(updateError)
+                return NextResponse.json({ error: message }, { status })
+            }
+
+            // Update utan fel men utan träffad rad = RLS blockerade skrivningen
+            if (!updatedRow) {
+                return NextResponse.json(
+                    { error: 'Medarbetaren hittades inte eller så saknar du behörighet att ändra den' },
+                    { status: 403 }
+                )
+            }
         }
 
         // Update managers if provided
@@ -161,7 +172,8 @@ export async function PATCH(
 
             // Insert new manager relationships
             if (manager_ids.length > 0) {
-                const managerRecords = manager_ids.map(m => ({
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const managerRecords = manager_ids.map((m: any) => ({
                     employee_id: id,
                     manager_id: m.id,
                     role: m.role || 'primary'
@@ -181,33 +193,30 @@ export async function PATCH(
         // Fetch updated employee with managers
         const { data: updatedEmployee } = await supabase
             .from('employees')
-            .select(`
-                *,
-                station:stations (
-                    id,
-                    name,
-                    vo_id
-                ),
-                managers:employee_managers (
-                    manager:profiles (
-                        id,
-                        full_name,
-                        email
-                    ),
-                    role
-                )
-            `)
+            .select(EMPLOYEE_SELECT)
             .eq('id', id)
-            .single()
+            .maybeSingle()
 
-        // Create Audit Log (Best effort)
+        // Tom rad efter lyckad update = RLS blockerade skrivningen
+        if (!updatedEmployee) {
+            return NextResponse.json(
+                { error: 'Medarbetaren hittades inte eller så saknar du behörighet' },
+                { status: 404 }
+            )
+        }
+
+        // Create Audit Log (Best effort) - loggar vilka fält som ändrats, inte värdena
         try {
             await supabase.from('audit_logs').insert({
                 user_id: user.id,
                 action: 'UPDATE_EMPLOYEE',
                 resource_id: id,
                 resource_type: 'employee',
-                details: body
+                details: {
+                    fields: Object.keys(payload),
+                    managers_changed: Array.isArray(manager_ids),
+                    via: 'api/salary-review/employees/[id]'
+                }
             })
         } catch (e) {
             console.warn('Audit log failed', e)
@@ -248,39 +257,44 @@ export async function DELETE(
             .from('salary_review_cycles')
             .select('id')
             .eq('status', 'active')
-            .single()
+            .maybeSingle()
 
         let hasActiveReview = false
-        let reviewCount = 0
 
         if (activeCycle) {
-            const { data: reviews, count } = await supabase
+            const { count } = await supabase
                 .from('salary_reviews')
-                .select('id', { count: 'exact' })
+                .select('id', { count: 'exact', head: true })
                 .eq('employee_id', id)
                 .eq('cycle_id', activeCycle.id)
 
             hasActiveReview = (count || 0) > 0
-            reviewCount = count || 0
         }
 
         // Get total review count for all time
         const { count: totalReviews } = await supabase
             .from('salary_reviews')
-            .select('id', { count: 'exact' })
+            .select('id', { count: 'exact', head: true })
             .eq('employee_id', id)
 
         // Delete employee (CASCADE will handle related tables)
-        const { error: deleteError } = await supabase
+        const { data: deleted, error: deleteError } = await supabase
             .from('employees')
             .delete()
             .eq('id', id)
+            .select('id')
 
         if (deleteError) {
             console.error('Error deleting employee:', deleteError)
+            const { message, status } = describeEmployeeError(deleteError)
+            return NextResponse.json({ error: message }, { status })
+        }
+
+        // RLS returnerar tomt resultat istället för fel när raden inte får raderas
+        if (!deleted || deleted.length === 0) {
             return NextResponse.json(
-                { error: `Failed to delete employee: ${deleteError.message}` },
-                { status: 500 }
+                { error: 'Medarbetaren hittades inte eller så saknar du behörighet' },
+                { status: 404 }
             )
         }
 

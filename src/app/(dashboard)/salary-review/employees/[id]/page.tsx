@@ -13,6 +13,7 @@ import { hasParticularlySkillfulCriteria } from '@/lib/salary-review/particularl
 import { getTotalCriteriaCount } from '@/lib/salary-review/salary-criteria'
 import EditEmployeeDialog from '@/components/salary-review/EditEmployeeDialog'
 import DeleteEmployeeDialog from '@/components/salary-review/DeleteEmployeeDialog'
+import { getAssignableStations } from '@/lib/employees/access'
 
 export default async function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient()
@@ -52,25 +53,17 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
         notFound()
     }
 
-    // Hämta stations för edit dialog
-    const { data: userStations } = await supabase
-        .from('user_stations')
-        .select(`
-      station:stations (
-        id,
-        name
-      )
-    `)
-        .eq('user_id', user.id)
-
-    const stations = userStations?.map(us => us.station as any).filter(Boolean) || []
+    // Hämta stationer för edit dialog.
+    // Delad hjälpfunktion så att även områdeschefer, VO-chefer och admin
+    // får rätt urval - inte bara direkta user_stations-kopplingar.
+    const { stations } = await getAssignableStations(supabase, user.id)
 
     // Hämta eller skapa review för aktiv cykel
     const { data: activeCycle } = await supabase
         .from('salary_review_cycles')
         .select('*')
         .eq('status', 'active')
-        .single()
+        .maybeSingle()
 
     let review = null
     let particularlySkillfulCount = 0
