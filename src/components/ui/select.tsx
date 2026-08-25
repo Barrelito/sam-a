@@ -15,6 +15,7 @@ interface SelectContextType {
     onValueChange?: (value: string) => void
     open: boolean
     setOpen: (open: boolean) => void
+    labels: Map<string, React.ReactNode>
 }
 
 const SelectContext = React.createContext<SelectContextType | null>(null)
@@ -27,11 +28,37 @@ function useSelectContext() {
     return context
 }
 
+/**
+ * Plockar ut etiketten för varje SelectItem ur elementträdet så att triggern kan
+ * visa etiketten i stället för det råa värdet (stationens namn i stället för
+ * dess UUID). Alternativen renderas bara när listan är öppen, men själva
+ * elementen finns i children hela tiden - därför läses de härifrån.
+ */
+function collectItemLabels(
+    children: React.ReactNode,
+    labels: Map<string, React.ReactNode> = new Map()
+): Map<string, React.ReactNode> {
+    React.Children.forEach(children, (child) => {
+        if (!React.isValidElement(child)) return
+
+        const props = child.props as { value?: unknown; children?: React.ReactNode }
+
+        if (child.type === SelectItem && typeof props.value === "string") {
+            labels.set(props.value, props.children)
+        }
+
+        if (props.children) collectItemLabels(props.children, labels)
+    })
+
+    return labels
+}
+
 const Select = ({ value, onValueChange, children }: SelectProps) => {
     const [open, setOpen] = React.useState(false)
+    const labels = React.useMemo(() => collectItemLabels(children), [children])
 
     return (
-        <SelectContext.Provider value={{ value, onValueChange, open, setOpen }}>
+        <SelectContext.Provider value={{ value, onValueChange, open, setOpen, labels }}>
             <div className="relative">
                 {children}
             </div>
@@ -72,8 +99,24 @@ interface SelectValueProps {
 }
 
 const SelectValue = ({ placeholder }: SelectValueProps) => {
-    const { value } = useSelectContext()
-    return <span className={value ? "" : "text-muted-foreground"}>{value || placeholder}</span>
+    const { value, labels } = useSelectContext()
+
+    const label = value ? labels.get(value) : undefined
+
+    // Saknas matchande alternativ (t.ex. medan listan fortfarande laddas) visas
+    // platshållaren - ett rått id ska aldrig läcka ut i gränssnittet.
+    const showPlaceholder = label === undefined && placeholder !== undefined
+
+    return (
+        <span
+            className={cn(
+                "min-w-0 flex-1 truncate text-left",
+                showPlaceholder && "text-muted-foreground"
+            )}
+        >
+            {showPlaceholder ? placeholder : label ?? value}
+        </span>
+    )
 }
 
 interface SelectContentProps {
