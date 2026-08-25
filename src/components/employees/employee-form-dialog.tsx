@@ -38,6 +38,7 @@ export interface EmployeeFormValues {
     last_name?: string | null
     email?: string | null
     phone?: string | null
+    address?: string | null
     category?: string | null
     station_id?: string | null
     employment_date?: string | null
@@ -80,6 +81,7 @@ function toFormState(employee: EmployeeFormValues | undefined, stations: Array<{
         employee_number: employee?.employee_number ?? '',
         email: employee?.email ?? '',
         phone: employee?.phone ?? '',
+        address: employee?.address ?? '',
         category: employee?.category ?? '',
         // Förvälj enda stationen vid nyregistrering
         station_id: employee?.station_id ?? (stations.length === 1 ? stations[0].id : ''),
@@ -158,6 +160,7 @@ export function EmployeeFormDialog({
             employee_number: formData.employee_number.trim() || null,
             email: formData.email.trim() || null,
             phone: formData.phone.trim() || null,
+            address: formData.address.trim() || null,
             employment_date: formData.employment_date || null,
             birthdate: formData.birthdate || null,
             experience_level: formData.experience_level || null,
@@ -261,6 +264,15 @@ export function EmployeeFormDialog({
                                         type="tel"
                                         value={formData.phone}
                                         onChange={(e) => setField('phone', e.target.value)}
+                                        placeholder="valfritt"
+                                    />
+                                </div>
+                                <div className="space-y-2 sm:col-span-2">
+                                    <Label htmlFor="address">Adress</Label>
+                                    <Input
+                                        id="address"
+                                        value={formData.address}
+                                        onChange={(e) => setField('address', e.target.value)}
                                         placeholder="valfritt"
                                     />
                                 </div>

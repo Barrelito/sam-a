@@ -13,6 +13,7 @@ export interface EmployeeWritePayload {
     last_name?: string
     email?: string | null
     phone?: string | null
+    address?: string | null
     employee_number?: string | null
     category?: EmployeeCategory
     station_id?: string
@@ -30,6 +31,7 @@ export interface EmployeeWritePayload {
  */
 const OPTIONAL_COLUMNS = [
     'phone',
+    'address',
     'birthdate',
     'experience_level',
     'employment_rate',
@@ -132,6 +134,15 @@ export function normalizeEmployeeInput(
             return { payload: {}, error: 'Telefonnumret är för långt' }
         }
         payload.phone = phone
+    }
+
+    // --- Adress ---
+    if (has('address')) {
+        const address = text(body.address)
+        if (address && address.length > 200) {
+            return { payload: {}, error: 'Adressen är för lång (max 200 tecken)' }
+        }
+        payload.address = address
     }
 
     // --- Personalnummer ---

@@ -14,6 +14,7 @@ import {
     Cake,
     CalendarDays,
     Loader2,
+    Home,
     Mail,
     MapPin,
     Pencil,
@@ -32,6 +33,7 @@ interface EmployeeDetail {
     last_name: string
     email?: string | null
     phone?: string | null
+    address?: string | null
     employee_number?: string | null
     category: string
     station_id: string
@@ -238,6 +240,12 @@ export default function EmployeeDetailPage() {
                                     <span className="text-muted-foreground">Inget nummer</span>
                                 )}
                             </div>
+                            {employee.address && (
+                                <div className="flex items-start gap-2">
+                                    <Home className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                                    <span>{employee.address}</span>
+                                </div>
+                            )}
                             <div className="flex items-center gap-2">
                                 <UserCircle className="h-4 w-4 text-muted-foreground shrink-0" />
                                 <span>Anst. nr: {employee.employee_number || "-"}</span>

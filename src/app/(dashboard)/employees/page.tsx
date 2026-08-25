@@ -25,6 +25,7 @@ import {
     AlertCircle,
     ChevronLeft,
     ChevronRight,
+    FileDown,
     Loader2,
     MapPin,
     MoreHorizontal,
@@ -37,6 +38,7 @@ import {
 } from "lucide-react"
 import EmployeeFormDialog from "@/components/employees/employee-form-dialog"
 import DeleteEmployeeDialog from "@/components/employees/delete-employee-dialog"
+import ExportEmployeesDialog from "@/components/employees/export-employees-dialog"
 import { useToast } from "@/hooks/use-toast"
 
 interface Employee {
@@ -45,6 +47,7 @@ interface Employee {
     last_name: string
     email?: string | null
     phone?: string | null
+    address?: string | null
     employee_number?: string | null
     category: string
     station_id: string
@@ -90,6 +93,7 @@ export default function EmployeesPage() {
     const [stationFilter, setStationFilter] = useState<string>(ALL)
 
     const [addOpen, setAddOpen] = useState(false)
+    const [exportOpen, setExportOpen] = useState(false)
     const [editing, setEditing] = useState<Employee | null>(null)
     const [deleting, setDeleting] = useState<Employee | null>(null)
 
@@ -203,6 +207,23 @@ export default function EmployeesPage() {
         [stations]
     )
 
+    // Exporten ska innehålla exakt det urval listan visar - inte bara sidan
+    const exportFilters = useMemo(() => {
+        const parts: string[] = []
+        const stationName = stations.find((s) => s.id === stationFilter)?.name
+        if (stationName) parts.push(`Station: ${stationName}`)
+        if (categoryFilter !== ALL) parts.push(`Kategori: ${categoryFilter}`)
+        if (debouncedSearch) parts.push(`Sökning: "${debouncedSearch}"`)
+
+        return {
+            search: debouncedSearch || undefined,
+            stationId: stationFilter === ALL ? null : stationFilter,
+            category: categoryFilter === ALL ? null : categoryFilter,
+            description: parts.length > 0 ? parts.join(" · ") : null,
+            count: total,
+        }
+    }, [stations, stationFilter, categoryFilter, debouncedSearch, total])
+
     const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE))
     const rangeStart = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1
     const rangeEnd = Math.min(page * PAGE_SIZE, total)
@@ -239,7 +260,17 @@ export default function EmployeesPage() {
                         Digital personakt och loggbok för din personal
                     </p>
                 </div>
-                {addButton}
+                <div className="flex gap-2">
+                    <Button
+                        variant="outline"
+                        onClick={() => setExportOpen(true)}
+                        disabled={total === 0}
+                    >
+                        <FileDown className="mr-2 h-4 w-4" />
+                        Exportera PDF
+                    </Button>
+                    {addButton}
+                </div>
             </div>
 
             {error && (
@@ -447,6 +478,12 @@ export default function EmployeesPage() {
                     )}
                 </CardContent>
             </Card>
+
+            <ExportEmployeesDialog
+                open={exportOpen}
+                onOpenChange={setExportOpen}
+                filters={exportFilters}
+            />
 
             {/* Dialogerna ligger utanför dropdown-menyn så att de inte avmonteras när menyn stängs */}
             <EmployeeFormDialog
