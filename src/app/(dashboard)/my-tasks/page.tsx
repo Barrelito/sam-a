@@ -59,13 +59,25 @@ export default function MyTasksPage() {
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status: newStatus } : t))
 
         try {
-            await fetch(`/api/tasks/${taskId}`, {
+            const res = await fetch(`/api/tasks/${taskId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus }),
             })
+
+            // Bara catch fångade inte ett 403/500 - den optimistiska ändringen
+            // låg kvar och det såg ut som att sparningen gått igenom
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}))
+                throw new Error(data?.error || 'Kunde inte spara status')
+            }
         } catch (err) {
             console.error('Error updating status:', err)
+            toast({
+                variant: 'destructive',
+                title: 'Kunde inte spara status',
+                description: err instanceof Error ? err.message : 'Ett oväntat fel uppstod',
+            })
             fetchTasks() // Rollback
         }
     }
@@ -73,13 +85,23 @@ export default function MyTasksPage() {
     const handlePriorityChange = async (taskId: string, newPriority: TaskPriority) => {
         setTasks(prev => prev.map(t => t.id === taskId ? { ...t, priority: newPriority } : t))
         try {
-            await fetch(`/api/tasks/${taskId}`, {
+            const res = await fetch(`/api/tasks/${taskId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ priority: newPriority }),
             })
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}))
+                throw new Error(data?.error || 'Kunde inte spara prioritet')
+            }
         } catch (err) {
             console.error('Error updating priority:', err)
+            toast({
+                variant: 'destructive',
+                title: 'Kunde inte spara prioritet',
+                description: err instanceof Error ? err.message : 'Ett oväntat fel uppstod',
+            })
             fetchTasks()
         }
     }

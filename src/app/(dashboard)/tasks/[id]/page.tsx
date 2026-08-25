@@ -11,8 +11,10 @@ import { useAuth } from "@/lib/auth-context"
 import { ArrowLeft, Loader2, Trash2, Share2, Edit, GitBranch, CheckCircle2, Clock, Circle, ExternalLink } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useToast } from "@/hooks/use-toast"
 
 export default function TaskDetailPage() {
+    const { toast } = useToast()
     const params = useParams()
     const router = useRouter()
     const { profile, loading: authLoading } = useAuth()
@@ -65,14 +67,27 @@ export default function TaskDetailPage() {
     }, [taskId])
 
     const handleStatusChange = async (status: TaskStatus) => {
-        const res = await fetch(`/api/tasks/${taskId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status }),
-        })
-        if (res.ok) {
+        try {
+            const res = await fetch(`/api/tasks/${taskId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ status }),
+            })
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}))
+                throw new Error(data?.error || 'Kunde inte spara status')
+            }
+
             await loadTask()
             router.refresh()
+        } catch (err) {
+            console.error('Error updating status:', err)
+            toast({
+                variant: 'destructive',
+                title: 'Kunde inte spara status',
+                description: err instanceof Error ? err.message : 'Ett oväntat fel uppstod',
+            })
         }
     }
 

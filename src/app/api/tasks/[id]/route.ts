@@ -120,9 +120,6 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         }
     }
 
-    console.log('Task PUT - Body received:', JSON.stringify(body))
-    console.log('Task PUT - Updates to apply:', JSON.stringify(updates))
-
     // Handle status change
     if (body.status && body.status !== currentTask.status) {
         if (body.status === 'done') {
@@ -151,7 +148,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         updates.vo_comment = body.vo_comment
     }
 
-    // Update task
+    if (Object.keys(updates).length === 0) {
+        return NextResponse.json({ error: 'Inga fält att uppdatera' }, { status: 400 })
+    }
+
+    // Update task.
+    // maybeSingle i stället för single: träffar uppdateringen ingen rad är det
+    // RLS som nekat skrivningen, inte ett serverfel. Med single blev det ett
+    // kryptiskt 500 som klienterna tolkade som "ingenting hände".
     const { data: task, error } = await supabase
         .from('tasks')
         .update(updates)
@@ -164,11 +168,26 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
             created_by_profile:created_by(id, full_name, email),
             assigned_to_profile:assigned_to(id, full_name, email)
         `)
-        .single()
+        .maybeSingle()
 
     if (error) {
         console.error('Error updating task:', error)
+
+        if (error.code === '42501' || error.code === 'PGRST301') {
+            return NextResponse.json(
+                { error: 'Du saknar behörighet att ändra den här uppgiften' },
+                { status: 403 }
+            )
+        }
+
         return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    if (!task) {
+        return NextResponse.json(
+            { error: 'Du saknar behörighet att ändra den här uppgiften' },
+            { status: 403 }
+        )
     }
 
     return NextResponse.json({ task })

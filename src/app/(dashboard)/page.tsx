@@ -14,10 +14,12 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from "@/components/ui/dropdown-menu"
 import { AreaManagerDashboard } from "@/components/AreaManagerDashboard"
+import { useToast } from "@/hooks/use-toast"
 
 export default function DashboardPage() {
     const router = useRouter()
     const { profile, loading: authLoading } = useAuth()
+    const { toast } = useToast()
 
     const [tasks, setTasks] = useState<Task[]>([])
     const [loading, setLoading] = useState(true)
@@ -228,15 +230,26 @@ export default function DashboardPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ status: newStatus })
             })
-            if (res.ok) {
-                setTasks(prev => prev.map(task =>
-                    task.id === taskId
-                        ? { ...task, status: newStatus, updated_at: new Date().toISOString() }
-                        : task
-                ))
+
+            // Utan den här kontrollen försvann felet tyst och det såg ut som
+            // att ingenting hände när man klickade på statusen
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}))
+                throw new Error(data?.error || 'Kunde inte spara status')
             }
+
+            setTasks(prev => prev.map(task =>
+                task.id === taskId
+                    ? { ...task, status: newStatus, updated_at: new Date().toISOString() }
+                    : task
+            ))
         } catch (err) {
             console.error('Error updating status:', err)
+            toast({
+                variant: 'destructive',
+                title: 'Kunde inte spara status',
+                description: err instanceof Error ? err.message : 'Ett oväntat fel uppstod',
+            })
         }
     }
 
@@ -247,15 +260,24 @@ export default function DashboardPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ priority: newPriority })
             })
-            if (res.ok) {
-                setTasks(prev => prev.map(task =>
-                    task.id === taskId
-                        ? { ...task, priority: newPriority }
-                        : task
-                ))
+
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}))
+                throw new Error(data?.error || 'Kunde inte spara prioritet')
             }
+
+            setTasks(prev => prev.map(task =>
+                task.id === taskId
+                    ? { ...task, priority: newPriority }
+                    : task
+            ))
         } catch (error) {
             console.error('Error updating task priority:', error)
+            toast({
+                variant: 'destructive',
+                title: 'Kunde inte spara prioritet',
+                description: error instanceof Error ? error.message : 'Ett oväntat fel uppstod',
+            })
         }
     }
 
