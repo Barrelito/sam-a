@@ -46,7 +46,7 @@ describe('/api/admin/station-groups', () => {
             expect([401, 403]).not.toContain((await post(validBody)).status)
         })
 
-        it('tar uppgiften om vem som skapat gruppen från sessionen, inte från anropet', async () => {
+        it('hämtar vem som skapat stationsområdet från sessionen, inte från anropet', async () => {
             const client = use(fakeRequestClient({ user: { id: 'the-admin' }, role: 'admin' }))
 
             await post({ ...validBody, created_by: 'someone-else' })

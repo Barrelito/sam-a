@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
         const guard = await requireRole(['admin'])
         if (!guard.ok) return guard.response
 
-        const supabase = await createClient()
+        const supabase = guard.supabase
         const body = await request.json()
 
         const { name, description, vo_id, station_ids } = body

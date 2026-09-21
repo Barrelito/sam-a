@@ -47,6 +47,18 @@ describe('requireRole', () => {
         expect(result.response.status).toBe(403)
     })
 
+    it('skiljer ett misslyckat rolluppslag från ett nekande', async () => {
+        mockedCreateClient.mockResolvedValue(
+            fakeRequestClient({ user: { id: 'u1' }, roleLookupFails: true }) as never
+        )
+
+        const result = await requireRole(['admin'])
+
+        expect(result.ok).toBe(false)
+        if (result.ok) throw new Error('unreachable')
+        expect(result.response.status).toBe(500)
+    })
+
     it('släpper igenom den vars roll är tillåten, och lämnar ut vem det är', async () => {
         mockedCreateClient.mockResolvedValue(
             fakeRequestClient({ user: { id: 'u1' }, role: 'admin' }) as never

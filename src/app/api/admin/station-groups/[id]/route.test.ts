@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
-import { fakeRequestClient, fakeServiceClient } from '@/test/fake-supabase'
+import { fakeServiceClient } from '@/test/fake-supabase'
+import { signIns, stubServiceCredentials } from '@/test/route-harness'
 
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn() }))
 vi.mock('@supabase/supabase-js', () => ({ createClient: vi.fn() }))
@@ -8,17 +9,10 @@ const { createClient: createRequestClient } = await import('@/lib/supabase/serve
 const { createClient: createServiceClient } = await import('@supabase/supabase-js')
 const { GET, PUT, DELETE } = await import('./route')
 
-const asRequest = vi.mocked(createRequestClient)
 const asService = vi.mocked(createServiceClient)
+const { signedIn, signedOut } = signIns(vi.mocked(createRequestClient))
 
 const params = { params: Promise.resolve({ id: 'g1' }) }
-
-function signedIn(role: string | null) {
-    asRequest.mockResolvedValue(fakeRequestClient({ user: { id: 'u1' }, role }) as never)
-}
-function signedOut() {
-    asRequest.mockResolvedValue(fakeRequestClient({ user: null }) as never)
-}
 
 const methods = [
     ['GET', () => GET(new Request('http://t/api/admin/station-groups/g1') as never, params)],
@@ -34,8 +28,7 @@ const methods = [
 describe('/api/admin/station-groups/[id]', () => {
     beforeEach(() => {
         vi.clearAllMocks()
-        process.env.NEXT_PUBLIC_SUPABASE_URL = 'http://supabase.test'
-        process.env.SUPABASE_SERVICE_ROLE_KEY = 'service-key'
+        stubServiceCredentials()
         asService.mockReturnValue(fakeServiceClient() as never)
     })
 
@@ -58,9 +51,10 @@ describe('/api/admin/station-groups/[id]', () => {
             expect(asService).not.toHaveBeenCalled()
         })
 
-        it('släpper igenom en administratör', async () => {
+        it('släpper igenom en administratör ända fram till det privilegierade arbetet', async () => {
             signedIn('admin')
             expect([401, 403]).not.toContain((await call()).status)
+            expect(asService).toHaveBeenCalled()
         })
     })
 })

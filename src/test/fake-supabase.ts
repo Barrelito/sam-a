@@ -1,22 +1,28 @@
 import { vi } from 'vitest'
+import type { UserRole } from '@/lib/types'
 
-type ChainResult = { data: unknown; error: unknown }
+type QueryResult = { data: unknown; error: unknown }
 
 /**
  * A chainable stand-in for a Supabase query builder. Any method returns the
- * chain again; `single`/`maybeSingle` resolve, and `insert` records what it was
- * handed so tests can assert on the payload a route writes.
+ * chain again; awaiting it — directly or via `single` — resolves the result,
+ * so a route that destructures `{ data, error }` sees what it would in
+ * production. `insert`/`upsert` record their payload so tests can assert on
+ * what a route writes.
  */
-function buildChain(result: ChainResult, onInsert: (payload: unknown) => void) {
+function buildChain(result: QueryResult, onWrite: (payload: unknown) => void) {
     const chain: any = new Proxy(() => chain, {
         get(_target, prop) {
-            if (prop === 'then') return undefined
+            if (prop === 'then') {
+                return (onFulfilled?: (value: QueryResult) => unknown) =>
+                    Promise.resolve(result).then(onFulfilled)
+            }
             if (prop === 'single' || prop === 'maybeSingle') {
                 return vi.fn(async () => result)
             }
             if (prop === 'insert' || prop === 'upsert') {
                 return vi.fn((payload: unknown) => {
-                    onInsert(payload)
+                    onWrite(payload)
                     return chain
                 })
             }
@@ -25,6 +31,14 @@ function buildChain(result: ChainResult, onInsert: (payload: unknown) => void) {
         apply: () => chain,
     })
     return chain
+}
+
+function writeRecorder() {
+    const writes: Record<string, unknown[]> = {}
+    const record = (table: string) => (payload: unknown) => {
+        ;(writes[table] ??= []).push(payload)
+    }
+    return { writes, record }
 }
 
 export type FakeClient = {
@@ -37,13 +51,21 @@ export type FakeClient = {
 /**
  * A stand-in for the request-scoped client. It answers who is calling and what
  * their role is; every other table resolves to a single generic row.
+ *
+ * `roleLookupFails` simulates the role lookup itself erroring, which a guard
+ * must not confuse with a role that is simply not allowed.
  */
 export function fakeRequestClient(opts: {
     user: { id: string } | null
-    role?: string | null
+    role?: UserRole | null
+    roleLookupFails?: boolean
 }): FakeClient {
-    const { user, role = null } = opts
-    const writes: Record<string, unknown[]> = {}
+    const { user, role = null, roleLookupFails = false } = opts
+    const { writes, record } = writeRecorder()
+
+    const profileResult: QueryResult = roleLookupFails
+        ? { data: null, error: { message: 'lookup exploded' } }
+        : { data: role === null ? null : { role }, error: null }
 
     return {
         auth: {
@@ -52,11 +74,9 @@ export function fakeRequestClient(opts: {
         from: vi.fn((table: string) =>
             buildChain(
                 table === 'profiles'
-                    ? { data: role === null ? null : { role }, error: null }
+                    ? profileResult
                     : { data: { id: 'row-1' }, error: null },
-                payload => {
-                    ;(writes[table] ??= []).push(payload)
-                }
+                record(table)
             )
         ),
         writes,
@@ -69,12 +89,10 @@ export function fakeRequestClient(opts: {
  * a route must not reach for it before the caller's role is established.
  */
 export function fakeServiceClient() {
-    const writes: Record<string, unknown[]> = {}
+    const { writes, record } = writeRecorder()
     return {
         from: vi.fn((table: string) =>
-            buildChain({ data: { id: 'row-1' }, error: null }, payload => {
-                ;(writes[table] ??= []).push(payload)
-            })
+            buildChain({ data: { id: 'row-1' }, error: null }, record(table))
         ),
         auth: {
             admin: {
@@ -83,6 +101,13 @@ export function fakeServiceClient() {
                     error: null,
                 })),
                 deleteUser: vi.fn(async () => ({ error: null })),
+                mfa: {
+                    listFactors: vi.fn(async () => ({
+                        data: { factors: [] },
+                        error: null,
+                    })),
+                    deleteFactor: vi.fn(async () => ({ error: null })),
+                },
             },
         },
         writes,
