@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextRequest, NextResponse } from 'next/server'
+import { requireRole } from '@/lib/auth/guard'
 
 function createAdminClient() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -18,6 +19,9 @@ export async function GET(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const guard = await requireRole(['admin'])
+        if (!guard.ok) return guard.response
+
         const { id } = await params
         const supabase = createAdminClient()
 
@@ -60,6 +64,9 @@ export async function PUT(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const guard = await requireRole(['admin'])
+        if (!guard.ok) return guard.response
+
         const { id } = await params
         const supabase = createAdminClient()
         const body = await request.json()
@@ -153,6 +160,9 @@ export async function DELETE(
     { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const guard = await requireRole(['admin'])
+        if (!guard.ok) return guard.response
+
         const { id } = await params
         const supabase = createAdminClient()
 

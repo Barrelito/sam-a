@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { requireRole } from '@/lib/auth/guard'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabaseClient } from '@supabase/supabase-js'
 
@@ -62,16 +63,13 @@ export async function GET() {
 // POST - Create a new station group
 export async function POST(request: NextRequest) {
     try {
+        const guard = await requireRole(['admin'])
+        if (!guard.ok) return guard.response
+
         const supabase = await createClient()
         const body = await request.json()
 
-        // Check authentication
-        const { data: { user } } = await supabase.auth.getUser()
-        if (!user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
-
-        const { name, description, vo_id, station_ids, created_by } = body
+        const { name, description, vo_id, station_ids } = body
 
         if (!name || !vo_id) {
             return NextResponse.json(
@@ -94,7 +92,7 @@ export async function POST(request: NextRequest) {
                 name,
                 description: description || null,
                 vo_id,
-                created_by: created_by || null
+                created_by: guard.userId
             })
             .select()
             .single()

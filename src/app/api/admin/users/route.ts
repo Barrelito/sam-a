@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { requireRole } from '@/lib/auth/guard'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabaseClient } from '@supabase/supabase-js'
 
@@ -68,6 +69,9 @@ export async function GET() {
 // POST - Create new user
 export async function POST(request: NextRequest) {
     try {
+        const guard = await requireRole(['admin'])
+        if (!guard.ok) return guard.response
+
         const body = await request.json()
         const { email, full_name, role, vo_id, station_ids, station_group_ids } = body
 
@@ -170,6 +174,9 @@ export async function POST(request: NextRequest) {
 // PUT - Update user
 export async function PUT(request: NextRequest) {
     try {
+        const guard = await requireRole(['admin'])
+        if (!guard.ok) return guard.response
+
         const body = await request.json()
         const { user_id, full_name, role, vo_id, station_ids, station_group_ids } = body
 
@@ -247,6 +254,9 @@ export async function PUT(request: NextRequest) {
 // DELETE - Delete user
 export async function DELETE(request: NextRequest) {
     try {
+        const guard = await requireRole(['admin'])
+        if (!guard.ok) return guard.response
+
         const { searchParams } = new URL(request.url)
         const userId = searchParams.get('user_id')
 

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requireRole } from '@/lib/auth/guard'
 
 function createAdminClient() {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -15,6 +16,9 @@ function createAdminClient() {
 // GET - List all verksamhetsområden
 export async function GET() {
     try {
+        const guard = await requireRole(['admin'])
+        if (!guard.ok) return guard.response
+
         const supabase = createAdminClient()
 
         const { data, error } = await supabase
