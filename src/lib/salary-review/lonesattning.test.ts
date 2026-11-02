@@ -154,6 +154,8 @@ describe('forPresentation: föregående lönesättning som medarbetaren får se'
         year: 2026,
         criteria: { '1a': 'bra' },
         particularly_skilled: { ps1: true },
+        criteria_evidence: { '1a': 'Ledde införandet av nya rutiner' },
+        particularly_skilled_evidence: { ps1: 'Handleder nya kollegor' },
         is_particularly_skilled: true,
         agreements: 'Leda en övning',
         development_needs: 'Handledarutbildning',
@@ -169,6 +171,8 @@ describe('forPresentation: föregående lönesättning som medarbetaren får se'
             year: 2026,
             criteria: { '1a': 'bra' },
             particularly_skilled: { ps1: true },
+            criteria_evidence: { '1a': 'Ledde införandet av nya rutiner' },
+            particularly_skilled_evidence: { ps1: 'Handleder nya kollegor' },
             is_particularly_skilled: true,
             agreements: 'Leda en övning',
             development_needs: 'Handledarutbildning',
@@ -189,8 +193,14 @@ describe('toPreviousLonesattning: sammanställer en tidigare lönesättning', ()
         final_increase: 1200,
         skilled_amount: 300,
         meeting_notes: 'Från lönesamtalet',
-        salary_criteria_assessments: [{ sub_criterion_key: '1a', rating: 'bra' as const }],
-        particularly_skilled_assessments: [{ criterion_key: 'ps1', is_met: false }],
+        salary_criteria_assessments: [
+            { sub_criterion_key: '1a', rating: 'bra' as const, evidence: 'Ledde införandet av nya rutiner' },
+            { sub_criterion_key: '1b', rating: 'bra' as const, evidence: '   ' },
+        ],
+        particularly_skilled_assessments: [
+            { criterion_key: 'ps1', is_met: false, evidence: 'Handleder nya kollegor' },
+            { criterion_key: 'ps2', is_met: true, evidence: null },
+        ],
         meeting_preparation: { development_needs: 'Från förberedelsen' },
     }
 
@@ -203,8 +213,11 @@ describe('toPreviousLonesattning: sammanställer en tidigare lönesättning', ()
 
         expect(previous).toEqual({
             year: 2026,
-            criteria: { '1a': 'bra' },
-            particularly_skilled: { ps1: false },
+            criteria: { '1a': 'bra', '1b': 'bra' },
+            particularly_skilled: { ps1: false, ps2: true },
+            // Konkreta exempel per kriterium; tomma texter tas inte med
+            criteria_evidence: { '1a': 'Ledde införandet av nya rutiner' },
+            particularly_skilled_evidence: { ps1: 'Handleder nya kollegor' },
             is_particularly_skilled: false,
             agreements: 'Leda en övning',
             development_needs: 'Handledarutbildning',

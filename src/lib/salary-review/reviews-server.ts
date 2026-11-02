@@ -104,8 +104,8 @@ export async function getPreviousLonesattning(
             skilled_amount,
             meeting_notes,
             cycle:salary_review_cycles (year),
-            salary_criteria_assessments (sub_criterion_key, rating),
-            particularly_skilled_assessments (criterion_key, is_met),
+            salary_criteria_assessments (sub_criterion_key, rating, evidence),
+            particularly_skilled_assessments (criterion_key, is_met, evidence),
             meeting_preparation:salary_meeting_preparations (development_needs)
         `)
         .eq('employee_id', employeeId)

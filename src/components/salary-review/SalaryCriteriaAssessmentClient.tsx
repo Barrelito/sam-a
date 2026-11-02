@@ -31,7 +31,7 @@ interface SalaryCriteriaAssessmentClientProps {
     review: any
     criteria: CategoryDefinition[]
     /** Fjolårets bedömning, visas bredvid varje kriterium */
-    previous?: { year: number; ratings: Record<string, CriteriaRating> } | null
+    previous?: { year: number; ratings: Record<string, CriteriaRating>; evidence?: Record<string, string> } | null
     /** Bedömningen när medarbetarsamtalet genomfördes, för att markera ändringar */
     atEmployeeMeeting?: Record<string, CriteriaRating> | null
 }
@@ -361,6 +361,7 @@ export default function SalaryCriteriaAssessmentClient({
                                                         <AssessmentHistory
                                                             previousYear={previous?.year}
                                                             previousLabel={previous?.ratings[sub.id] ? RATING_DISPLAY_NAMES[previous.ratings[sub.id]] : null}
+                                                            previousEvidence={previous?.evidence?.[sub.id] ?? null}
                                                             atMeetingLabel={sub.id in changedSinceMeeting
                                                                 ? (changedSinceMeeting[sub.id] ? RATING_DISPLAY_NAMES[changedSinceMeeting[sub.id]!] : null)
                                                                 : undefined}
