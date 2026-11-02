@@ -1,40 +1,25 @@
-// API Route: GET /api/salary-review/cycles
-// Hämtar alla löneöversynscykler
-
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth/guard'
+import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
 import { nextCycleYear, START_CYCLE_ROLES } from '@/lib/salary-review/lonesattning'
+
+// API Route: GET /api/salary-review/cycles
+// Alla löneöversyner, nyaste först, och den som är vald (årsvalet, annars
+// nyaste öppna). Klientsidor hämtar vald löneöversyn härifrån eftersom
+// årsvalet ligger i en cookie som bara servern läser.
 
 export async function GET() {
     try {
         const supabase = await createClient()
 
-        // Verifiera att användaren är autentiserad
         const { data: { user }, error: authError } = await supabase.auth.getUser()
-
         if (authError || !user) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            )
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        // Hämta alla cykler (RLS hanterar behörigheter)
-        const { data: cycles, error } = await supabase
-            .from('salary_review_cycles')
-            .select('*')
-            .order('year', { ascending: false })
-
-        if (error) {
-            console.error('Error fetching cycles:', error)
-            return NextResponse.json(
-                { error: 'Failed to fetch cycles' },
-                { status: 500 }
-            )
-        }
-
-        return NextResponse.json({ cycles })
+        const { cycle: selected, cycles } = await getSelectedCycle(supabase)
+        return NextResponse.json({ cycles, selected })
     } catch (error) {
         console.error('Unexpected error:', error)
         return NextResponse.json(
