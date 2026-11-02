@@ -93,7 +93,7 @@ export default function MeetingDocumentationForm({
 
             try {
                 // Anropa API för att få detaljerad uppdelning
-                // Vi utelämnar cycle_id så tar den aktiv cykel automatiskt
+                // Utan cycle_id används vald löneöversyn
                 const res = await fetch(`/api/salary-review/salary-distribution?station_id=${stationId}`)
                 if (res.ok) {
                     const data: DistributionResponse = await res.json()

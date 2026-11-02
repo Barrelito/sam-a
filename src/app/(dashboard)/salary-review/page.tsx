@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Users, ClipboardList, Calendar, FileText, Banknote } from 'lucide-react'
 import VoChiefDashboard from '@/components/salary-review/VoChiefDashboard'
 import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
+import { cycleStatusLabel } from '@/lib/salary-review/lonesattning'
 
 export default async function SalaryReviewPage() {
     const supabase = await createClient()
@@ -169,10 +170,10 @@ export default async function SalaryReviewPage() {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <Calendar className="h-5 w-5" />
-                            Aktiv Löneöversynscykel
+                            Löneöversyn {activeCycle.year}
                         </CardTitle>
                         <CardDescription>
-                            År {activeCycle.year} - Status: {activeCycle.status}
+                            Status: {cycleStatusLabel(activeCycle.status)}
                         </CardDescription>
                     </CardHeader>
                     {activeCycle.description && (

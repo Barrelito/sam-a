@@ -35,3 +35,8 @@ export function parseYear(value: string | string[] | null | undefined): number |
     if (!raw || !/^\d{4}$/.test(raw)) return null
     return Number(raw)
 }
+
+/** Status på en löneöversyn som chefen ser den. */
+export function cycleStatusLabel(status: CycleStatus): string {
+    return isOpenCycle({ status }) ? 'Öppen' : 'Stängd'
+}

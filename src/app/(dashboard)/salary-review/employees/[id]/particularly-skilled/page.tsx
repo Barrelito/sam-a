@@ -50,7 +50,7 @@ export default async function ParticularlySkillfulPage({ params }: { params: Pro
         return (
             <div className="container mx-auto py-8">
                 <p className="text-muted-foreground">
-                    Det finns ingen aktiv löneöversynscykel.
+                    Det finns ingen öppen löneöversyn.
                 </p>
             </div>
         )

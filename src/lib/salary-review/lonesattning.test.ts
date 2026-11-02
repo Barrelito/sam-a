@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { parseYear, pickCycle } from './lonesattning'
+import { cycleStatusLabel, parseYear, pickCycle } from './lonesattning'
 
 const c2025 = { id: 'c25', year: 2025, status: 'completed' as const }
 const c2026 = { id: 'c26', year: 2026, status: 'active' as const }
@@ -52,5 +52,13 @@ describe('parseYear', () => {
         expect(parseYear('')).toBeNull()
         expect(parseYear('27')).toBeNull()
         expect(parseYear('2027; drop')).toBeNull()
+    })
+})
+
+describe('cycleStatusLabel', () => {
+    it('visar planering och aktiv som öppen, och avslutad som stängd', () => {
+        expect(cycleStatusLabel('planning')).toBe('Öppen')
+        expect(cycleStatusLabel('active')).toBe('Öppen')
+        expect(cycleStatusLabel('completed')).toBe('Stängd')
     })
 })

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { DollarSign, TrendingUp, Users, CheckCircle2, Loader2 } from 'lucide-react'
 import { Progress } from '@/components/ui/progress'
+import { cycleStatusLabel } from '@/lib/salary-review/lonesattning'
 
 interface VoChiefDashboardProps {
     vo: any
@@ -69,15 +70,15 @@ export default function VoChiefDashboard({ vo, cycle, userName }: VoChiefDashboa
                 </p>
             </div>
 
-            {/* Active Cycle */}
+            {/* Vald löneöversyn */}
             {cycle && (
                 <Card className="mb-6 border-primary">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            Aktiv Löneöversynscykel
+                            Löneöversyn {cycle.year}
                         </CardTitle>
                         <CardDescription>
-                            År {cycle.year} - Status: {cycle.status}
+                            Status: {cycleStatusLabel(cycle.status)}
                         </CardDescription>
                     </CardHeader>
                     {cycle.description && (

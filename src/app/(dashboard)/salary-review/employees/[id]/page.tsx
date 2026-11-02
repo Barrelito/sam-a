@@ -59,7 +59,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
     // får rätt urval - inte bara direkta user_stations-kopplingar.
     const { stations } = await getAssignableStations(supabase, user.id)
 
-    // Hämta eller skapa review för aktiv cykel
+    // Hämta eller skapa lönesättningen i vald löneöversyn
     const { cycle: activeCycle } = await getSelectedCycle(supabase)
 
     let review = null
@@ -205,9 +205,9 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
             {!activeCycle && (
                 <Card className="mb-6 border-yellow-200 bg-yellow-50">
                     <CardHeader>
-                        <CardTitle className="text-yellow-800">Ingen aktiv löneöversynscykel</CardTitle>
+                        <CardTitle className="text-yellow-800">Ingen öppen löneöversyn</CardTitle>
                         <CardDescription>
-                            Det finns ingen aktiv löneöversynscykel för tillfället. Be en administratör eller VO-chef att skapa en cykel för att påbörja löneöversyn.
+                            Det finns ingen öppen löneöversyn. Starta nästa års löneöversyn från löneöversynens översikt.
                         </CardDescription>
                     </CardHeader>
                 </Card>
