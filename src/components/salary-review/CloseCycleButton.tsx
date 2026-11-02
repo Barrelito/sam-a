@@ -22,13 +22,26 @@ import { useToast } from '@/hooks/use-toast'
 interface CloseCycleButtonProps {
     cycleId: string
     year: number
-    /** Lönesättningar i löneöversynen som inte är klara */
-    unfinishedCount: number
 }
 
-export default function CloseCycleButton({ cycleId, year, unfinishedCount }: CloseCycleButtonProps) {
+type Preview = { total: number; unfinished: number }
+
+export default function CloseCycleButton({ cycleId, year }: CloseCycleButtonProps) {
     const [closing, setClosing] = useState(false)
+    // Underlaget räknas över hela organisationen när dialogen öppnas
+    const [preview, setPreview] = useState<Preview | null | 'error'>(null)
     const { toast } = useToast()
+
+    const loadPreview = async (open: boolean) => {
+        if (!open) return
+        setPreview(null)
+        try {
+            const response = await fetch(`/api/salary-review/cycles/${cycleId}/close`)
+            setPreview(response.ok ? await response.json() : 'error')
+        } catch {
+            setPreview('error')
+        }
+    }
 
     const close = async () => {
         setClosing(true)
@@ -50,7 +63,7 @@ export default function CloseCycleButton({ cycleId, year, unfinishedCount }: Clo
     }
 
     return (
-        <AlertDialog>
+        <AlertDialog onOpenChange={loadPreview}>
             <AlertDialogTrigger asChild>
                 <Button variant="outline" size="sm" disabled={closing}>
                     {closing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-4 w-4" />}
@@ -61,9 +74,11 @@ export default function CloseCycleButton({ cycleId, year, unfinishedCount }: Clo
                 <AlertDialogHeader>
                     <AlertDialogTitle>Stäng löneöversyn {year}?</AlertDialogTitle>
                     <AlertDialogDescription>
-                        {unfinishedCount > 0
-                            ? `${unfinishedCount} lönesättningar är inte klara. `
-                            : 'Alla lönesättningar är klara. '}
+                        {preview === null && 'Räknar lönesättningar som inte är klara… '}
+                        {preview === 'error' && 'Kunde inte räkna lönesättningar som inte är klara. '}
+                        {preview && preview !== 'error' && (preview.unfinished > 0
+                            ? `${preview.unfinished} av ${preview.total} medarbetare i hela organisationen har ingen klar lönesättning. `
+                            : 'Alla medarbetare har en klar lönesättning. ')}
                         När löneöversynen är stängd kan ingen station ändra något i den. Den går
                         fortfarande att öppna och läsa.
                     </AlertDialogDescription>

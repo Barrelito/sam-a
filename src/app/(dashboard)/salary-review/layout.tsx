@@ -12,30 +12,21 @@ export default async function SalaryReviewLayout({ children }: { children: React
     const supabase = await createClient()
     const { cycle, cycles } = await getSelectedCycle(supabase)
 
-    let unfinishedCount: number | null = null
+    // Admin och VO-chef kan stänga en öppen löneöversyn
+    let canClose = false
     if (cycle && isOpenCycle(cycle)) {
         const { data: { user } } = await supabase.auth.getUser()
         const { data: profile } = user
             ? await supabase.from('profiles').select('role').eq('id', user.id).single()
             : { data: null }
-
-        if (profile && CLOSE_CYCLE_ROLES.includes(profile.role as UserRole)) {
-            const { count } = await supabase
-                .from('salary_reviews')
-                .select('id', { count: 'exact', head: true })
-                .eq('cycle_id', cycle.id)
-                .neq('status', 'completed')
-            unfinishedCount = count ?? 0
-        }
+        canClose = !!profile && CLOSE_CYCLE_ROLES.includes(profile.role as UserRole)
     }
 
     return (
         <>
             {cycles.length > 0 && (
                 <div className="container mx-auto pt-6 flex flex-wrap items-center justify-end gap-3">
-                    {cycle && unfinishedCount !== null && (
-                        <CloseCycleButton cycleId={cycle.id} year={cycle.year} unfinishedCount={unfinishedCount} />
-                    )}
+                    {cycle && canClose && <CloseCycleButton cycleId={cycle.id} year={cycle.year} />}
                     <CycleYearPicker
                         cycles={cycles.map(c => ({ year: c.year, status: c.status }))}
                         selectedYear={cycle?.year ?? null}
