@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Users, ClipboardList, Calendar, FileText, Banknote } from 'lucide-react'
+import { Users, ClipboardList, Calendar, FileText, Banknote, MessageSquare } from 'lucide-react'
 import VoChiefDashboard from '@/components/salary-review/VoChiefDashboard'
 import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
 import { cycleStatusLabel, startableYear } from '@/lib/salary-review/lonesattning'
@@ -127,6 +127,17 @@ export default async function SalaryReviewPage() {
         })
     }
 
+    // Genomförda medarbetarsamtal i vald löneöversyn (RLS: chefens medarbetare)
+    let completedEmployeeMeetings = 0
+    if (activeCycle) {
+        const { count } = await supabase
+            .from('salary_employee_meetings')
+            .select('id, salary_reviews!inner(cycle_id)', { count: 'exact', head: true })
+            .eq('salary_reviews.cycle_id', activeCycle.id)
+            .not('completed_at', 'is', null)
+        completedEmployeeMeetings = count ?? 0
+    }
+
     const completionPercentage = totalEmployees > 0
         ? Math.round((completedReviews / totalEmployees) * 100)
         : 0
@@ -175,7 +186,24 @@ export default async function SalaryReviewPage() {
             )}
 
             {/* Quick Stats */}
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5 mb-8">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            Medarbetarsamtal
+                        </CardTitle>
+                        <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold">
+                            {completedEmployeeMeetings} av {totalEmployees}
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Genomförda {activeCycle ? activeCycle.year : ''}
+                        </p>
+                    </CardContent>
+                </Card>
+
                 <Card>
                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                         <CardTitle className="text-sm font-medium">
@@ -309,20 +337,20 @@ export default async function SalaryReviewPage() {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <Calendar className="h-5 w-5" />
-                            Lönesamtal
+                            Medarbetarsamtal & lönesamtal
                         </CardTitle>
                         <CardDescription>
-                            Förbered och genomför lönesamtal
+                            Lönesättningen börjar med medarbetarsamtal och avslutas med lönesamtal
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <Link href="/salary-review/employees?tab=todo">
                             <Button className="w-full">
-                                Hantera lönesamtal
+                                Hantera samtal
                             </Button>
                         </Link>
                         <p className="text-xs text-muted-foreground mt-2">
-                            Välj medarbetare för att förbereda eller genomföra samtal
+                            Välj medarbetare för att förbereda eller genomföra medarbetarsamtal och lönesamtal
                         </p>
                     </CardContent>
                 </Card>
