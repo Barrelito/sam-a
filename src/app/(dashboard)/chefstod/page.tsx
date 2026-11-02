@@ -15,7 +15,7 @@ const suggestedPrompts = [
     {
         icon: Users,
         title: "Medarbetarsamtal",
-        prompt: "Ge mig en mall för utvecklingssamtal med fokus på kompetensutveckling"
+        prompt: "Ge mig en mall för medarbetarsamtal med fokus på kompetensutveckling"
     },
     {
         icon: Calendar,
