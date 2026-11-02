@@ -98,7 +98,7 @@ export default async function ParticularlySkillfulPage({ params }: { params: Pro
     }
 
     return (
-        <ClosedCycleGuard cycle={activeCycle}>
+        <ClosedCycleGuard cycle={activeCycle} backHref={`/salary-review/employees/${employeeId}`}>
             <ParticularlySkillfulAssessmentClient
                 employee={employee}
                 review={review}

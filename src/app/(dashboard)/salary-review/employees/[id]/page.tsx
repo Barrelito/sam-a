@@ -17,6 +17,7 @@ import { getAssignableStations } from '@/lib/employees/access'
 import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
 import { isOpenCycle } from '@/lib/salary-review/lonesattning'
 import { ClosedCycleNotice } from '@/components/salary-review/ClosedCycleGuard'
+import { getEmployeeMeeting } from '@/lib/salary-review/reviews-server'
 
 export default async function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient()
@@ -101,6 +102,9 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
             criteriaCount = existingReview.salary_criteria_assessments?.length || 0
         }
     }
+
+    // Medarbetarsamtalet är lönesättningens första steg
+    const employeeMeeting = review ? await getEmployeeMeeting(supabase, review.id) : null
 
     const CATEGORY_LABELS = {
         VUB: 'VUB - Specialistsjuksköterska',
@@ -230,12 +234,38 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                     {/* Assessment Progress */}
                     <Card className="mb-6">
                         <CardHeader>
-                            <CardTitle>Bedömningsöversikt - {activeCycle.year}</CardTitle>
+                            <CardTitle>Lönesättning {activeCycle.year}</CardTitle>
                             <CardDescription>
-                                Slutför alla bedömningar för att kunna genomföra lönesamtal
+                                Medarbetarsamtal, bedömning och lönesamtal
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
+                            {/* Medarbetarsamtal */}
+                            <div className={`flex items-center justify-between p-4 border rounded-lg hover:bg-accent/50 transition-colors ${employeeMeeting?.completed_at ? 'border-l-4 border-l-green-500 bg-green-50/30' : ''
+                                }`}>
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <h3 className="font-medium">Medarbetarsamtal</h3>
+                                        {employeeMeeting?.completed_at && (
+                                            <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                        )}
+                                    </div>
+                                    <p className="text-sm text-muted-foreground">
+                                        {employeeMeeting?.completed_at
+                                            ? `✅ Genomfört ${employeeMeeting.held_on ? new Date(employeeMeeting.held_on).toLocaleDateString('sv-SE') : ''}`
+                                            : employeeMeeting
+                                                ? '⏳ Påbörjat'
+                                                : 'Ej genomfört'}
+                                    </p>
+                                </div>
+                                <Link href={`/salary-review/employees/${employeeId}/employee-meeting`}>
+                                    <Button variant="outline">
+                                        <MessageSquare className="mr-2 h-4 w-4" />
+                                        {employeeMeeting?.completed_at ? 'Visa samtal' : employeeMeeting ? 'Fortsätt' : 'Förbered samtal'}
+                                    </Button>
+                                </Link>
+                            </div>
+
                             {/* Particularly Skillful (only for VUB/SSK) */}
                             {hasParticularlySkillful && (
                                 <div className={`flex items-center justify-between p-4 border rounded-lg transition-colors ${particularlySkillfulCount > 0 ? (review.is_particularly_skilled ? 'border-l-4 border-l-green-500 bg-green-50/30' : 'border-l-4 border-l-yellow-500 bg-yellow-50/30') : ''
