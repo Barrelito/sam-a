@@ -49,3 +49,17 @@ export async function getSelectedCycle(
     const year = requestedYear ?? (await selectedYearFromCookie())
     return { cycle: pickCycle(cycles, year), cycles }
 }
+
+/**
+ * Löneöversynen en route ska arbeta i: ?cycle_id= om den anges, annars
+ * ?year= eller årsvalet, annars nyaste öppna. null om ingen finns.
+ */
+export async function resolveCycleId(
+    supabase: Client,
+    searchParams: URLSearchParams
+): Promise<string | null> {
+    const cycleId = searchParams.get('cycle_id')
+    if (cycleId) return cycleId
+    const { cycle } = await getSelectedCycle(supabase, parseYear(searchParams.get('year')))
+    return cycle?.id ?? null
+}

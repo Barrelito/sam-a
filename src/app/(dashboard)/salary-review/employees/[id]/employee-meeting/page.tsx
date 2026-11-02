@@ -12,6 +12,7 @@ import ClosedCycleGuard from '@/components/salary-review/ClosedCycleGuard'
 import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
 import { getEmployeeMeeting, getOrCreateReview, getPreviousLonesattning } from '@/lib/salary-review/reviews-server'
 import PreviousLonesattningPanel from '@/components/salary-review/PreviousLonesattningPanel'
+import MissingLonesattning from '@/components/salary-review/MissingLonesattning'
 import { hasParticularlySkillfulCriteria } from '@/lib/salary-review/particularly-skilled-criteria'
 
 export default async function EmployeeMeetingPage({ params }: { params: Promise<{ id: string }> }) {
@@ -45,13 +46,7 @@ export default async function EmployeeMeetingPage({ params }: { params: Promise<
 
     const review = await getOrCreateReview(supabase, cycle, employeeId, user.id)
     if (!review) {
-        return (
-            <div className="container mx-auto py-8">
-                <p className="text-muted-foreground">
-                    Medarbetaren har ingen lönesättning i löneöversyn {cycle.year}.
-                </p>
-            </div>
-        )
+        return <MissingLonesattning cycle={cycle} />
     }
 
     const [meeting, previous] = await Promise.all([

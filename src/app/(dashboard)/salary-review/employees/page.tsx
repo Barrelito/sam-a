@@ -70,7 +70,7 @@ function EmployeesContent() {
 
         // Vald löneöversyn (årsvalet läses på servern)
         const cyclesResponse = await fetch('/api/salary-review/cycles')
-        const { selected: activeCycle } = cyclesResponse.ok
+        const { selected: selectedCycle } = cyclesResponse.ok
             ? await cyclesResponse.json()
             : { selected: null }
 
@@ -113,7 +113,7 @@ function EmployeesContent() {
         // Filter reviews to match active cycle
         const enrichedEmployees = employeesData?.map(emp => ({
             ...emp,
-            active_review: emp.salary_reviews?.find((r: any) => r.cycle_id === activeCycle?.id) || null
+            active_review: emp.salary_reviews?.find((r: any) => r.cycle_id === selectedCycle?.id) || null
         })) || []
 
         // Stationer som användaren får placera medarbetare på.

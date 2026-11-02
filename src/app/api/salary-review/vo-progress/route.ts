@@ -3,8 +3,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
-import { parseYear } from '@/lib/salary-review/lonesattning'
+import { resolveCycleId } from '@/lib/salary-review/cycles-server'
 
 // GET /api/salary-review/vo-progress
 // Hämta förloppsstatistik för hela VO
@@ -12,7 +11,6 @@ export async function GET(request: Request) {
     try {
         const supabase = await createClient()
         const { searchParams } = new URL(request.url)
-        const cycleId = searchParams.get('cycle_id')
 
         // Auth check
         const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -31,15 +29,10 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'No VO found for user' }, { status: 404 })
         }
 
-        // Vald löneöversyn om ingen anges (?year= eller nyaste öppna)
-        let targetCycleId = cycleId
+        // Angiven löneöversyn, annars vald (?year=, årsvalet eller nyaste öppna)
+        const targetCycleId = await resolveCycleId(supabase, searchParams)
         if (!targetCycleId) {
-            const { cycle } = await getSelectedCycle(supabase, parseYear(searchParams.get('year')))
-
-            if (!cycle) {
-                return NextResponse.json({ error: 'No active cycle' }, { status: 404 })
-            }
-            targetCycleId = cycle.id
+            return NextResponse.json({ error: 'Ingen löneöversyn vald' }, { status: 404 })
         }
 
         // Get all stations in VO with their progress

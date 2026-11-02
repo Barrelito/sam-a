@@ -6,6 +6,7 @@ import {
     isOpenCycle,
     pickPreviousReview,
     toPreviousLonesattning,
+    type AssessmentSnapshot,
     type PreviousLonesattning,
 } from './lonesattning'
 import type { SalaryReviewCycle } from './types'
@@ -16,16 +17,24 @@ export async function getOrCreateReview(
     supabase: Client,
     cycle: SalaryReviewCycle,
     employeeId: string,
-    userId: string
+    userId: string,
+    options: {
+        /** Kolumner och relationer att hämta, t.ex. bedömningarna */
+        select?: string
+        /** Status för en nyskapad lönesättning */
+        initialStatus?: 'not_started' | 'in_progress'
+    } = {}
 ) {
+    const { select = '*', initialStatus = 'not_started' } = options
+
     const { data: existing } = await supabase
         .from('salary_reviews')
-        .select('*')
+        .select(select)
         .eq('employee_id', employeeId)
         .eq('cycle_id', cycle.id)
         .maybeSingle()
 
-    if (existing || !isOpenCycle(cycle)) return existing ?? null
+    if (existing || !isOpenCycle(cycle)) return (existing as any) ?? null
 
     const { data: created } = await supabase
         .from('salary_reviews')
@@ -33,12 +42,31 @@ export async function getOrCreateReview(
             cycle_id: cycle.id,
             employee_id: employeeId,
             manager_id: userId,
-            status: 'not_started',
+            status: initialStatus,
         })
-        .select()
+        .select(select)
         .single()
 
-    return created ?? null
+    return (created as any) ?? null
+}
+
+/**
+ * Det bedömningsstegen jämför med: fjolårets lönesättning och bedömningen
+ * när medarbetarsamtalet genomfördes (null om det inte är genomfört).
+ */
+export async function getAssessmentComparison(
+    supabase: Client,
+    employeeId: string,
+    cycle: SalaryReviewCycle,
+    reviewId: string
+) {
+    const [previous, meeting] = await Promise.all([
+        getPreviousLonesattning(supabase, employeeId, cycle.year),
+        getEmployeeMeeting(supabase, reviewId),
+    ])
+    const atEmployeeMeeting: AssessmentSnapshot | null =
+        meeting?.completed_at ? meeting.assessment_snapshot : null
+    return { previous, atEmployeeMeeting }
 }
 
 /** Medarbetarsamtalet i en lönesättning, eller null om det inte påbörjats. */

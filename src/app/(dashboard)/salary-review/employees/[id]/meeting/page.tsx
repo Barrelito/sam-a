@@ -16,7 +16,7 @@ import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
 import { isOpenCycle, showMissingEmployeeMeetingWarning } from '@/lib/salary-review/lonesattning'
 import { getEmployeeMeeting } from '@/lib/salary-review/reviews-server'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { ClosedCycleNotice } from '@/components/salary-review/ClosedCycleGuard'
+import { ClosedCycleNotice, ReadOnlyFieldset } from '@/components/salary-review/ClosedCycleGuard'
 
 export default async function MeetingPage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient()
@@ -49,9 +49,9 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
     }
 
     // Hämta vald löneöversyn och lönesättning
-    const { cycle: activeCycle } = await getSelectedCycle(supabase)
+    const { cycle: selectedCycle } = await getSelectedCycle(supabase)
 
-    if (!activeCycle) {
+    if (!selectedCycle) {
         return (
             <div className="container mx-auto py-8">
                 <Card className="border-yellow-200 bg-yellow-50">
@@ -76,7 +76,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
       meeting_preparation:salary_meeting_preparations (*)
     `)
         .eq('employee_id', employeeId)
-        .eq('cycle_id', activeCycle.id)
+        .eq('cycle_id', selectedCycle.id)
         .single()
 
     if (reviewError || !review) {
@@ -84,7 +84,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
     }
 
     // En stängd löneöversyn går att läsa men inte ändra
-    const isClosed = !isOpenCycle(activeCycle)
+    const isClosed = !isOpenCycle(selectedCycle)
 
     // Lönesamtalet följer upp medarbetarsamtalet i samma lönesättning
     const employeeMeeting = await getEmployeeMeeting(supabase, review.id)
@@ -112,7 +112,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
                 </Button>
             </Link>
 
-            {isClosed && <ClosedCycleNotice year={activeCycle.year} />}
+            {isClosed && <ClosedCycleNotice year={selectedCycle.year} />}
 
             {showMissingEmployeeMeetingWarning(employeeMeeting) && (
                 <Alert className="mb-4 border-amber-300 bg-amber-50">
@@ -163,7 +163,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <fieldset disabled={isClosed} className="m-0 min-w-0 border-0 p-0">
+                            <ReadOnlyFieldset disabled={isClosed}>
                                 <MeetingPreparationForm
                                     reviewId={review.id}
                                     employeeCategory={employee.category}
@@ -171,7 +171,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
                                     initialData={Array.isArray(review.meeting_preparation) ? review.meeting_preparation[0] : review.meeting_preparation ?? null}
                                     employeeMeetingAgreements={employeeMeeting?.agreements ?? null}
                                 />
-                            </fieldset>
+                            </ReadOnlyFieldset>
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -196,7 +196,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <fieldset disabled={isClosed} className="m-0 min-w-0 border-0 p-0">
+                            <ReadOnlyFieldset disabled={isClosed}>
                                 <MeetingDocumentationForm
                                     reviewId={review.id}
                                     employee={employee}
@@ -210,7 +210,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
                                     distributionIncrease={(review.final_increase || 0) + ((review as any).skilled_amount || 0)}
                                     skilledAmount={(review as any).skilled_amount || 0}
                                 />
-                            </fieldset>
+                            </ReadOnlyFieldset>
                         </CardContent>
                     </Card>
                 </TabsContent>

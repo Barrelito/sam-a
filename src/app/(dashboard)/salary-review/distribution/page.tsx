@@ -118,9 +118,9 @@ export default async function DistributionPage({
     }
 
     // Get active cycle
-    const { cycle: activeCycle } = await getSelectedCycle(supabase)
+    const { cycle: selectedCycle } = await getSelectedCycle(supabase)
 
-    if (!activeCycle) {
+    if (!selectedCycle) {
         return (
             <div className="container mx-auto py-8">
                 <h1 className="text-2xl font-bold">Ingen öppen löneöversyn</h1>
@@ -166,8 +166,8 @@ export default async function DistributionPage({
                     stationName={selectedStationName || undefined}
                     stationGroupId={selectedGroupId || undefined}
                     stationGroupName={selectedGroupName || undefined}
-                    cycleId={activeCycle.id}
-                    cycleYear={activeCycle.year}
+                    cycleId={selectedCycle.id}
+                    cycleYear={selectedCycle.year}
                 />
             </div>
         </div>

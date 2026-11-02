@@ -3,9 +3,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
-import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
+import { resolveCycleId } from '@/lib/salary-review/cycles-server'
 import { closedCycleResponse } from '@/lib/salary-review/review-lock'
-import { parseYear } from '@/lib/salary-review/lonesattning'
 
 // GET /api/salary-review/salary-distribution?station_id=xxx&cycle_id=xxx
 // OR /api/salary-review/salary-distribution?station_group_id=xxx&cycle_id=xxx
@@ -15,7 +14,6 @@ export async function GET(request: Request) {
         const { searchParams } = new URL(request.url)
         const stationId = searchParams.get('station_id')
         const stationGroupId = searchParams.get('station_group_id')
-        const cycleId = searchParams.get('cycle_id')
 
         // Auth check
         const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -31,15 +29,10 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'Provide either station_id or station_group_id, not both' }, { status: 400 })
         }
 
-        // Vald löneöversyn om ingen anges (?year= eller nyaste öppna)
-        let targetCycleId = cycleId
+        // Angiven löneöversyn, annars vald (?year=, årsvalet eller nyaste öppna)
+        const targetCycleId = await resolveCycleId(supabase, searchParams)
         if (!targetCycleId) {
-            const { cycle } = await getSelectedCycle(supabase, parseYear(searchParams.get('year')))
-
-            if (!cycle) {
-                return NextResponse.json({ error: 'No active cycle' }, { status: 404 })
-            }
-            targetCycleId = cycle.id
+            return NextResponse.json({ error: 'Ingen löneöversyn vald' }, { status: 404 })
         }
 
         // Determine which stations to query
