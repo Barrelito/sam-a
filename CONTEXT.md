@@ -90,6 +90,12 @@ _Undvik_: utvecklingssamtal
 
 **Lönesamtal**:
 Lönesättningens avslutande samtal, där bedömningen kopplas till medarbetarens nya lön.
+Kan hållas även om medarbetarsamtalet inte blivit av.
+
+**Överenskommelse**:
+Det chef och medarbetare kommer överens om i medarbetarsamtalet, till exempel mål
+och utveckling. Ändras inte i efterhand, utan följs upp i lönesamtalet.
+_Undvik_: mål, tidigare överenskommelser
 
 **Bedömning**:
 Chefens värdering av medarbetaren mot lönekriterierna, och för vissa yrken mot
