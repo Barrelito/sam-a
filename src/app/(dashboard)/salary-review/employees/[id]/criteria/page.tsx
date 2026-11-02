@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import { SALARY_CRITERIA } from '@/lib/salary-review/salary-criteria'
 import SalaryCriteriaAssessmentClient from '@/components/salary-review/SalaryCriteriaAssessmentClient'
+import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
 
 export default async function SalaryCriteriaPage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient()
@@ -30,11 +31,7 @@ export default async function SalaryCriteriaPage({ params }: { params: Promise<{
     }
 
     // Hämta eller skapa review
-    const { data: activeCycle } = await supabase
-        .from('salary_review_cycles')
-        .select('*')
-        .eq('status', 'active')
-        .single()
+    const { cycle: activeCycle } = await getSelectedCycle(supabase)
 
     if (!activeCycle) {
         return (

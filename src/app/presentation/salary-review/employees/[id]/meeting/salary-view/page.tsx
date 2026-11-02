@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
 import EmployeeSalaryPresentation from '@/components/salary-review/EmployeeSalaryPresentation'
 
 async function getEmployeeSalaryData(employeeId: string) {
@@ -18,14 +19,14 @@ async function getEmployeeSalaryData(employeeId: string) {
             return null
         }
 
-        // Find review for this employee (get most recent one)
+        // Lönesättningen i vald löneöversyn
+        const { cycle } = await getSelectedCycle(supabase)
         const { data: review, error: reviewError } = await supabase
             .from('salary_reviews')
             .select('proposed_increase, final_increase, skilled_amount')
             .eq('employee_id', employeeId)
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .single()
+            .eq('cycle_id', cycle?.id ?? '')
+            .maybeSingle()
 
         if (reviewError || !review) {
             console.error('No active review found:', reviewError)

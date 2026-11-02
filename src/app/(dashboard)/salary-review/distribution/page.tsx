@@ -8,6 +8,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft } from 'lucide-react'
 import DistributionSelector from '@/components/salary-review/DistributionSelector'
+import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
 
 export default async function DistributionPage({
     searchParams
@@ -117,11 +118,7 @@ export default async function DistributionPage({
     }
 
     // Get active cycle
-    const { data: activeCycle } = await supabase
-        .from('salary_review_cycles')
-        .select('id, year')
-        .eq('status', 'active')
-        .single()
+    const { cycle: activeCycle } = await getSelectedCycle(supabase)
 
     if (!activeCycle) {
         return (

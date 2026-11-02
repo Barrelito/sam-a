@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Users, ClipboardList, Calendar, FileText, Banknote } from 'lucide-react'
 import VoChiefDashboard from '@/components/salary-review/VoChiefDashboard'
+import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
 
 export default async function SalaryReviewPage() {
     const supabase = await createClient()
@@ -39,13 +40,7 @@ export default async function SalaryReviewPage() {
     }
 
     // Get active cycle
-    const { data: cycles } = await supabase
-        .from('salary_review_cycles')
-        .select('*')
-        .order('year', { ascending: false })
-        .limit(1)
-
-    const activeCycle = cycles?.[0]
+    const { cycle: activeCycle, cycles } = await getSelectedCycle(supabase)
     const canCreateCycle = ['admin', 'vo_chief'].includes(profile.role)
 
     // VO CHIEF: Show VO-specific dashboard

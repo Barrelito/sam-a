@@ -14,6 +14,7 @@ import { getTotalCriteriaCount } from '@/lib/salary-review/salary-criteria'
 import EditEmployeeDialog from '@/components/salary-review/EditEmployeeDialog'
 import DeleteEmployeeDialog from '@/components/salary-review/DeleteEmployeeDialog'
 import { getAssignableStations } from '@/lib/employees/access'
+import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
 
 export default async function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient()
@@ -59,11 +60,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
     const { stations } = await getAssignableStations(supabase, user.id)
 
     // Hämta eller skapa review för aktiv cykel
-    const { data: activeCycle } = await supabase
-        .from('salary_review_cycles')
-        .select('*')
-        .eq('status', 'active')
-        .maybeSingle()
+    const { cycle: activeCycle } = await getSelectedCycle(supabase)
 
     let review = null
     let particularlySkillfulCount = 0

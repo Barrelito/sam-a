@@ -4,6 +4,8 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { getAssignableStations } from '@/lib/employees/access'
+import { loadCycles } from '@/lib/salary-review/cycles-server'
+import { isOpenCycle } from '@/lib/salary-review/lonesattning'
 import {
     describeEmployeeError,
     normalizeEmployeeInput,
@@ -252,21 +254,19 @@ export async function DELETE(
             )
         }
 
-        // Check if employee has active salary reviews (for warning purposes)
-        const { data: activeCycle } = await supabase
-            .from('salary_review_cycles')
-            .select('id')
-            .eq('status', 'active')
-            .maybeSingle()
+        // Har medarbetaren en lönesättning i någon öppen löneöversyn? (för loggen)
+        const openCycleIds = (await loadCycles(supabase))
+            .filter(isOpenCycle)
+            .map(c => c.id)
 
         let hasActiveReview = false
 
-        if (activeCycle) {
+        if (openCycleIds.length > 0) {
             const { count } = await supabase
                 .from('salary_reviews')
                 .select('id', { count: 'exact', head: true })
                 .eq('employee_id', id)
-                .eq('cycle_id', activeCycle.id)
+                .in('cycle_id', openCycleIds)
 
             hasActiveReview = (count || 0) > 0
         }
