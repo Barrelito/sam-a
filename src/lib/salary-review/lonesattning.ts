@@ -45,10 +45,15 @@ export function cycleStatusLabel(status: CycleStatus): string {
 /**
  * Vilka som får starta nästa års löneöversyn. Att starta lägger bara till
  * något, så chefer får göra det själva (ADR 0004). Biträdande chef får inte.
+ * Samma lista finns i databasregeln "Managers can start cycles"
+ * (supabase/migrations/20261102120000_chefer_startar_loneoversyn.sql).
  */
 export const START_CYCLE_ROLES: readonly UserRole[] = ['station_manager', 'area_manager', 'vo_chief', 'admin']
 
-/** Att stänga påverkar alla stationer och är förbehållet admin och VO-chef. */
+/**
+ * Att stänga påverkar alla stationer och är förbehållet admin och VO-chef.
+ * Motsvarar databasregeln "Admins and VO chiefs can update cycles".
+ */
 export const CLOSE_CYCLE_ROLES: readonly UserRole[] = ['vo_chief', 'admin']
 
 /** Det enda år som får startas: året efter dagens datum. */
@@ -209,4 +214,26 @@ export function showMissingEmployeeMeetingWarning(
     meeting: { completed_at: string | null } | null
 ): boolean {
     return !meeting?.completed_at
+}
+
+/** Hur ett kriterium för särskild yrkesskicklighet visas. */
+export function metLabel(met: boolean | null | undefined): string {
+    return met ? 'Uppfyllt' : 'Ej uppfyllt'
+}
+
+/**
+ * Som changedSinceEmployeeMeeting, men för särskild yrkesskicklighet: ett
+ * kriterium som inte är bedömt räknas som ej uppfyllt, både nu och då.
+ */
+export function changedSkilledSinceEmployeeMeeting(
+    keys: string[],
+    current: Record<string, boolean | undefined>,
+    atMeeting: Record<string, boolean> | null | undefined
+): Record<string, boolean> {
+    if (!atMeeting) return {}
+    const changed = changedSinceEmployeeMeeting(
+        Object.fromEntries(keys.map(key => [key, current[key] ?? false])),
+        Object.fromEntries(keys.map(key => [key, atMeeting[key] ?? false]))
+    )
+    return changed as Record<string, boolean>
 }

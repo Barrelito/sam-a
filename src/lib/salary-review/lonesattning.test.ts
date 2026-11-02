@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest'
 import {
     assessmentSnapshot,
     changedSinceEmployeeMeeting,
+    changedSkilledSinceEmployeeMeeting,
+    metLabel,
     showMissingEmployeeMeetingWarning,
     cycleStatusLabel,
     forPresentation,
@@ -276,5 +278,32 @@ describe('showMissingEmployeeMeetingWarning: varning i lönesamtalet', () => {
 
     it('varnar inte när medarbetarsamtalet är genomfört', () => {
         expect(showMissingEmployeeMeetingWarning({ completed_at: '2026-11-20T09:00:00Z' })).toBe(false)
+    })
+})
+
+describe('changedSkilledSinceEmployeeMeeting: särskild yrkesskicklighet som ändrats', () => {
+    const keys = ['ps1', 'ps2', 'ps3']
+
+    it('räknar ej bedömt som ej uppfyllt, både nu och vid samtalet', () => {
+        expect(changedSkilledSinceEmployeeMeeting(keys, { ps1: true }, { ps1: true, ps2: false })).toEqual({})
+    })
+
+    it('ger värdet vid samtalet för varje ändrat kriterium', () => {
+        expect(changedSkilledSinceEmployeeMeeting(keys, { ps1: false, ps3: true }, { ps1: true })).toEqual({
+            ps1: true,
+            ps3: false,
+        })
+    })
+
+    it('ger inget utan genomfört medarbetarsamtal', () => {
+        expect(changedSkilledSinceEmployeeMeeting(keys, { ps1: true }, null)).toEqual({})
+    })
+})
+
+describe('metLabel', () => {
+    it('visar uppfyllt och ej uppfyllt', () => {
+        expect(metLabel(true)).toBe('Uppfyllt')
+        expect(metLabel(false)).toBe('Ej uppfyllt')
+        expect(metLabel(undefined)).toBe('Ej uppfyllt')
     })
 })

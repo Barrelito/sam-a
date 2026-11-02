@@ -49,9 +49,9 @@ export default async function VoBudgetPage() {
     }
 
     // Get active cycle
-    const { cycle: activeCycle } = await getSelectedCycle(supabase)
+    const { cycle: selectedCycle } = await getSelectedCycle(supabase)
 
-    if (!activeCycle) {
+    if (!selectedCycle) {
         return (
             <div className="container mx-auto py-8">
                 <h1 className="text-2xl font-bold">Ingen öppen löneöversyn</h1>
@@ -72,7 +72,7 @@ export default async function VoBudgetPage() {
     return (
         <VoBudgetClient
             vo={userProfile.vo as any}
-            cycle={activeCycle}
+            cycle={selectedCycle}
             stations={stations || []}
         />
     )

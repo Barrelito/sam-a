@@ -42,7 +42,7 @@ export default async function SalaryReviewPage() {
     }
 
     // Get active cycle
-    const { cycle: activeCycle, cycles } = await getSelectedCycle(supabase)
+    const { cycle: selectedCycle, cycles } = await getSelectedCycle(supabase)
     // Nästa års löneöversyn kan startas av chefen själv (ADR 0004)
     const yearToStart = startableYear(profile.role, cycles, new Date())
 
@@ -58,13 +58,13 @@ export default async function SalaryReviewPage() {
             .eq('id', user.id)
             .single()
 
-        if (!userProfile || !userProfile.vo_id || !activeCycle) {
+        if (!userProfile || !userProfile.vo_id || !selectedCycle) {
             return (
                 <div className="container mx-auto py-8">
                     <h1 className="text-2xl font-bold mb-4">Löneöversyn - VO-chef</h1>
                     {!userProfile && <p className="text-muted-foreground">Inget VO kopplat till ditt konto.</p>}
-                    {!activeCycle && <p className="text-muted-foreground mb-4">Ingen öppen löneöversyn.</p>}
-                    {!activeCycle && yearToStart && <StartCycleCard year={yearToStart} />}
+                    {!selectedCycle && <p className="text-muted-foreground mb-4">Ingen öppen löneöversyn.</p>}
+                    {!selectedCycle && yearToStart && <StartCycleCard year={yearToStart} />}
                 </div>
             )
         }
@@ -78,7 +78,7 @@ export default async function SalaryReviewPage() {
                 )}
                 <VoChiefDashboard
                     vo={userProfile.vo}
-                    cycle={activeCycle}
+                    cycle={selectedCycle}
                     userName={profile.full_name || 'VO-chef'}
                 />
             </>
@@ -104,9 +104,9 @@ export default async function SalaryReviewPage() {
     let completedReviews = 0
     let ongoingReviews = 0
 
-    if (activeCycle && employeesData) {
+    if (selectedCycle && employeesData) {
         employeesData.forEach(emp => {
-            const review = emp.salary_reviews?.find((r: any) => r.cycle_id === activeCycle.id)
+            const review = emp.salary_reviews?.find((r: any) => r.cycle_id === selectedCycle.id)
 
             if (review) {
                 if (review.status === 'completed') {
@@ -129,11 +129,11 @@ export default async function SalaryReviewPage() {
 
     // Genomförda medarbetarsamtal i vald löneöversyn (RLS: chefens medarbetare)
     let completedEmployeeMeetings = 0
-    if (activeCycle) {
+    if (selectedCycle) {
         const { count } = await supabase
             .from('salary_employee_meetings')
             .select('id, salary_reviews!inner(cycle_id)', { count: 'exact', head: true })
-            .eq('salary_reviews.cycle_id', activeCycle.id)
+            .eq('salary_reviews.cycle_id', selectedCycle.id)
             .not('completed_at', 'is', null)
         completedEmployeeMeetings = count ?? 0
     }
@@ -154,7 +154,7 @@ export default async function SalaryReviewPage() {
             {/* Starta nästa års löneöversyn */}
             {yearToStart && <StartCycleCard year={yearToStart} />}
 
-            {!activeCycle && !yearToStart && (
+            {!selectedCycle && !yearToStart && (
                 <Card className="mb-6 border-yellow-200 bg-yellow-50">
                     <CardHeader>
                         <CardTitle className="text-yellow-900">Ingen öppen löneöversyn</CardTitle>
@@ -166,20 +166,20 @@ export default async function SalaryReviewPage() {
             )}
 
             {/* Vald löneöversyn */}
-            {activeCycle && (
+            {selectedCycle && (
                 <Card className="mb-6 border-primary bg-primary/5">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             <Calendar className="h-5 w-5" />
-                            Löneöversyn {activeCycle.year}
+                            Löneöversyn {selectedCycle.year}
                         </CardTitle>
                         <CardDescription>
-                            Status: {cycleStatusLabel(activeCycle.status)}
+                            Status: {cycleStatusLabel(selectedCycle.status)}
                         </CardDescription>
                     </CardHeader>
-                    {activeCycle.description && (
+                    {selectedCycle.description && (
                         <CardContent>
-                            <p className="text-sm">{activeCycle.description}</p>
+                            <p className="text-sm">{selectedCycle.description}</p>
                         </CardContent>
                     )}
                 </Card>
@@ -199,7 +199,7 @@ export default async function SalaryReviewPage() {
                             {completedEmployeeMeetings} av {totalEmployees}
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            Genomförda {activeCycle ? activeCycle.year : ''}
+                            Genomförda {selectedCycle ? selectedCycle.year : ''}
                         </p>
                     </CardContent>
                 </Card>

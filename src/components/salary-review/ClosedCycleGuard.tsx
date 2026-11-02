@@ -20,6 +20,15 @@ export function ClosedCycleNotice({ year }: { year: number }) {
     )
 }
 
+/** Gör fälten och knapparna i innehållet inaktiva när `disabled` är satt. */
+export function ReadOnlyFieldset({ disabled, children }: { disabled: boolean; children: React.ReactNode }) {
+    return (
+        <fieldset disabled={disabled} className="m-0 min-w-0 border-0 p-0">
+            {children}
+        </fieldset>
+    )
+}
+
 export default function ClosedCycleGuard({
     cycle,
     backHref,
@@ -43,9 +52,7 @@ export default function ClosedCycleGuard({
                 </Link>
                 <ClosedCycleNotice year={cycle.year} />
             </div>
-            <fieldset disabled className="m-0 min-w-0 border-0 p-0">
-                {children}
-            </fieldset>
+            <ReadOnlyFieldset disabled>{children}</ReadOnlyFieldset>
         </>
     )
 }

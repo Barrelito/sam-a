@@ -16,7 +16,7 @@ import type { ParticularlySkillfulCriterion } from '@/lib/salary-review/particul
 import { useToast } from '@/hooks/use-toast'
 import { LoadingButton } from '@/components/ui/loading-button'
 import AssessmentHistory from '@/components/salary-review/AssessmentHistory'
-import { changedSinceEmployeeMeeting } from '@/lib/salary-review/lonesattning'
+import { changedSkilledSinceEmployeeMeeting, metLabel } from '@/lib/salary-review/lonesattning'
 
 interface ParticularlySkillfulAssessmentPageProps {
     employee: any
@@ -160,15 +160,12 @@ export default function ParticularlySkillfulAssessmentClient({
     // Räkna statistik - Endast för kriterier som faktiskt finns i den aktuella uppsättningen
     const allCriteriaIds = criteria.flatMap(c => c.subcriteria.map(s => s.id))
 
-    // Vad som ändrats sedan medarbetarsamtalet (ej uppfyllt räknas som false)
-    const currentMet = Object.fromEntries(
-        allCriteriaIds.map(id => [id, assessments[id]?.is_met ?? false])
+    // Vad som ändrats sedan medarbetarsamtalet
+    const changedSinceMeeting = changedSkilledSinceEmployeeMeeting(
+        allCriteriaIds,
+        Object.fromEntries(allCriteriaIds.map(id => [id, assessments[id]?.is_met])),
+        atEmployeeMeeting
     )
-    const meetingMet = atEmployeeMeeting
-        ? Object.fromEntries(allCriteriaIds.map(id => [id, atEmployeeMeeting[id] ?? false]))
-        : null
-    const changedSinceMeeting = changedSinceEmployeeMeeting(currentMet, meetingMet)
-    const metLabel = (met: boolean | null | undefined) => (met ? 'uppfyllt' : 'ej uppfyllt')
     const totalSubcriteria = allCriteriaIds.length
 
     const metCount = Object.entries(assessments)

@@ -6,7 +6,7 @@ import { History } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { SALARY_CRITERIA, RATING_COLORS, RATING_DISPLAY_NAMES } from '@/lib/salary-review/salary-criteria'
 import { findCriterionByKey } from '@/lib/salary-review/particularly-skilled-criteria'
-import type { PreviousLonesattning } from '@/lib/salary-review/lonesattning'
+import { metLabel, type PreviousLonesattning } from '@/lib/salary-review/lonesattning'
 
 const kr = (n: number) => `${n.toLocaleString('sv-SE')} kr`
 
@@ -98,7 +98,7 @@ export default function PreviousLonesattningPanel({ previous }: { previous: Prev
                             {skilled.map(([key, met]) => (
                                 <li key={key} className="flex items-start justify-between gap-3 text-sm">
                                     <span>{findCriterionByKey(key)?.text ?? key}</span>
-                                    <span className="shrink-0 text-xs">{met ? '✅ Uppfyllt' : '— Ej uppfyllt'}</span>
+                                    <span className="shrink-0 text-xs">{met ? '✅' : '—'} {metLabel(met)}</span>
                                 </li>
                             ))}
                         </ul>

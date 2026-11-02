@@ -17,7 +17,7 @@ import { getAssignableStations } from '@/lib/employees/access'
 import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
 import { isOpenCycle } from '@/lib/salary-review/lonesattning'
 import { ClosedCycleNotice } from '@/components/salary-review/ClosedCycleGuard'
-import { getEmployeeMeeting } from '@/lib/salary-review/reviews-server'
+import { getEmployeeMeeting, getOrCreateReview } from '@/lib/salary-review/reviews-server'
 
 export default async function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient()
@@ -63,45 +63,16 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
     const { stations } = await getAssignableStations(supabase, user.id)
 
     // Hämta eller skapa lönesättningen i vald löneöversyn
-    const { cycle: activeCycle } = await getSelectedCycle(supabase)
+    const { cycle: selectedCycle } = await getSelectedCycle(supabase)
 
-    let review = null
-    let particularlySkillfulCount = 0
-    let criteriaCount = 0
-
-    if (activeCycle) {
-        // Försök hämta befintlig review
-        const { data: existingReview } = await supabase
-            .from('salary_reviews')
-            .select(`
-        *,
-        particularly_skilled_assessments (*),
-        salary_criteria_assessments (*)
-      `)
-            .eq('employee_id', employeeId)
-            .eq('cycle_id', activeCycle.id)
-            .single()
-
-        if (!existingReview && isOpenCycle(activeCycle)) {
-            // Skapa ny lönesättning (aldrig i en stängd löneöversyn)
-            const { data: newReview } = await supabase
-                .from('salary_reviews')
-                .insert({
-                    cycle_id: activeCycle.id,
-                    employee_id: employeeId,
-                    manager_id: user.id,
-                    status: 'not_started'
-                })
-                .select()
-                .single()
-
-            review = newReview
-        } else if (existingReview) {
-            review = existingReview
-            particularlySkillfulCount = existingReview.particularly_skilled_assessments?.filter((a: any) => a.is_met).length || 0
-            criteriaCount = existingReview.salary_criteria_assessments?.length || 0
-        }
-    }
+    // Lönesättningen skapas när medarbetaren öppnas (aldrig i en stängd löneöversyn)
+    const review = selectedCycle
+        ? await getOrCreateReview(supabase, selectedCycle, employeeId, user.id, {
+            select: '*, particularly_skilled_assessments (*), salary_criteria_assessments (*)',
+        })
+        : null
+    const particularlySkillfulCount = review?.particularly_skilled_assessments?.filter((a: any) => a.is_met).length || 0
+    const criteriaCount = review?.salary_criteria_assessments?.length || 0
 
     // Medarbetarsamtalet är lönesättningens första steg
     const employeeMeeting = review ? await getEmployeeMeeting(supabase, review.id) : null
@@ -208,7 +179,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
             </Card>
 
             {/* Ingen löneöversyn vald */}
-            {!activeCycle && (
+            {!selectedCycle && (
                 <Card className="mb-6 border-yellow-200 bg-yellow-50">
                     <CardHeader>
                         <CardTitle className="text-yellow-800">Ingen öppen löneöversyn</CardTitle>
@@ -219,22 +190,22 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                 </Card>
             )}
 
-            {activeCycle && !isOpenCycle(activeCycle) && (
-                <ClosedCycleNotice year={activeCycle.year} />
+            {selectedCycle && !isOpenCycle(selectedCycle) && (
+                <ClosedCycleNotice year={selectedCycle.year} />
             )}
 
-            {activeCycle && !review && !isOpenCycle(activeCycle) && (
+            {selectedCycle && !review && !isOpenCycle(selectedCycle) && (
                 <p className="mb-6 text-muted-foreground">
-                    Medarbetaren har ingen lönesättning i löneöversyn {activeCycle.year}.
+                    Medarbetaren har ingen lönesättning i löneöversyn {selectedCycle.year}.
                 </p>
             )}
 
-            {activeCycle && review && (
+            {selectedCycle && review && (
                 <>
                     {/* Assessment Progress */}
                     <Card className="mb-6">
                         <CardHeader>
-                            <CardTitle>Lönesättning {activeCycle.year}</CardTitle>
+                            <CardTitle>Lönesättning {selectedCycle.year}</CardTitle>
                             <CardDescription>
                                 Medarbetarsamtal, bedömning och lönesamtal
                             </CardDescription>

@@ -1,7 +1,12 @@
 // Läsbara beskrivningar av hur bedömningen ändrats sedan medarbetarsamtalet,
 // för presentationsläget som visas för medarbetaren.
 
-import { changedSinceEmployeeMeeting, type AssessmentSnapshot } from './lonesattning'
+import {
+    changedSinceEmployeeMeeting,
+    changedSkilledSinceEmployeeMeeting,
+    metLabel,
+    type AssessmentSnapshot,
+} from './lonesattning'
 import { findCriterionByKey } from './particularly-skilled-criteria'
 import { findSubCriterion, RATING_DISPLAY_NAMES } from './salary-criteria'
 import type { CriteriaRating } from './types'
@@ -10,7 +15,6 @@ export type AssessmentChange = { key: string; label: string; then: string; now: 
 
 const ratingLabel = (rating: CriteriaRating | null | undefined) =>
     rating ? RATING_DISPLAY_NAMES[rating] : 'Ej bedömt'
-const metLabel = (met: boolean | null | undefined) => (met ? 'Uppfyllt' : 'Ej uppfyllt')
 
 export function describeChangesSinceMeeting(
     criteria: { sub_criterion_key: string; rating: CriteriaRating }[],
@@ -22,15 +26,9 @@ export function describeChangesSinceMeeting(
     const currentRatings = Object.fromEntries(criteria.map(c => [c.sub_criterion_key, c.rating]))
     const ratingChanges = changedSinceEmployeeMeeting(currentRatings, atMeeting.criteria)
 
-    // Ej uppfyllt och ej bedömt räknas lika för särskild yrkesskicklighet
-    const skilledKeys = [
-        ...new Set([...particularlySkilled.map(p => p.criterion_key), ...Object.keys(atMeeting.particularly_skilled)]),
-    ]
-    const currentMet = Object.fromEntries(
-        skilledKeys.map(key => [key, particularlySkilled.find(p => p.criterion_key === key)?.is_met ?? false])
-    )
-    const meetingMet = Object.fromEntries(skilledKeys.map(key => [key, atMeeting.particularly_skilled[key] ?? false]))
-    const skilledChanges = changedSinceEmployeeMeeting(currentMet, meetingMet)
+    const currentMet = Object.fromEntries(particularlySkilled.map(p => [p.criterion_key, p.is_met]))
+    const skilledKeys = [...new Set([...Object.keys(currentMet), ...Object.keys(atMeeting.particularly_skilled)])]
+    const skilledChanges = changedSkilledSinceEmployeeMeeting(skilledKeys, currentMet, atMeeting.particularly_skilled)
 
     return [
         ...Object.entries(ratingChanges).map(([key, then]) => {

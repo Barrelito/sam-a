@@ -6,6 +6,9 @@
 -- avgörs i API:t; UNIQUE(year) gör att två samtidiga starter inte kan ge två
 -- rader för samma år. Att ändra eller stänga en löneöversyn är fortfarande
 -- förbehållet admin och VO-chef.
+--
+-- Rollistan nedan ska stämma med START_CYCLE_ROLES i
+-- src/lib/salary-review/lonesattning.ts.
 
 DROP POLICY IF EXISTS "Admins and VO chiefs can create cycles" ON public.salary_review_cycles;
 DROP POLICY IF EXISTS "Managers can start cycles" ON public.salary_review_cycles;

@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge'
 import { CheckCircle2, Circle, XCircle } from 'lucide-react'
 import { getCriteriaForEmployeeCategory } from '@/lib/salary-review/particularly-skilled-criteria'
 import type { ParticularlySkillfulAssessment, EmployeeCategory } from '@/lib/salary-review/types'
-import { changedSinceEmployeeMeeting } from '@/lib/salary-review/lonesattning'
+import { changedSkilledSinceEmployeeMeeting, metLabel } from '@/lib/salary-review/lonesattning'
 import AssessmentHistory from './AssessmentHistory'
 
 interface ParticularlySkillfulReadOnlyProps {
@@ -37,11 +37,12 @@ export default function ParticularlySkillfulReadOnly({
         assessments.map(a => [a.criterion_key, a])
     )
 
-    // Ändrat sedan medarbetarsamtalet (ej uppfyllt räknas som false)
+    // Ändrat sedan medarbetarsamtalet
     const allIds = criteria.flatMap(c => c.subcriteria.map(sub => sub.id))
-    const changed = changedSinceEmployeeMeeting(
-        Object.fromEntries(allIds.map(id => [id, assessmentMap.get(id)?.is_met ?? false])),
-        atEmployeeMeeting ? Object.fromEntries(allIds.map(id => [id, atEmployeeMeeting[id] ?? false])) : null
+    const changed = changedSkilledSinceEmployeeMeeting(
+        allIds,
+        Object.fromEntries(allIds.map(id => [id, assessmentMap.get(id)?.is_met])),
+        atEmployeeMeeting
     )
 
     return (
@@ -91,7 +92,7 @@ export default function ParticularlySkillfulReadOnly({
                                                 </Badge>
                                             </div>
                                             {subcriterion.id in changed && (
-                                                <AssessmentHistory atMeetingLabel={changed[subcriterion.id] ? 'uppfyllt' : 'ej uppfyllt'} />
+                                                <AssessmentHistory atMeetingLabel={metLabel(changed[subcriterion.id])} />
                                             )}
                                             <p className="text-sm font-medium">
                                                 {subcriterion.text}
