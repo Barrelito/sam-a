@@ -1,4 +1,4 @@
-import { fakeRequestClient, type FakeClient } from './fake-supabase'
+import { fakeRequestClient, type FakeClient, type TableResults } from './fake-supabase'
 import type { UserRole } from '@/lib/types'
 
 type ResolvesTo = { mockResolvedValue: (value: never) => unknown }
@@ -15,8 +15,8 @@ export function signIns(asRequestClient: ResolvesTo) {
     }
     return {
         signedOut: () => use(fakeRequestClient({ user: null })),
-        signedIn: (role: UserRole | null) =>
-            use(fakeRequestClient({ user: { id: 'u1' }, role })),
+        signedIn: (role: UserRole | null, opts: { tables?: TableResults } = {}) =>
+            use(fakeRequestClient({ user: { id: 'u1' }, role, tables: opts.tables })),
         roleLookupFails: () =>
             use(fakeRequestClient({ user: { id: 'u1' }, roleLookupFails: true })),
     }
