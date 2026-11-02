@@ -23,6 +23,7 @@ import {
 import { findCriterionByKey } from '@/lib/salary-review/particularly-skilled-criteria'
 import ParticularlySkillfulReadOnly from './ParticularlySkillfulReadOnly'
 import SalaryCriteriaReadOnly from './SalaryCriteriaReadOnly'
+import type { AssessmentSnapshot } from '@/lib/salary-review/lonesattning'
 import { Button } from '@/components/ui/button'
 
 interface MeetingGuideDisplayProps {
@@ -31,6 +32,8 @@ interface MeetingGuideDisplayProps {
     criteriaAssessments: SalaryCriteriaAssessment[]
     particularlySkillfulAssessments?: ParticularlySkillfulAssessment[]
     preparation: any
+    /** Bedömningen när medarbetarsamtalet genomfördes, för att markera ändringar */
+    atEmployeeMeeting?: AssessmentSnapshot | null
 }
 
 export default function MeetingGuideDisplay({
@@ -38,7 +41,8 @@ export default function MeetingGuideDisplay({
     employee,
     criteriaAssessments,
     particularlySkillfulAssessments,
-    preparation
+    preparation,
+    atEmployeeMeeting = null
 }: MeetingGuideDisplayProps) {
     // Generera localStorage-nyckel baserat på reviewId
     const storageKey = `meeting-checklist-${reviewId}`
@@ -207,6 +211,7 @@ export default function MeetingGuideDisplay({
                                         <ParticularlySkillfulReadOnly
                                             assessments={particularlySkillfulAssessments}
                                             employeeCategory={employee.category}
+                                            atEmployeeMeeting={atEmployeeMeeting?.particularly_skilled ?? null}
                                         />
                                     </DialogContent>
                                 </Dialog>
@@ -239,6 +244,7 @@ export default function MeetingGuideDisplay({
                                     </DialogHeader>
                                     <SalaryCriteriaReadOnly
                                         assessments={criteriaAssessments}
+                                        atEmployeeMeeting={atEmployeeMeeting?.criteria ?? null}
                                     />
                                 </DialogContent>
                             </Dialog>
