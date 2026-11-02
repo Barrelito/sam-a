@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cycleStatusLabel, parseYear, pickCycle } from './lonesattning'
+import { cycleStatusLabel, parseYear, pickCycle, startableYear } from './lonesattning'
 
 const c2025 = { id: 'c25', year: 2025, status: 'completed' as const }
 const c2026 = { id: 'c26', year: 2026, status: 'active' as const }
@@ -60,5 +60,25 @@ describe('cycleStatusLabel', () => {
         expect(cycleStatusLabel('planning')).toBe('Öppen')
         expect(cycleStatusLabel('active')).toBe('Öppen')
         expect(cycleStatusLabel('completed')).toBe('Stängd')
+    })
+})
+
+describe('startableYear: vilket år chefen kan starta', () => {
+    const today = new Date('2026-11-02T10:00:00Z')
+
+    it('ger nästa år till en stationschef när det inte finns', () => {
+        expect(startableYear('station_manager', [c2026], today)).toBe(2027)
+    })
+
+    it('ger inget när nästa år redan är startat', () => {
+        expect(startableYear('station_manager', [c2026, c2027], today)).toBeNull()
+    })
+
+    it('ger inget till biträdande chef', () => {
+        expect(startableYear('assistant_manager', [c2026], today)).toBeNull()
+    })
+
+    it('ger nästa år även när ett stängt år ligger före', () => {
+        expect(startableYear('vo_chief', [c2025], today)).toBe(2027)
     })
 })

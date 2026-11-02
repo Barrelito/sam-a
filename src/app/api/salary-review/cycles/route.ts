@@ -3,6 +3,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { requireRole } from '@/lib/auth/guard'
+import { nextCycleYear, START_CYCLE_ROLES } from '@/lib/salary-review/lonesattning'
 
 export async function GET() {
     try {
@@ -43,67 +45,77 @@ export async function GET() {
 }
 
 // API Route: POST /api/salary-review/cycles
-// Skapar en ny löneöversynscykel
+// Startar nästa års löneöversyn. Den gäller hela organisationen och får
+// startas av stationschef, områdeschef, VO-chef och admin (ADR 0004).
+// Bara nästa år, och bara om det inte redan finns.
 
 export async function POST(request: Request) {
     try {
-        const supabase = await createClient()
+        const guard = await requireRole(START_CYCLE_ROLES)
+        if (!guard.ok) return guard.response
+        const { supabase, userId } = guard
 
-        // Verifiera att användaren är autentiserad
-        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        const body = await request.json().catch(() => ({}))
+        const year = nextCycleYear(new Date())
 
-        if (authError || !user) {
+        if (body.year !== undefined && Number(body.year) !== year) {
             return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            )
-        }
-
-        // Kontrollera att användaren har rätt roll (admin eller vo_chief)
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .single()
-
-        if (!profile || !['admin', 'vo_chief'].includes(profile.role)) {
-            return NextResponse.json(
-                { error: 'Forbidden: Only admins and VO chiefs can create cycles' },
-                { status: 403 }
-            )
-        }
-
-        const body = await request.json()
-        const { year, description, status, start_date, end_date } = body
-
-        // Validera required fields
-        if (!year) {
-            return NextResponse.json(
-                { error: 'Year is required' },
+                { error: `Bara nästa års löneöversyn (${year}) kan startas` },
                 { status: 400 }
             )
         }
 
-        // Skapa cykel
+        const { data: existing } = await supabase
+            .from('salary_review_cycles')
+            .select('id')
+            .eq('year', year)
+            .maybeSingle()
+
+        if (existing) {
+            return NextResponse.json(
+                { error: `Löneöversyn ${year} är redan startad` },
+                { status: 409 }
+            )
+        }
+
         const { data: cycle, error } = await supabase
             .from('salary_review_cycles')
             .insert({
                 year,
-                description,
-                status: status || 'planning',
-                start_date,
-                end_date,
-                created_by: user.id
+                description: `Löneöversyn ${year}`,
+                status: 'active',
+                start_date: `${year}-01-01`,
+                end_date: `${year}-12-31`,
+                created_by: userId
             })
             .select()
             .single()
 
         if (error) {
+            // Någon annan hann starta samma år (unik per år)
+            if (error.code === '23505') {
+                return NextResponse.json(
+                    { error: `Löneöversyn ${year} är redan startad` },
+                    { status: 409 }
+                )
+            }
             console.error('Error creating cycle:', error)
             return NextResponse.json(
                 { error: 'Failed to create cycle' },
                 { status: 500 }
             )
+        }
+
+        try {
+            await supabase.from('audit_logs').insert({
+                user_id: userId,
+                action: 'START_SALARY_REVIEW_CYCLE',
+                resource_id: cycle.id,
+                resource_type: 'salary_review_cycle',
+                details: { year }
+            })
+        } catch (e) {
+            console.warn('Audit log failed', e)
         }
 
         return NextResponse.json({ cycle }, { status: 201 })
