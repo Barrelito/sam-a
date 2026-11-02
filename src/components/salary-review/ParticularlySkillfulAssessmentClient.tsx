@@ -23,7 +23,7 @@ interface ParticularlySkillfulAssessmentPageProps {
     review: any
     criteria: ParticularlySkillfulCriterion[]
     /** Fjolårets bedömning, visas vid varje kriterium */
-    previous?: { year: number; met: Record<string, boolean> } | null
+    previous?: { year: number; met: Record<string, boolean>; evidence?: Record<string, string> } | null
     /** Bedömningen när medarbetarsamtalet genomfördes, för att markera ändringar */
     atEmployeeMeeting?: Record<string, boolean> | null
 }
@@ -248,6 +248,7 @@ export default function ParticularlySkillfulAssessmentClient({
                                                 <AssessmentHistory
                                                     previousYear={previous?.year}
                                                     previousLabel={previous ? metLabel(previous.met[sub.id]) : null}
+                                                    previousEvidence={previous?.evidence?.[sub.id] ?? null}
                                                     atMeetingLabel={sub.id in changedSinceMeeting ? metLabel(changedSinceMeeting[sub.id]) : undefined}
                                                 />
 

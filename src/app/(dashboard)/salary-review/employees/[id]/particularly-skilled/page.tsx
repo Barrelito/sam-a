@@ -77,7 +77,7 @@ export default async function ParticularlySkillfulPage({ params }: { params: Pro
                 employee={employee}
                 review={review}
                 criteria={criteria}
-                previous={previous ? { year: previous.year, met: previous.particularly_skilled } : null}
+                previous={previous ? { year: previous.year, met: previous.particularly_skilled, evidence: previous.particularly_skilled_evidence } : null}
                 atEmployeeMeeting={atEmployeeMeeting?.particularly_skilled ?? null}
             />
         </ClosedCycleGuard>

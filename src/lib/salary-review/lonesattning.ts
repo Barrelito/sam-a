@@ -111,6 +111,9 @@ export type PreviousLonesattning = {
     year: number
     criteria: Record<string, CriteriaRating>
     particularly_skilled: Record<string, boolean>
+    /** Konkreta exempel per kriterium, där sådana skrevs */
+    criteria_evidence: Record<string, string>
+    particularly_skilled_evidence: Record<string, string>
     is_particularly_skilled: boolean | null
     agreements: string | null
     development_needs: string | null
@@ -142,8 +145,8 @@ type PreviousReviewRow = {
     final_increase?: number | null
     skilled_amount?: number | null
     meeting_notes?: string | null
-    salary_criteria_assessments?: { sub_criterion_key: string; rating: CriteriaRating }[] | null
-    particularly_skilled_assessments?: { criterion_key: string; is_met: boolean }[] | null
+    salary_criteria_assessments?: { sub_criterion_key: string; rating: CriteriaRating; evidence?: string | null }[] | null
+    particularly_skilled_assessments?: { criterion_key: string; is_met: boolean; evidence?: string | null }[] | null
     /** Supabase ger en rad eller en lista beroende på relationen */
     meeting_preparation?: { development_needs?: string | null } | { development_needs?: string | null }[] | null
 }
@@ -175,11 +178,19 @@ export function toPreviousLonesattning(
         row.salary_criteria_assessments ?? [],
         row.particularly_skilled_assessments ?? []
     )
+    const evidenceBy = <T extends { evidence?: string | null }>(rows: T[] | null | undefined, key: (r: T) => string) =>
+        Object.fromEntries(
+            (rows ?? [])
+                .filter(r => r.evidence?.trim())
+                .map(r => [key(r), r.evidence!.trim()])
+        )
 
     return {
         year: row.cycle?.year ?? 0,
         criteria: snapshot.criteria,
         particularly_skilled: snapshot.particularly_skilled,
+        criteria_evidence: evidenceBy(row.salary_criteria_assessments, r => r.sub_criterion_key),
+        particularly_skilled_evidence: evidenceBy(row.particularly_skilled_assessments, r => r.criterion_key),
         is_particularly_skilled: row.is_particularly_skilled ?? null,
         agreements: meeting?.agreements ?? null,
         development_needs: meeting?.development_needs ?? preparation?.development_needs ?? null,

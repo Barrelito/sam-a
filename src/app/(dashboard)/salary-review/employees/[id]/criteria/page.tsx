@@ -64,7 +64,7 @@ export default async function SalaryCriteriaPage({ params }: { params: Promise<{
                 employee={employee}
                 review={review}
                 criteria={SALARY_CRITERIA}
-                previous={previous ? { year: previous.year, ratings: previous.criteria } : null}
+                previous={previous ? { year: previous.year, ratings: previous.criteria, evidence: previous.criteria_evidence } : null}
                 atEmployeeMeeting={atEmployeeMeeting?.criteria ?? null}
             />
         </ClosedCycleGuard>
