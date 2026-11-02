@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { requireRole } from '@/lib/auth/guard'
+import { logAudit } from '@/lib/audit'
 import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
 import { nextCycleYear, START_CYCLE_ROLES } from '@/lib/salary-review/lonesattning'
 
@@ -91,17 +92,13 @@ export async function POST(request: Request) {
             )
         }
 
-        try {
-            await supabase.from('audit_logs').insert({
-                user_id: userId,
-                action: 'START_SALARY_REVIEW_CYCLE',
-                resource_id: cycle.id,
-                resource_type: 'salary_review_cycle',
-                details: { year }
-            })
-        } catch (e) {
-            console.warn('Audit log failed', e)
-        }
+        await logAudit(supabase, {
+            user_id: userId,
+            action: 'START_SALARY_REVIEW_CYCLE',
+            resource_id: cycle.id,
+            resource_type: 'salary_review_cycle',
+            details: { year }
+        })
 
         return NextResponse.json({ cycle }, { status: 201 })
     } catch (error) {

@@ -1,10 +1,13 @@
 import { vi } from 'vitest'
 import type { UserRole } from '@/lib/types'
 
-type QueryResult = { data: unknown; error: unknown }
+type QueryResult = { data: unknown; error: unknown; count?: number | null }
 
-/** What a test may say a table answers: `error` and `data` default to null. */
-export type TableResult = { data?: unknown; error?: unknown }
+/**
+ * What a test may say a table answers: `error` and `data` default to null.
+ * `count` is what a `{ count: 'exact' }` select reports.
+ */
+export type TableResult = { data?: unknown; error?: unknown; count?: number }
 
 /**
  * Per-table answers. A list is consumed one entry per `from(table)` call, in
@@ -24,7 +27,11 @@ function tableAnswers(tables: TableResults = {}) {
         const index = Math.min(calls[table] ?? 0, list.length - 1)
         calls[table] = (calls[table] ?? 0) + 1
         const picked = list[index] ?? {}
-        return { data: picked.data ?? null, error: picked.error ?? null }
+        return {
+            data: picked.data ?? null,
+            error: picked.error ?? null,
+            ...(picked.count !== undefined && { count: picked.count }),
+        }
     }
 }
 
