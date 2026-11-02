@@ -4,7 +4,7 @@
 // routes och kan testas utan Supabase. I koden heter en löneöversyn "cycle"
 // (tabellen salary_review_cycles) och en lönesättning "review".
 
-import type { CycleStatus } from './types'
+import type { CriteriaRating, CycleStatus } from './types'
 import type { UserRole } from '@/lib/types'
 
 type CycleLike = { year: number; status: CycleStatus }
@@ -65,4 +65,23 @@ export function startableYear(
     if (!role || !START_CYCLE_ROLES.includes(role)) return null
     const year = nextCycleYear(today)
     return cycles.some(c => c.year === year) ? null : year
+}
+
+/**
+ * Bedömningen som den var när medarbetarsamtalet markerades genomfört.
+ * Lönesamtalet jämför mot den för att visa vad som ändrats sedan dess.
+ */
+export type AssessmentSnapshot = {
+    criteria: Record<string, CriteriaRating>
+    particularly_skilled: Record<string, boolean>
+}
+
+export function assessmentSnapshot(
+    criteria: { sub_criterion_key: string; rating: CriteriaRating }[],
+    particularlySkilled: { criterion_key: string; is_met: boolean }[]
+): AssessmentSnapshot {
+    return {
+        criteria: Object.fromEntries(criteria.map(c => [c.sub_criterion_key, c.rating])),
+        particularly_skilled: Object.fromEntries(particularlySkilled.map(p => [p.criterion_key, p.is_met])),
+    }
 }

@@ -85,7 +85,7 @@ export default async function SalaryCriteriaPage({ params }: { params: Promise<{
     }
 
     return (
-        <ClosedCycleGuard cycle={activeCycle}>
+        <ClosedCycleGuard cycle={activeCycle} backHref={`/salary-review/employees/${employeeId}`}>
             <SalaryCriteriaAssessmentClient
                 employee={employee}
                 review={review}

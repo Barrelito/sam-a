@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { cycleStatusLabel, parseYear, pickCycle, startableYear } from './lonesattning'
+import { assessmentSnapshot, cycleStatusLabel, parseYear, pickCycle, startableYear } from './lonesattning'
 
 const c2025 = { id: 'c25', year: 2025, status: 'completed' as const }
 const c2026 = { id: 'c26', year: 2026, status: 'active' as const }
@@ -80,5 +80,29 @@ describe('startableYear: vilket år chefen kan starta', () => {
 
     it('ger nästa år även när ett stängt år ligger före', () => {
         expect(startableYear('vo_chief', [c2025], today)).toBe(2027)
+    })
+})
+
+describe('assessmentSnapshot: bedömningen när medarbetarsamtalet genomfördes', () => {
+    it('sparar betyg per delkriterium och uppfyllt per yrkesskicklighetskriterium', () => {
+        const snapshot = assessmentSnapshot(
+            [
+                { sub_criterion_key: '1a', rating: 'bra' },
+                { sub_criterion_key: '2b', rating: 'utmarkt' },
+            ],
+            [
+                { criterion_key: 'ps1', is_met: true },
+                { criterion_key: 'ps2', is_met: false },
+            ]
+        )
+
+        expect(snapshot).toEqual({
+            criteria: { '1a': 'bra', '2b': 'utmarkt' },
+            particularly_skilled: { ps1: true, ps2: false },
+        })
+    })
+
+    it('ger tomma bedömningar när inget är bedömt', () => {
+        expect(assessmentSnapshot([], [])).toEqual({ criteria: {}, particularly_skilled: {} })
     })
 })
