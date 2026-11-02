@@ -71,8 +71,31 @@ Att en uppgift inte längre ska synas i arbetsvyerna. Oberoende av om den är kl
 en uppgift kan arkiveras oavslutad.
 _Undvik_: borttagen, dold
 
-## Avgränsning mot löneöversyn
+## Löneöversyn
+
+**Löneöversyn**:
+Årets gemensamma process där alla medarbetares löner ses över. En per år, gemensam
+för hela organisationen. Flera år kan vara öppna samtidigt.
+_Undvik_: cykel, löneöversynscykel, review
+
+**Lönesättning**:
+En medarbetares del av en löneöversyn, från medarbetarsamtal till ny lön. En per
+medarbetare och löneöversyn.
+_Undvik_: review, löneöversyn (om en enskild medarbetare)
+
+**Medarbetarsamtal**:
+Lönesättningens första samtal mellan chef och medarbetare. Bygger på samma
+bedömning som lönesamtalet och tar avstamp i medarbetarens föregående lönesättning.
+_Undvik_: utvecklingssamtal
+
+**Lönesamtal**:
+Lönesättningens avslutande samtal, där bedömningen kopplas till medarbetarens nya lön.
+
+**Bedömning**:
+Chefens värdering av medarbetaren mot lönekriterierna, och för vissa yrken mot
+särskild yrkesskicklighet. En per lönesättning: den görs i medarbetarsamtalet och
+följer med in i lönesamtalet.
 
 **Kriterium**:
-Ett lönekriterium i löneöversynen. Hör inte ihop med årshjulet, trots att båda är
-återkommande och årsbundna.
+Ett lönekriterium som bedömningen görs mot. Hör inte ihop med årshjulet, trots att
+båda är återkommande och årsbundna.
