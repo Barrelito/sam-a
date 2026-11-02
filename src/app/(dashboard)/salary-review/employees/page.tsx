@@ -15,6 +15,7 @@ import { StationFilter } from '@/components/station-filter'
 import { createClient } from '@/lib/supabase/client'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { AlertCircle } from 'lucide-react'
+import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
 
 function EmployeesContent() {
     const router = useRouter()
@@ -69,11 +70,7 @@ function EmployeesContent() {
         }
 
         // Fetch active cycle
-        const { data: activeCycle } = await supabase
-            .from('salary_review_cycles')
-            .select('id')
-            .eq('status', 'active')
-            .maybeSingle()
+        const { cycle: activeCycle } = await getSelectedCycle(supabase)
 
         // Fetch employees for this manager
         // Removed 'count' aggregation which might be problematic, using generic select

@@ -5,6 +5,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
+import { parseYear } from '@/lib/salary-review/lonesattning'
 
 // GET /api/salary-review/vo-budgets
 // Hämta budget för VO-chefens VO
@@ -31,19 +33,15 @@ export async function GET(request: Request) {
             return NextResponse.json({ error: 'No VO found for user' }, { status: 404 })
         }
 
-        // Get active cycle if not specified
+        // Vald löneöversyn om ingen anges (?year= eller nyaste öppna)
         let targetCycleId = cycleId
         if (!targetCycleId) {
-            const { data: activeCycle } = await supabase
-                .from('salary_review_cycles')
-                .select('id')
-                .eq('status', 'active')
-                .single()
+            const { cycle } = await getSelectedCycle(supabase, parseYear(searchParams.get('year')))
 
-            if (!activeCycle) {
+            if (!cycle) {
                 return NextResponse.json({ error: 'No active cycle' }, { status: 404 })
             }
-            targetCycleId = activeCycle.id
+            targetCycleId = cycle.id
         }
 
         // Get VO budget with allocations

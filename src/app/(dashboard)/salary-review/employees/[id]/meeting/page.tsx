@@ -12,6 +12,7 @@ import Link from 'next/link'
 import MeetingPreparationForm from '@/components/salary-review/MeetingPreparationForm'
 import MeetingGuideDisplay from '@/components/salary-review/MeetingGuideDisplay'
 import MeetingDocumentationForm from '@/components/salary-review/MeetingDocumentationForm'
+import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
 
 export default async function MeetingPage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient()
@@ -44,11 +45,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
     }
 
     // Hämta aktiv cykel och review
-    const { data: activeCycle } = await supabase
-        .from('salary_review_cycles')
-        .select('*')
-        .eq('status', 'active')
-        .single()
+    const { cycle: activeCycle } = await getSelectedCycle(supabase)
 
     if (!activeCycle) {
         return (

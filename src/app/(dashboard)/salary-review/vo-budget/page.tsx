@@ -4,6 +4,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import VoBudgetClient from '@/components/salary-review/VoBudgetClient'
+import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
 
 export default async function VoBudgetPage() {
     const supabase = await createClient()
@@ -48,11 +49,7 @@ export default async function VoBudgetPage() {
     }
 
     // Get active cycle
-    const { data: activeCycle } = await supabase
-        .from('salary_review_cycles')
-        .select('*')
-        .eq('status', 'active')
-        .single()
+    const { cycle: activeCycle } = await getSelectedCycle(supabase)
 
     if (!activeCycle) {
         return (
