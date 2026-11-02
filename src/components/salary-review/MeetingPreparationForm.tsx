@@ -40,6 +40,8 @@ interface MeetingPreparationFormProps {
     employeeCategory?: string // Behålls för bakåtkompatibilitet men används inte
     currentSalary?: number // Behålls för bakåtkompatibilitet men används inte
     initialData: MeetingPreparationData | null
+    /** Överenskommelserna från medarbetarsamtalet; visas utan att kunna ändras */
+    employeeMeetingAgreements?: string | null
 }
 
 // Autosave delay i millisekunder
@@ -47,6 +49,7 @@ const AUTOSAVE_DELAY = 3000
 
 export default function MeetingPreparationForm({
     reviewId,
+    employeeMeetingAgreements = null,
     initialData
 }: MeetingPreparationFormProps) {
     const router = useRouter()
@@ -184,20 +187,26 @@ export default function MeetingPreparationForm({
 
             {/* Form */}
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-                {/* Previous Agreements - använder register() korrekt */}
+                {/* Överenskommelser från medarbetarsamtalet följs upp här.
+                    Fältet heter previous_agreements i databasen av historiska skäl. */}
+                <div className="space-y-2">
+                    <Label>Överenskommelser från medarbetarsamtalet</Label>
+                    <div className="rounded-md border bg-muted/40 p-3 text-sm whitespace-pre-wrap">
+                        {employeeMeetingAgreements || (
+                            <span className="text-muted-foreground">Inga överenskommelser är dokumenterade i medarbetarsamtalet.</span>
+                        )}
+                    </div>
+                </div>
                 <div className="space-y-2">
                     <Label htmlFor="previous_agreements">
-                        Tidigare överenskommelser och uppföljning
+                        Uppföljning av överenskommelser
                     </Label>
                     <Textarea
                         id="previous_agreements"
-                        placeholder="Vad kom ni överens om vid tidigare samtal? Har målen uppnåtts?"
+                        placeholder="Hur har det gått med det ni kom överens om? Har målen uppnåtts?"
                         rows={4}
                         {...register('previous_agreements')}
                     />
-                    <p className="text-sm text-muted-foreground">
-                        Använd tidigare dokumentation från lönesamtal och utvecklingsplaner
-                    </p>
                 </div>
 
                 {/* Goals Achieved - Checkbox kräver fortfarande manuell hantering med shadcn */}

@@ -2,6 +2,7 @@
 
 import { Card, CardContent } from '@/components/ui/card'
 import { NUMERIC_RATING_VALUES } from '@/lib/salary-review/salary-criteria'
+import type { AssessmentChange } from '@/lib/salary-review/assessment-labels'
 
 interface EmployeeAssessmentPresentationProps {
     employee: {
@@ -14,13 +15,16 @@ interface EmployeeAssessmentPresentationProps {
     }>
     particularlySkillfulMet: number
     particularlySkillfulTotal: number
+    /** Bedömningar som ändrats sedan medarbetarsamtalet */
+    changesSinceMeeting?: AssessmentChange[]
 }
 
 export default function EmployeeAssessmentPresentation({
     employee,
     criteriaAssessments,
     particularlySkillfulMet,
-    particularlySkillfulTotal
+    particularlySkillfulTotal,
+    changesSinceMeeting = []
 }: EmployeeAssessmentPresentationProps) {
     // Calculate total score
     const totalScore = criteriaAssessments.reduce((sum, assessment) => {
@@ -90,6 +94,25 @@ export default function EmployeeAssessmentPresentation({
                         </div>
                     </CardContent>
                 </Card>
+
+                {/* Ändrat sedan medarbetarsamtalet */}
+                {changesSinceMeeting.length > 0 && (
+                    <Card className="border-amber-200 bg-amber-50">
+                        <CardContent className="pt-6">
+                            <h2 className="text-2xl font-semibold mb-4">Ändrat sedan medarbetarsamtalet</h2>
+                            <ul className="space-y-2">
+                                {changesSinceMeeting.map(change => (
+                                    <li key={change.key} className="flex flex-wrap items-baseline justify-between gap-2 text-base">
+                                        <span>{change.label}</span>
+                                        <span className="text-muted-foreground">
+                                            {change.then} → <strong className="text-foreground">{change.now}</strong>
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* SYS Status - Only for VUB and SSK */}
                 {(employee.category === 'VUB' || employee.category === 'SSK') && particularlySkillfulTotal > 0 && (

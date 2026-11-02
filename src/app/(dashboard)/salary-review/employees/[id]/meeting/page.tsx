@@ -7,13 +7,15 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { ArrowLeft } from 'lucide-react'
+import { AlertTriangle, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import MeetingPreparationForm from '@/components/salary-review/MeetingPreparationForm'
 import MeetingGuideDisplay from '@/components/salary-review/MeetingGuideDisplay'
 import MeetingDocumentationForm from '@/components/salary-review/MeetingDocumentationForm'
 import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
-import { isOpenCycle } from '@/lib/salary-review/lonesattning'
+import { isOpenCycle, showMissingEmployeeMeetingWarning } from '@/lib/salary-review/lonesattning'
+import { getEmployeeMeeting } from '@/lib/salary-review/reviews-server'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { ClosedCycleNotice } from '@/components/salary-review/ClosedCycleGuard'
 
 export default async function MeetingPage({ params }: { params: Promise<{ id: string }> }) {
@@ -84,6 +86,10 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
     // En stängd löneöversyn går att läsa men inte ändra
     const isClosed = !isOpenCycle(activeCycle)
 
+    // Lönesamtalet följer upp medarbetarsamtalet i samma lönesättning
+    const employeeMeeting = await getEmployeeMeeting(supabase, review.id)
+    const atEmployeeMeeting = employeeMeeting?.completed_at ? employeeMeeting.assessment_snapshot : null
+
     const CATEGORY_LABELS = {
         VUB: 'VUB - Specialistsjuksköterska',
         SSK: 'SSK - Grundsjuksköterska',
@@ -107,6 +113,18 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
             </Link>
 
             {isClosed && <ClosedCycleNotice year={activeCycle.year} />}
+
+            {showMissingEmployeeMeetingWarning(employeeMeeting) && (
+                <Alert className="mb-4 border-amber-300 bg-amber-50">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                        Medarbetarsamtal är inte genomfört. Lönesamtalet kan ändå genomföras.{' '}
+                        <Link href={`/salary-review/employees/${employeeId}/employee-meeting`} className="underline">
+                            Gå till medarbetarsamtalet
+                        </Link>
+                    </AlertDescription>
+                </Alert>
+            )}
 
             {/* Header */}
             <div className="mb-6">
@@ -151,6 +169,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
                                     employeeCategory={employee.category}
                                     currentSalary={employee.current_salary}
                                     initialData={Array.isArray(review.meeting_preparation) ? review.meeting_preparation[0] : review.meeting_preparation ?? null}
+                                    employeeMeetingAgreements={employeeMeeting?.agreements ?? null}
                                 />
                             </fieldset>
                         </CardContent>
@@ -164,6 +183,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
                         criteriaAssessments={review.salary_criteria_assessments || []}
                         particularlySkillfulAssessments={review.particularly_skilled_assessments || []}
                         preparation={Array.isArray(review.meeting_preparation) ? review.meeting_preparation[0] : review.meeting_preparation ?? null}
+                        atEmployeeMeeting={atEmployeeMeeting}
                     />
                 </TabsContent>
 

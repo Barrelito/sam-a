@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
+import { getEmployeeMeeting } from '@/lib/salary-review/reviews-server'
+import { describeChangesSinceMeeting } from '@/lib/salary-review/assessment-labels'
 import EmployeeAssessmentPresentation from '@/components/salary-review/EmployeeAssessmentPresentation'
 
 async function getEmployeeMeetingData(employeeId: string) {
@@ -48,26 +50,35 @@ async function getEmployeeMeetingData(employeeId: string) {
         // Fetch criteria assessments
         const { data: criteriaAssessments, error: criteriaError } = await supabase
             .from('salary_criteria_assessments')
-            .select('rating')
+            .select('sub_criterion_key, rating')
             .eq('salary_review_id', review.id)
 
         console.log('Criteria assessments:', criteriaAssessments, criteriaError)
 
         // Fetch particularly skillful assessments (only for VUB and SSK)
-        let particularlySkillfulAssessments: Array<{ is_met: boolean }> = []
+        let particularlySkillfulAssessments: Array<{ criterion_key: string; is_met: boolean }> = []
         if (employee.category === 'VUB' || employee.category === 'SSK') {
             const { data: psAssessments } = await supabase
-                .from('particularly_skillful_assessments')
-                .select('is_met')
+                .from('particularly_skilled_assessments')
+                .select('criterion_key, is_met')
                 .eq('salary_review_id', review.id)
 
             particularlySkillfulAssessments = psAssessments || []
         }
 
+        // Ändringar sedan medarbetarsamtalet, så att medarbetaren ser dem
+        const meeting = await getEmployeeMeeting(supabase, review.id)
+        const changesSinceMeeting = describeChangesSinceMeeting(
+            criteriaAssessments || [],
+            particularlySkillfulAssessments,
+            meeting?.completed_at ? meeting.assessment_snapshot : null
+        )
+
         return {
             employee,
             criteriaAssessments: criteriaAssessments || [],
-            particularlySkillfulAssessments
+            particularlySkillfulAssessments,
+            changesSinceMeeting
         }
     } catch (error) {
         console.error('Error fetching meeting data:', error)
@@ -88,6 +99,7 @@ export default async function AssessmentViewPage({
     }
 
     const { employee, criteriaAssessments, particularlySkillfulAssessments } = data
+    const changesSinceMeeting = 'changesSinceMeeting' in data ? data.changesSinceMeeting : []
 
     // Calculate SYS stats (only for VUB/SSK)
     const particularlySkillfulMet = particularlySkillfulAssessments?.filter((a: any) => a.is_met).length || 0
@@ -99,6 +111,7 @@ export default async function AssessmentViewPage({
             criteriaAssessments={criteriaAssessments}
             particularlySkillfulMet={particularlySkillfulMet}
             particularlySkillfulTotal={particularlySkillfulTotal}
+            changesSinceMeeting={changesSinceMeeting}
         />
     )
 }

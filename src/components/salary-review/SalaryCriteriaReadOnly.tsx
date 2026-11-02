@@ -5,15 +5,25 @@
 
 import { Badge } from '@/components/ui/badge'
 import { SALARY_CRITERIA, RATING_DISPLAY_NAMES, RATING_COLORS } from '@/lib/salary-review/salary-criteria'
-import type { SalaryCriteriaAssessment } from '@/lib/salary-review/types'
+import type { CriteriaRating, SalaryCriteriaAssessment } from '@/lib/salary-review/types'
+import { changedSinceEmployeeMeeting } from '@/lib/salary-review/lonesattning'
+import AssessmentHistory from './AssessmentHistory'
 
 interface SalaryCriteriaReadOnlyProps {
     assessments: SalaryCriteriaAssessment[]
+    /** Bedömningen när medarbetarsamtalet genomfördes, för att markera ändringar */
+    atEmployeeMeeting?: Record<string, CriteriaRating> | null
 }
 
 export default function SalaryCriteriaReadOnly({
-    assessments
+    assessments,
+    atEmployeeMeeting = null
 }: SalaryCriteriaReadOnlyProps) {
+    const changed = changedSinceEmployeeMeeting(
+        Object.fromEntries(assessments.map(a => [a.sub_criterion_key, a.rating])),
+        atEmployeeMeeting
+    )
+
     // Skapa en map för snabb lookup av bedömningar
     const assessmentMap = new Map(
         assessments.map(a => [`${a.criterion_key}_${a.sub_criterion_key}`, a])
@@ -77,6 +87,11 @@ export default function SalaryCriteriaReadOnly({
                                             <p className="text-sm font-medium">
                                                 {subcriterion.text}
                                             </p>
+                                            {subcriterion.id in changed && (
+                                                <AssessmentHistory
+                                                    atMeetingLabel={changed[subcriterion.id] ? RATING_DISPLAY_NAMES[changed[subcriterion.id]!] : null}
+                                                />
+                                            )}
                                             {subcriterion.description && (
                                                 <p className="text-sm text-muted-foreground mt-1">
                                                     {subcriterion.description}
