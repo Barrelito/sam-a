@@ -4,7 +4,7 @@ import { signIns } from '@/test/route-harness'
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn() }))
 
 const { createClient } = await import('@/lib/supabase/server')
-const { POST } = await import('./route')
+const { GET, POST } = await import('./route')
 
 const { signedIn, signedOut } = signIns(vi.mocked(createClient))
 
@@ -92,5 +92,26 @@ describe('POST /api/salary-review/cycles: starta nästa års löneöversyn', () 
                 details: expect.objectContaining({ year: 2027 }),
             }),
         ])
+    })
+})
+
+describe('GET /api/salary-review/cycles: löneöversyner och vald löneöversyn', () => {
+    beforeEach(() => vi.clearAllMocks())
+
+    it('nekar den som inte är inloggad', async () => {
+        signedOut()
+        expect((await GET()).status).toBe(401)
+    })
+
+    it('ger alla löneöversyner och nyaste öppna som vald när inget år valts', async () => {
+        const cycles = [
+            { id: 'c27', year: 2027, status: 'active' },
+            { id: 'c26', year: 2026, status: 'active' },
+        ]
+        signedIn('station_manager', { tables: { salary_review_cycles: { data: cycles } } })
+
+        const body = await (await GET()).json()
+
+        expect(body).toEqual({ cycles, selected: cycles[0] })
     })
 })
