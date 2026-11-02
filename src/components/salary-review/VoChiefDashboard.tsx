@@ -99,7 +99,7 @@ export default function VoChiefDashboard({ vo, cycle, userName }: VoChiefDashboa
                                 Budgetöversikt
                             </CardTitle>
                             <CardDescription>
-                                {hasBudget ? 'Din budget och fördelning' : 'Ingen budget satt ännu'}
+                                {hasBudget ? 'Din budget och fördelning' : `Ingen budget satt för ${cycle.year} ännu`}
                             </CardDescription>
                         </div>
                         <Link href="/salary-review/vo-budget">

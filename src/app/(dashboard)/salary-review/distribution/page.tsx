@@ -167,6 +167,7 @@ export default async function DistributionPage({
                     stationGroupId={selectedGroupId || undefined}
                     stationGroupName={selectedGroupName || undefined}
                     cycleId={activeCycle.id}
+                    cycleYear={activeCycle.year}
                 />
             </div>
         </div>

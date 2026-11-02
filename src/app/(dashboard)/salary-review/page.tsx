@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Users, ClipboardList, Calendar, FileText, Banknote } from 'lucide-react'
 import VoChiefDashboard from '@/components/salary-review/VoChiefDashboard'
 import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
-import { cycleStatusLabel } from '@/lib/salary-review/lonesattning'
+import { cycleStatusLabel, startableYear } from '@/lib/salary-review/lonesattning'
+import StartCycleCard from '@/components/salary-review/StartCycleCard'
 
 export default async function SalaryReviewPage() {
     const supabase = await createClient()
@@ -42,7 +43,8 @@ export default async function SalaryReviewPage() {
 
     // Get active cycle
     const { cycle: activeCycle, cycles } = await getSelectedCycle(supabase)
-    const canCreateCycle = ['admin', 'vo_chief'].includes(profile.role)
+    // Nästa års löneöversyn kan startas av chefen själv (ADR 0004)
+    const yearToStart = startableYear(profile.role, cycles, new Date())
 
     // VO CHIEF: Show VO-specific dashboard
     if (profile.role === 'vo_chief') {
@@ -61,17 +63,25 @@ export default async function SalaryReviewPage() {
                 <div className="container mx-auto py-8">
                     <h1 className="text-2xl font-bold mb-4">Löneöversyn - VO-chef</h1>
                     {!userProfile && <p className="text-muted-foreground">Inget VO kopplat till ditt konto.</p>}
-                    {!activeCycle && <p className="text-muted-foreground">Ingen aktiv löneöversynscykel.</p>}
+                    {!activeCycle && <p className="text-muted-foreground mb-4">Ingen öppen löneöversyn.</p>}
+                    {!activeCycle && yearToStart && <StartCycleCard year={yearToStart} />}
                 </div>
             )
         }
 
         return (
-            <VoChiefDashboard
-                vo={userProfile.vo}
-                cycle={activeCycle}
-                userName={profile.full_name || 'VO-chef'}
-            />
+            <>
+                {yearToStart && (
+                    <div className="container mx-auto pt-8 -mb-8">
+                        <StartCycleCard year={yearToStart} />
+                    </div>
+                )}
+                <VoChiefDashboard
+                    vo={userProfile.vo}
+                    cycle={activeCycle}
+                    userName={profile.full_name || 'VO-chef'}
+                />
+            </>
         )
     }
 
@@ -130,41 +140,21 @@ export default async function SalaryReviewPage() {
                 </p>
             </div>
 
-            {/* No Active Cycle - Show CTA */}
-            {!activeCycle && canCreateCycle && (
-                <Card className="mb-6 bg-blue-50 border-blue-200">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2 text-blue-900">
-                            <Calendar className="h-6 w-6" />
-                            Ingen aktiv löneöversynscykel
-                        </CardTitle>
-                        <CardDescription className="text-blue-700">
-                            För att börja arbeta med löneöversyn behöver du först skapa en löneöversynscykel.
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <Link href="/salary-review/create-cycle">
-                            <Button size="lg" className="w-full md:w-auto">
-                                <Calendar className="mr-2 h-5 w-5" />
-                                Skapa Löneöversynscykel
-                            </Button>
-                        </Link>
-                    </CardContent>
-                </Card>
-            )}
+            {/* Starta nästa års löneöversyn */}
+            {yearToStart && <StartCycleCard year={yearToStart} />}
 
-            {!activeCycle && !canCreateCycle && (
+            {!activeCycle && !yearToStart && (
                 <Card className="mb-6 border-yellow-200 bg-yellow-50">
                     <CardHeader>
-                        <CardTitle className="text-yellow-900">Ingen aktiv löneöversynscykel</CardTitle>
+                        <CardTitle className="text-yellow-900">Ingen öppen löneöversyn</CardTitle>
                         <CardDescription className="text-yellow-700">
-                            Det finns ingen aktiv löneöversynscykel för tillfället. Kontakta din VO-chef eller administratör för att starta en ny cykel.
+                            Det finns ingen öppen löneöversyn. Din stationschef kan starta nästa års löneöversyn.
                         </CardDescription>
                     </CardHeader>
                 </Card>
             )}
 
-            {/* Active Cycle Info */}
+            {/* Vald löneöversyn */}
             {activeCycle && (
                 <Card className="mb-6 border-primary bg-primary/5">
                     <CardHeader>

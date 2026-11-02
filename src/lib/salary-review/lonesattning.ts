@@ -5,6 +5,7 @@
 // (tabellen salary_review_cycles) och en lönesättning "review".
 
 import type { CycleStatus } from './types'
+import type { UserRole } from '@/lib/types'
 
 type CycleLike = { year: number; status: CycleStatus }
 
@@ -39,4 +40,29 @@ export function parseYear(value: string | string[] | null | undefined): number |
 /** Status på en löneöversyn som chefen ser den. */
 export function cycleStatusLabel(status: CycleStatus): string {
     return isOpenCycle({ status }) ? 'Öppen' : 'Stängd'
+}
+
+/**
+ * Vilka som får starta nästa års löneöversyn. Att starta lägger bara till
+ * något, så chefer får göra det själva (ADR 0004). Biträdande chef får inte.
+ */
+export const START_CYCLE_ROLES: readonly UserRole[] = ['station_manager', 'area_manager', 'vo_chief', 'admin']
+
+/** Att stänga påverkar alla stationer och är förbehållet admin och VO-chef. */
+export const CLOSE_CYCLE_ROLES: readonly UserRole[] = ['vo_chief', 'admin']
+
+/** Det enda år som får startas: året efter dagens datum. */
+export function nextCycleYear(today: Date): number {
+    return today.getFullYear() + 1
+}
+
+/** Året chefen kan starta just nu, eller null om knappen inte ska visas. */
+export function startableYear(
+    role: UserRole | null | undefined,
+    cycles: { year: number }[],
+    today: Date
+): number | null {
+    if (!role || !START_CYCLE_ROLES.includes(role)) return null
+    const year = nextCycleYear(today)
+    return cycles.some(c => c.year === year) ? null : year
 }

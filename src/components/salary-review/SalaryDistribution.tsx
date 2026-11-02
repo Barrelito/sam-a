@@ -62,6 +62,8 @@ interface SalaryDistributionProps {
     stationGroupId?: string
     stationGroupName?: string
     cycleId: string
+    /** Visas när VO-chefen ännu inte satt budget för året */
+    cycleYear?: number
 }
 
 export default function SalaryDistribution({
@@ -69,7 +71,8 @@ export default function SalaryDistribution({
     stationName,
     stationGroupId,
     stationGroupName,
-    cycleId
+    cycleId,
+    cycleYear
 }: SalaryDistributionProps) {
     const { toast } = useToast()
     const [loading, setLoading] = useState(true)
@@ -276,9 +279,11 @@ export default function SalaryDistribution({
                 <TabsContent value="vardforbundet" className="space-y-6">
                     {/* Budget Summary */}
                     {vfAllocated === 0 ? (
-                        <Alert variant="destructive">
+                        <Alert>
                             <AlertTriangle className="h-4 w-4" />
-                            <AlertDescription>Ingen poängbudget tilldelad för Vårdförbundet än.</AlertDescription>
+                            <AlertDescription>
+                                Budget för {cycleYear ?? 'året'} är inte satt av VO-chef (Vårdförbundet). Bedömningar och samtal kan genomföras som vanligt.
+                            </AlertDescription>
                         </Alert>
                     ) : (
                         <Card>
@@ -439,9 +444,11 @@ export default function SalaryDistribution({
                 <TabsContent value="kommunal" className="space-y-6">
                     {/* Budget Summary */}
                     {komAllocated === 0 ? (
-                        <Alert variant="destructive">
+                        <Alert>
                             <AlertTriangle className="h-4 w-4" />
-                            <AlertDescription>Ingen rörlig budget tilldelad för Kommunal än.</AlertDescription>
+                            <AlertDescription>
+                                Budget för {cycleYear ?? 'året'} är inte satt av VO-chef (Kommunal). Bedömningar och samtal kan genomföras som vanligt.
+                            </AlertDescription>
                         </Alert>
                     ) : (
                         <Card>
