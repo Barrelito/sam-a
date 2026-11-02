@@ -3,6 +3,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { closedCycleResponse } from '@/lib/salary-review/review-lock'
 
 export async function GET(
     request: Request,
@@ -91,6 +92,10 @@ export async function PUT(
         }
 
         const { id: reviewId } = await params
+
+        const locked = await closedCycleResponse(supabase, reviewId)
+        if (locked) return locked
+
         const body = await request.json()
 
         const {

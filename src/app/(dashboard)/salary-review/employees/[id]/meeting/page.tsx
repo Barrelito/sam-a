@@ -13,6 +13,8 @@ import MeetingPreparationForm from '@/components/salary-review/MeetingPreparatio
 import MeetingGuideDisplay from '@/components/salary-review/MeetingGuideDisplay'
 import MeetingDocumentationForm from '@/components/salary-review/MeetingDocumentationForm'
 import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
+import { isOpenCycle } from '@/lib/salary-review/lonesattning'
+import { ClosedCycleNotice } from '@/components/salary-review/ClosedCycleGuard'
 
 export default async function MeetingPage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient()
@@ -79,6 +81,9 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
         notFound()
     }
 
+    // En stängd löneöversyn går att läsa men inte ändra
+    const isClosed = !isOpenCycle(activeCycle)
+
     const CATEGORY_LABELS = {
         VUB: 'VUB - Specialistsjuksköterska',
         SSK: 'SSK - Grundsjuksköterska',
@@ -100,6 +105,8 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
                     Tillbaka till medarbetare
                 </Button>
             </Link>
+
+            {isClosed && <ClosedCycleNotice year={activeCycle.year} />}
 
             {/* Header */}
             <div className="mb-6">
@@ -138,12 +145,14 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <MeetingPreparationForm
-                                reviewId={review.id}
-                                employeeCategory={employee.category}
-                                currentSalary={employee.current_salary}
-                                initialData={Array.isArray(review.meeting_preparation) ? review.meeting_preparation[0] : review.meeting_preparation ?? null}
-                            />
+                            <fieldset disabled={isClosed} className="m-0 min-w-0 border-0 p-0">
+                                <MeetingPreparationForm
+                                    reviewId={review.id}
+                                    employeeCategory={employee.category}
+                                    currentSalary={employee.current_salary}
+                                    initialData={Array.isArray(review.meeting_preparation) ? review.meeting_preparation[0] : review.meeting_preparation ?? null}
+                                />
+                            </fieldset>
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -167,19 +176,21 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <MeetingDocumentationForm
-                                reviewId={review.id}
-                                employee={employee}
-                                currentSalary={employee.current_salary}
-                                initialData={{
-                                    proposed_salary: review.proposed_salary,
-                                    final_salary: review.final_salary,
-                                    meeting_date: review.meeting_date,
-                                    meeting_notes: review.meeting_notes
-                                }}
-                                distributionIncrease={(review.final_increase || 0) + ((review as any).skilled_amount || 0)}
-                                skilledAmount={(review as any).skilled_amount || 0}
-                            />
+                            <fieldset disabled={isClosed} className="m-0 min-w-0 border-0 p-0">
+                                <MeetingDocumentationForm
+                                    reviewId={review.id}
+                                    employee={employee}
+                                    currentSalary={employee.current_salary}
+                                    initialData={{
+                                        proposed_salary: review.proposed_salary,
+                                        final_salary: review.final_salary,
+                                        meeting_date: review.meeting_date,
+                                        meeting_notes: review.meeting_notes
+                                    }}
+                                    distributionIncrease={(review.final_increase || 0) + ((review as any).skilled_amount || 0)}
+                                    skilledAmount={(review as any).skilled_amount || 0}
+                                />
+                            </fieldset>
                         </CardContent>
                     </Card>
                 </TabsContent>

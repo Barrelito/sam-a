@@ -4,6 +4,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
 import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
+import { closedCycleResponse } from '@/lib/salary-review/review-lock'
 import { parseYear } from '@/lib/salary-review/lonesattning'
 
 // GET /api/salary-review/salary-distribution?station_id=xxx&cycle_id=xxx
@@ -285,6 +286,12 @@ export async function POST(request: Request) {
 
         if (!allocations || !Array.isArray(allocations)) {
             return NextResponse.json({ error: 'allocations array required' }, { status: 400 })
+        }
+
+        // Alla lönesättningar ligger i samma löneöversyn; är den stängd ändras inget
+        if (allocations[0]?.review_id) {
+            const locked = await closedCycleResponse(supabase, allocations[0].review_id)
+            if (locked) return locked
         }
 
         // Update each review

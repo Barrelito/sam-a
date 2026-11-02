@@ -15,6 +15,8 @@ import EditEmployeeDialog from '@/components/salary-review/EditEmployeeDialog'
 import DeleteEmployeeDialog from '@/components/salary-review/DeleteEmployeeDialog'
 import { getAssignableStations } from '@/lib/employees/access'
 import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
+import { isOpenCycle } from '@/lib/salary-review/lonesattning'
+import { ClosedCycleNotice } from '@/components/salary-review/ClosedCycleGuard'
 
 export default async function EmployeeDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient()
@@ -79,8 +81,8 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
             .eq('cycle_id', activeCycle.id)
             .single()
 
-        if (!existingReview) {
-            // Skapa ny review
+        if (!existingReview && isOpenCycle(activeCycle)) {
+            // Skapa ny lönesättning (aldrig i en stängd löneöversyn)
             const { data: newReview } = await supabase
                 .from('salary_reviews')
                 .insert({
@@ -93,7 +95,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                 .single()
 
             review = newReview
-        } else {
+        } else if (existingReview) {
             review = existingReview
             particularlySkillfulCount = existingReview.particularly_skilled_assessments?.filter((a: any) => a.is_met).length || 0
             criteriaCount = existingReview.salary_criteria_assessments?.length || 0
@@ -201,7 +203,7 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                 </CardContent>
             </Card>
 
-            {/* Review Status - Only show if there's an active cycle */}
+            {/* Ingen löneöversyn vald */}
             {!activeCycle && (
                 <Card className="mb-6 border-yellow-200 bg-yellow-50">
                     <CardHeader>
@@ -211,6 +213,16 @@ export default async function EmployeeDetailPage({ params }: { params: Promise<{
                         </CardDescription>
                     </CardHeader>
                 </Card>
+            )}
+
+            {activeCycle && !isOpenCycle(activeCycle) && (
+                <ClosedCycleNotice year={activeCycle.year} />
+            )}
+
+            {activeCycle && !review && !isOpenCycle(activeCycle) && (
+                <p className="mb-6 text-muted-foreground">
+                    Medarbetaren har ingen lönesättning i löneöversyn {activeCycle.year}.
+                </p>
             )}
 
             {activeCycle && review && (

@@ -4,6 +4,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { closedCycleResponse } from '@/lib/salary-review/review-lock'
 
 // GET - Hämta meeting preparation
 export async function GET(
@@ -101,6 +102,9 @@ export async function PUT(
                 { status: 401 }
             )
         }
+
+        const locked = await closedCycleResponse(supabase, reviewId)
+        if (locked) return locked
 
         // Verifiera att användaren har behörighet att redigera denna review
         const { data: review, error: reviewError } = await supabase
