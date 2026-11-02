@@ -2,10 +2,15 @@
 // Sparar chefens valda år i löneöversynen och går tillbaka till sidan.
 // Flera löneöversyner kan vara öppna samtidigt (ADR 0004); valet gäller
 // alla sidor i löneöversynen tills chefen byter.
+//
+// year=next används av årshjulets medarbetarsamtal: höstens samtal inleder
+// nästa års löneöversyn. Finns den inte än går chefen till översikten, där
+// den kan startas.
 
 import { NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 import { SELECTED_YEAR_COOKIE } from '@/lib/salary-review/cycles-server'
-import { parseYear } from '@/lib/salary-review/lonesattning'
+import { nextCycleYear, parseYear } from '@/lib/salary-review/lonesattning'
 
 const HOME = '/salary-review'
 
@@ -18,9 +23,31 @@ function safeNext(next: string | null): string {
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
-    const year = parseYear(searchParams.get('year'))
-    const response = NextResponse.redirect(new URL(safeNext(searchParams.get('next')), request.url))
 
+    if (searchParams.get('year') === 'next') {
+        const year = nextCycleYear(new Date())
+        const supabase = await createClient()
+        const { data: cycle } = await supabase
+            .from('salary_review_cycles')
+            .select('id')
+            .eq('year', year)
+            .maybeSingle()
+
+        if (!cycle) return NextResponse.redirect(new URL(HOME, request.url))
+        return withSelectedYear(
+            NextResponse.redirect(new URL(safeNext(searchParams.get('next')), request.url)),
+            year
+        )
+    }
+
+    const year = parseYear(searchParams.get('year'))
+    return withSelectedYear(
+        NextResponse.redirect(new URL(safeNext(searchParams.get('next')), request.url)),
+        year
+    )
+}
+
+function withSelectedYear(response: NextResponse, year: number | null): NextResponse {
     if (year === null) {
         response.cookies.delete(SELECTED_YEAR_COOKIE)
     } else {

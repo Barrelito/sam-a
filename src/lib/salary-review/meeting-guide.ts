@@ -65,7 +65,7 @@ export const MEETING_STRUCTURE: MeetingPhase = {
         '4. Summera din bild av medarbetarens arbetsinsats utifrån bedömningsgrunderna. Använd så konkreta exempel som möjligt. Lyft gärna exempel på hur personen har bidragit till verksamheten och vad medarbetaren behöver göra mer. Tycker medarbetaren att din bild stämmer?',
         '5. Berätta hur du gjort din värdering och lönesättning samt presentera den nya lönen. Fokusera på den nya lönen och inte på påslaget eller höjningen.',
         '6. Berätta hur medarbetaren ska kunna påverka sin löneutveckling framöver.',
-        '7. Skriv ner och dokumentera punkter som ni ska ta med er till kommande medarbetar-/utvecklingssamtal.'
+        '7. Skriv ner och dokumentera punkter som ni ska ta med er till kommande medarbetarsamtal.'
     ],
     tips: [
         'Det är du som chef som sätter lönen - detta är ingen förhandling',

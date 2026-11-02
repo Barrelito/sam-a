@@ -505,7 +505,7 @@ export default function MeetingGuideDisplay({
                                 />
                                 <Label htmlFor="step-6" className="cursor-pointer flex-1 font-medium">
                                     <div className={checkedSteps['step-6'] ? 'line-through text-muted-foreground' : ''}>
-                                        7. Skriv ner och dokumentera punkter som ni ska ta med er till kommande medarbetar-/utvecklingssamtal.
+                                        7. Skriv ner och dokumentera punkter som ni ska ta med er till kommande medarbetarsamtal.
                                     </div>
                                 </Label>
                             </div>
