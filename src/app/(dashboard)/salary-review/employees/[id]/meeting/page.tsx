@@ -44,7 +44,7 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
         notFound()
     }
 
-    // Hämta aktiv cykel och review
+    // Hämta vald löneöversyn och lönesättning
     const { cycle: activeCycle } = await getSelectedCycle(supabase)
 
     if (!activeCycle) {
@@ -52,9 +52,9 @@ export default async function MeetingPage({ params }: { params: Promise<{ id: st
             <div className="container mx-auto py-8">
                 <Card className="border-yellow-200 bg-yellow-50">
                     <CardHeader>
-                        <CardTitle className="text-yellow-800">Ingen aktiv löneöversynscykel</CardTitle>
+                        <CardTitle className="text-yellow-800">Ingen öppen löneöversyn</CardTitle>
                         <CardDescription>
-                            Det finns ingen aktiv löneöversynscykel för tillfället.
+                            Det finns ingen öppen löneöversyn.
                         </CardDescription>
                     </CardHeader>
                 </Card>

@@ -123,9 +123,9 @@ export default async function DistributionPage({
     if (!activeCycle) {
         return (
             <div className="container mx-auto py-8">
-                <h1 className="text-2xl font-bold">Ingen aktiv cykel</h1>
+                <h1 className="text-2xl font-bold">Ingen öppen löneöversyn</h1>
                 <p className="text-muted-foreground mt-2">
-                    Det finns ingen aktiv löneöversynscykel.
+                    Det finns ingen öppen löneöversyn.
                 </p>
             </div>
         )
