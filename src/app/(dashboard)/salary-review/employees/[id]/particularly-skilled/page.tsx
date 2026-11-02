@@ -6,6 +6,8 @@ import { redirect, notFound } from 'next/navigation'
 import { getCriteriaForEmployeeCategory } from '@/lib/salary-review/particularly-skilled-criteria'
 import ParticularlySkillfulAssessmentClient from '@/components/salary-review/ParticularlySkillfulAssessmentClient'
 import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
+import { isOpenCycle } from '@/lib/salary-review/lonesattning'
+import ClosedCycleGuard from '@/components/salary-review/ClosedCycleGuard'
 
 export default async function ParticularlySkillfulPage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient()
@@ -67,7 +69,8 @@ export default async function ParticularlySkillfulPage({ params }: { params: Pro
 
     if (existingReview) {
         review = existingReview
-    } else {
+    } else if (isOpenCycle(activeCycle)) {
+        // I en stängd löneöversyn skapas inga nya lönesättningar
         const { data: newReview } = await supabase
             .from('salary_reviews')
             .insert({
@@ -86,17 +89,21 @@ export default async function ParticularlySkillfulPage({ params }: { params: Pro
         return (
             <div className="container mx-auto py-8">
                 <p className="text-muted-foreground">
-                    Kunde inte skapa eller hämta löneöversyn.
+                    {isOpenCycle(activeCycle)
+                        ? 'Kunde inte skapa eller hämta lönesättningen.'
+                        : `Medarbetaren har ingen lönesättning i löneöversyn ${activeCycle.year}.`}
                 </p>
             </div>
         )
     }
 
     return (
-        <ParticularlySkillfulAssessmentClient
-            employee={employee}
-            review={review}
-            criteria={criteria}
-        />
+        <ClosedCycleGuard cycle={activeCycle}>
+            <ParticularlySkillfulAssessmentClient
+                employee={employee}
+                review={review}
+                criteria={criteria}
+            />
+        </ClosedCycleGuard>
     )
 }

@@ -6,6 +6,8 @@ import { redirect, notFound } from 'next/navigation'
 import { SALARY_CRITERIA } from '@/lib/salary-review/salary-criteria'
 import SalaryCriteriaAssessmentClient from '@/components/salary-review/SalaryCriteriaAssessmentClient'
 import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
+import { isOpenCycle } from '@/lib/salary-review/lonesattning'
+import ClosedCycleGuard from '@/components/salary-review/ClosedCycleGuard'
 
 export default async function SalaryCriteriaPage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient()
@@ -54,7 +56,8 @@ export default async function SalaryCriteriaPage({ params }: { params: Promise<{
 
     if (existingReview) {
         review = existingReview
-    } else {
+    } else if (isOpenCycle(activeCycle)) {
+        // I en stängd löneöversyn skapas inga nya lönesättningar
         const { data: newReview } = await supabase
             .from('salary_reviews')
             .insert({
@@ -73,17 +76,21 @@ export default async function SalaryCriteriaPage({ params }: { params: Promise<{
         return (
             <div className="container mx-auto py-8">
                 <p className="text-muted-foreground">
-                    Kunde inte skapa eller hämta löneöversyn.
+                    {isOpenCycle(activeCycle)
+                        ? 'Kunde inte skapa eller hämta lönesättningen.'
+                        : `Medarbetaren har ingen lönesättning i löneöversyn ${activeCycle.year}.`}
                 </p>
             </div>
         )
     }
 
     return (
-        <SalaryCriteriaAssessmentClient
-            employee={employee}
-            review={review}
-            criteria={SALARY_CRITERIA}
-        />
+        <ClosedCycleGuard cycle={activeCycle}>
+            <SalaryCriteriaAssessmentClient
+                employee={employee}
+                review={review}
+                criteria={SALARY_CRITERIA}
+            />
+        </ClosedCycleGuard>
     )
 }

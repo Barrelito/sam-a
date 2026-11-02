@@ -35,7 +35,11 @@ function tableAnswers(tables: TableResults = {}) {
  * production. `insert`/`upsert` record their payload so tests can assert on
  * what a route writes.
  */
-function buildChain(result: QueryResult, onWrite: (payload: unknown) => void) {
+function buildChain(
+    result: QueryResult,
+    onWrite: (payload: unknown) => void,
+    onUpdate: (payload: unknown) => void = () => {}
+) {
     const chain: any = new Proxy(() => chain, {
         get(_target, prop) {
             if (prop === 'then') {
@@ -51,6 +55,12 @@ function buildChain(result: QueryResult, onWrite: (payload: unknown) => void) {
                     return chain
                 })
             }
+            if (prop === 'update') {
+                return vi.fn((payload: unknown) => {
+                    onUpdate(payload)
+                    return chain
+                })
+            }
             return vi.fn(() => chain)
         },
         apply: () => chain,
@@ -60,10 +70,14 @@ function buildChain(result: QueryResult, onWrite: (payload: unknown) => void) {
 
 function writeRecorder() {
     const writes: Record<string, unknown[]> = {}
+    const updates: Record<string, unknown[]> = {}
     const record = (table: string) => (payload: unknown) => {
         ;(writes[table] ??= []).push(payload)
     }
-    return { writes, record }
+    const recordUpdate = (table: string) => (payload: unknown) => {
+        ;(updates[table] ??= []).push(payload)
+    }
+    return { writes, record, updates, recordUpdate }
 }
 
 export type FakeClient = {
@@ -71,6 +85,8 @@ export type FakeClient = {
     from: ReturnType<typeof vi.fn>
     /** Payloads passed to insert/upsert, keyed by table. */
     writes: Record<string, unknown[]>
+    /** Payloads passed to update, keyed by table. */
+    updates: Record<string, unknown[]>
 }
 
 /**
@@ -88,7 +104,7 @@ export function fakeRequestClient(opts: {
     tables?: TableResults
 }): FakeClient {
     const { user, role = null, roleLookupFails = false, tables } = opts
-    const { writes, record } = writeRecorder()
+    const { writes, record, updates, recordUpdate } = writeRecorder()
     const answerFor = tableAnswers(tables)
 
     const profileResult: QueryResult = roleLookupFails
@@ -103,10 +119,12 @@ export function fakeRequestClient(opts: {
             buildChain(
                 answerFor(table) ??
                     (table === 'profiles' ? profileResult : GENERIC_ROW),
-                record(table)
+                record(table),
+                recordUpdate(table)
             )
         ),
         writes,
+        updates,
     }
 }
 
@@ -116,11 +134,11 @@ export function fakeRequestClient(opts: {
  * a route must not reach for it before the caller's role is established.
  */
 export function fakeServiceClient(opts: { tables?: TableResults } = {}) {
-    const { writes, record } = writeRecorder()
+    const { writes, record, updates, recordUpdate } = writeRecorder()
     const answerFor = tableAnswers(opts.tables)
     return {
         from: vi.fn((table: string) =>
-            buildChain(answerFor(table) ?? GENERIC_ROW, record(table))
+            buildChain(answerFor(table) ?? GENERIC_ROW, record(table), recordUpdate(table))
         ),
         auth: {
             admin: {
@@ -139,5 +157,6 @@ export function fakeServiceClient(opts: { tables?: TableResults } = {}) {
             },
         },
         writes,
+        updates,
     }
 }
