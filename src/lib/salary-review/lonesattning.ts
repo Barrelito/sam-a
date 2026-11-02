@@ -85,3 +85,128 @@ export function assessmentSnapshot(
         particularly_skilled: Object.fromEntries(particularlySkilled.map(p => [p.criterion_key, p.is_met])),
     }
 }
+
+/**
+ * Medarbetarens föregående lönesättning: den i senaste tidigare år, oavsett om
+ * den löneöversynen är stängd. Ett år utan lönesättning hoppas över.
+ */
+export function pickPreviousReview<T extends { cycle: { year: number } | null }>(
+    reviews: T[],
+    currentYear: number
+): T | null {
+    return (
+        reviews
+            .filter(r => r.cycle && r.cycle.year < currentYear)
+            .sort((a, b) => b.cycle!.year - a.cycle!.year)[0] ?? null
+    )
+}
+
+/** Det som tas upp från föregående lönesättning i medarbetarsamtalet. */
+export type PreviousLonesattning = {
+    year: number
+    criteria: Record<string, CriteriaRating>
+    particularly_skilled: Record<string, boolean>
+    is_particularly_skilled: boolean | null
+    agreements: string | null
+    development_needs: string | null
+    /** Chefens interna anteckningar – visas inte för medarbetaren */
+    employee_meeting_notes: string | null
+    salary_meeting_notes: string | null
+    /** Lönebelopp – visas inte för medarbetaren */
+    salary_before: number | null
+    salary_after: number | null
+    increase: number | null
+}
+
+/** Presentationsläget visas för medarbetaren: utan lön och interna anteckningar. */
+export function forPresentation(previous: PreviousLonesattning): PreviousLonesattning {
+    return {
+        ...previous,
+        employee_meeting_notes: null,
+        salary_meeting_notes: null,
+        salary_before: null,
+        salary_after: null,
+        increase: null,
+    }
+}
+
+type PreviousReviewRow = {
+    cycle: { year: number } | null
+    is_particularly_skilled?: boolean | null
+    final_salary?: number | null
+    final_increase?: number | null
+    skilled_amount?: number | null
+    meeting_notes?: string | null
+    salary_criteria_assessments?: { sub_criterion_key: string; rating: CriteriaRating }[] | null
+    particularly_skilled_assessments?: { criterion_key: string; is_met: boolean }[] | null
+    /** Supabase ger en rad eller en lista beroende på relationen */
+    meeting_preparation?: { development_needs?: string | null } | { development_needs?: string | null }[] | null
+}
+
+type PreviousMeetingRow = {
+    agreements?: string | null
+    development_needs?: string | null
+    notes?: string | null
+}
+
+/**
+ * Sammanställer en tidigare lönesättning. År innan medarbetarsamtalet fanns
+ * (t.ex. 2026) har inget samtal; då hämtas utvecklingsbehov från
+ * lönesamtalets förberedelse.
+ */
+export function toPreviousLonesattning(
+    row: PreviousReviewRow,
+    meeting: PreviousMeetingRow | null
+): PreviousLonesattning {
+    const preparation = Array.isArray(row.meeting_preparation)
+        ? row.meeting_preparation[0]
+        : row.meeting_preparation
+    const after = row.final_salary ?? null
+    const hasIncrease = row.final_increase != null || row.skilled_amount != null
+    const increase = after != null && hasIncrease
+        ? Number(row.final_increase ?? 0) + Number(row.skilled_amount ?? 0)
+        : null
+    const snapshot = assessmentSnapshot(
+        row.salary_criteria_assessments ?? [],
+        row.particularly_skilled_assessments ?? []
+    )
+
+    return {
+        year: row.cycle?.year ?? 0,
+        criteria: snapshot.criteria,
+        particularly_skilled: snapshot.particularly_skilled,
+        is_particularly_skilled: row.is_particularly_skilled ?? null,
+        agreements: meeting?.agreements ?? null,
+        development_needs: meeting?.development_needs ?? preparation?.development_needs ?? null,
+        employee_meeting_notes: meeting?.notes ?? null,
+        salary_meeting_notes: row.meeting_notes ?? null,
+        salary_before: after != null && increase != null ? Number(after) - increase : null,
+        salary_after: after != null ? Number(after) : null,
+        increase,
+    }
+}
+
+/**
+ * Kriterier vars bedömning skiljer sig från den som sparades när
+ * medarbetarsamtalet genomfördes, med värdet då (null om det inte var
+ * bedömt). Utan genomfört medarbetarsamtal finns inget att jämföra med.
+ */
+export function changedSinceEmployeeMeeting<V extends string | boolean>(
+    current: Record<string, V>,
+    atMeeting: Record<string, V> | null | undefined
+): Record<string, V | null> {
+    if (!atMeeting) return {}
+    const changed: Record<string, V | null> = {}
+    for (const key of new Set([...Object.keys(current), ...Object.keys(atMeeting)])) {
+        const then = atMeeting[key] ?? null
+        if ((current[key] ?? null) !== then) changed[key] = then
+    }
+    return changed
+}
+
+/** Lönesamtalet kan hållas ändå, men chefen ska se att medarbetarsamtalet saknas. */
+export function showMissingEmployeeMeetingWarning(
+    meeting: { completed_at: string | null } | null
+): boolean {
+    return !meeting?.completed_at
+}

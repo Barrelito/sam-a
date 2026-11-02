@@ -23,17 +23,25 @@ import type { CategoryDefinition, CriteriaRating } from '@/lib/salary-review/typ
 import { RATING_DISPLAY_NAMES, RATING_DEFINITIONS, RATING_COLORS } from '@/lib/salary-review/salary-criteria'
 import { useToast } from '@/hooks/use-toast'
 import { LoadingButton } from '@/components/ui/loading-button'
+import AssessmentHistory from '@/components/salary-review/AssessmentHistory'
+import { changedSinceEmployeeMeeting } from '@/lib/salary-review/lonesattning'
 
 interface SalaryCriteriaAssessmentClientProps {
     employee: any
     review: any
     criteria: CategoryDefinition[]
+    /** Fjolårets bedömning, visas bredvid varje kriterium */
+    previous?: { year: number; ratings: Record<string, CriteriaRating> } | null
+    /** Bedömningen när medarbetarsamtalet genomfördes, för att markera ändringar */
+    atEmployeeMeeting?: Record<string, CriteriaRating> | null
 }
 
 export default function SalaryCriteriaAssessmentClient({
     employee,
     review,
-    criteria
+    criteria,
+    previous = null,
+    atEmployeeMeeting = null
 }: SalaryCriteriaAssessmentClientProps) {
     const router = useRouter()
     const { toast } = useToast()
@@ -187,6 +195,14 @@ export default function SalaryCriteriaAssessmentClient({
     // Räkna statistik
     const totalCriteria = criteria.reduce((sum, c) => sum + c.subcriteria.length, 0)
     const assessedCount = Object.values(assessments).filter(a => a.rating).length
+
+    // Vad som ändrats sedan medarbetarsamtalet, räknat på det chefen ser just nu
+    const currentRatings = Object.fromEntries(
+        Object.entries(assessments)
+            .filter(([, a]) => a.rating)
+            .map(([key, a]) => [key, a.rating])
+    ) as Record<string, CriteriaRating>
+    const changedSinceMeeting = changedSinceEmployeeMeeting(currentRatings, atEmployeeMeeting)
     const completionPercentage = totalCriteria > 0 ? Math.round((assessedCount / totalCriteria) * 100) : 0
 
     if (loading) {
@@ -342,6 +358,13 @@ export default function SalaryCriteriaAssessmentClient({
                                                                 ))}
                                                             </SelectContent>
                                                         </Select>
+                                                        <AssessmentHistory
+                                                            previousYear={previous?.year}
+                                                            previousLabel={previous?.ratings[sub.id] ? RATING_DISPLAY_NAMES[previous.ratings[sub.id]] : null}
+                                                            atMeetingLabel={sub.id in changedSinceMeeting
+                                                                ? (changedSinceMeeting[sub.id] ? RATING_DISPLAY_NAMES[changedSinceMeeting[sub.id]!] : null)
+                                                                : undefined}
+                                                        />
                                                     </div>
 
                                                     <div>

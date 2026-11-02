@@ -8,6 +8,7 @@ import SalaryCriteriaAssessmentClient from '@/components/salary-review/SalaryCri
 import { getSelectedCycle } from '@/lib/salary-review/cycles-server'
 import { isOpenCycle } from '@/lib/salary-review/lonesattning'
 import ClosedCycleGuard from '@/components/salary-review/ClosedCycleGuard'
+import { getEmployeeMeeting, getPreviousLonesattning } from '@/lib/salary-review/reviews-server'
 
 export default async function SalaryCriteriaPage({ params }: { params: Promise<{ id: string }> }) {
     const supabase = await createClient()
@@ -84,12 +85,20 @@ export default async function SalaryCriteriaPage({ params }: { params: Promise<{
         )
     }
 
+    // Fjolårets bedömning och bedömningen vid medarbetarsamtalet, för jämförelse
+    const [previous, meeting] = await Promise.all([
+        getPreviousLonesattning(supabase, employeeId, activeCycle.year),
+        getEmployeeMeeting(supabase, review.id),
+    ])
+
     return (
         <ClosedCycleGuard cycle={activeCycle} backHref={`/salary-review/employees/${employeeId}`}>
             <SalaryCriteriaAssessmentClient
                 employee={employee}
                 review={review}
                 criteria={SALARY_CRITERIA}
+                previous={previous ? { year: previous.year, ratings: previous.criteria } : null}
+                atEmployeeMeeting={meeting?.assessment_snapshot?.criteria ?? null}
             />
         </ClosedCycleGuard>
     )

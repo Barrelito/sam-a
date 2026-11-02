@@ -2,7 +2,12 @@
 // saknas. I en stängd löneöversyn skapas inga nya lönesättningar.
 
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { isOpenCycle } from './lonesattning'
+import {
+    isOpenCycle,
+    pickPreviousReview,
+    toPreviousLonesattning,
+    type PreviousLonesattning,
+} from './lonesattning'
 import type { SalaryReviewCycle } from './types'
 
 type Client = SupabaseClient<any, 'public', any>
@@ -49,4 +54,42 @@ export async function getEmployeeMeeting(supabase: Client, reviewId: string) {
         return null
     }
     return data
+}
+
+/**
+ * Medarbetarens föregående lönesättning, sammanställd för medarbetarsamtalet.
+ * Åtkomst följer RLS: stationens chef ser tidigare lönesättningar även om en
+ * annan chef gjorde dem.
+ */
+export async function getPreviousLonesattning(
+    supabase: Client,
+    employeeId: string,
+    currentYear: number
+): Promise<PreviousLonesattning | null> {
+    const { data, error } = await supabase
+        .from('salary_reviews')
+        .select(`
+            id,
+            is_particularly_skilled,
+            final_salary,
+            final_increase,
+            skilled_amount,
+            meeting_notes,
+            cycle:salary_review_cycles (year),
+            salary_criteria_assessments (sub_criterion_key, rating),
+            particularly_skilled_assessments (criterion_key, is_met),
+            meeting_preparation:salary_meeting_preparations (development_needs)
+        `)
+        .eq('employee_id', employeeId)
+
+    if (error) {
+        console.error('Error fetching previous reviews:', error)
+        return null
+    }
+
+    const previous = pickPreviousReview((data ?? []) as any[], currentYear)
+    if (!previous) return null
+
+    const meeting = await getEmployeeMeeting(supabase, previous.id)
+    return toPreviousLonesattning(previous, meeting)
 }

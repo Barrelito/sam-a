@@ -15,17 +15,25 @@ import Link from 'next/link'
 import type { ParticularlySkillfulCriterion } from '@/lib/salary-review/particularly-skilled-criteria'
 import { useToast } from '@/hooks/use-toast'
 import { LoadingButton } from '@/components/ui/loading-button'
+import AssessmentHistory from '@/components/salary-review/AssessmentHistory'
+import { changedSinceEmployeeMeeting } from '@/lib/salary-review/lonesattning'
 
 interface ParticularlySkillfulAssessmentPageProps {
     employee: any
     review: any
     criteria: ParticularlySkillfulCriterion[]
+    /** Fjolårets bedömning, visas vid varje kriterium */
+    previous?: { year: number; met: Record<string, boolean> } | null
+    /** Bedömningen när medarbetarsamtalet genomfördes, för att markera ändringar */
+    atEmployeeMeeting?: Record<string, boolean> | null
 }
 
 export default function ParticularlySkillfulAssessmentClient({
     employee,
     review,
-    criteria
+    criteria,
+    previous = null,
+    atEmployeeMeeting = null
 }: ParticularlySkillfulAssessmentPageProps) {
     const router = useRouter()
     const { toast } = useToast()
@@ -151,6 +159,16 @@ export default function ParticularlySkillfulAssessmentClient({
 
     // Räkna statistik - Endast för kriterier som faktiskt finns i den aktuella uppsättningen
     const allCriteriaIds = criteria.flatMap(c => c.subcriteria.map(s => s.id))
+
+    // Vad som ändrats sedan medarbetarsamtalet (ej uppfyllt räknas som false)
+    const currentMet = Object.fromEntries(
+        allCriteriaIds.map(id => [id, assessments[id]?.is_met ?? false])
+    )
+    const meetingMet = atEmployeeMeeting
+        ? Object.fromEntries(allCriteriaIds.map(id => [id, atEmployeeMeeting[id] ?? false]))
+        : null
+    const changedSinceMeeting = changedSinceEmployeeMeeting(currentMet, meetingMet)
+    const metLabel = (met: boolean | null | undefined) => (met ? 'uppfyllt' : 'ej uppfyllt')
     const totalSubcriteria = allCriteriaIds.length
 
     const metCount = Object.entries(assessments)
@@ -230,6 +248,11 @@ export default function ParticularlySkillfulAssessmentClient({
                                                 >
                                                     {sub.text}
                                                 </Label>
+                                                <AssessmentHistory
+                                                    previousYear={previous?.year}
+                                                    previousLabel={previous ? metLabel(previous.met[sub.id]) : null}
+                                                    atMeetingLabel={sub.id in changedSinceMeeting ? metLabel(changedSinceMeeting[sub.id]) : undefined}
+                                                />
 
                                                 {/* Vägledande exempel */}
                                                 {sub.examples && sub.examples.length > 0 && (
