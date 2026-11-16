@@ -25,6 +25,7 @@ import { useToast } from '@/hooks/use-toast'
 import { LoadingButton } from '@/components/ui/loading-button'
 import AssessmentHistory from '@/components/salary-review/AssessmentHistory'
 import { changedSinceEmployeeMeeting } from '@/lib/salary-review/lonesattning'
+import { withEvidence, withRating, type CriteriaDraft } from '@/lib/salary-review/criteria-draft'
 
 interface SalaryCriteriaAssessmentClientProps {
     employee: any
@@ -48,7 +49,7 @@ export default function SalaryCriteriaAssessmentClient({
     const [loading, setLoading] = useState(false)
     const [saving, setSaving] = useState(false)
     const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['1'])) // First category expanded by default
-    const [assessments, setAssessments] = useState<Record<string, { rating: CriteriaRating, evidence: string, notes: string }>>({})
+    const [assessments, setAssessments] = useState<CriteriaDraft>({})
     const [validationErrors, setValidationErrors] = useState<Record<string, string>>({})
 
     // Ladda befintliga bedömningar
@@ -60,7 +61,7 @@ export default function SalaryCriteriaAssessmentClient({
                 const data = await response.json()
 
                 if (data.assessments) {
-                    const assessmentMap: Record<string, any> = {}
+                    const assessmentMap: CriteriaDraft = {}
                     data.assessments.forEach((a: any) => {
                         assessmentMap[a.sub_criterion_key] = {
                             rating: a.rating,
@@ -109,31 +110,12 @@ export default function SalaryCriteriaAssessmentClient({
     }
 
     const handleRatingChange = (subCriterionKey: string, categoryKey: string, rating: CriteriaRating) => {
-        const newData = {
-            ...assessments[subCriterionKey],
-            rating,
-            evidence: assessments[subCriterionKey]?.evidence || '',
-            notes: assessments[subCriterionKey]?.notes || '',
-            category_key: categoryKey
-        }
-        setAssessments(prev => ({
-            ...prev,
-            [subCriterionKey]: newData
-        }))
+        setAssessments(prev => withRating(prev, subCriterionKey, categoryKey, rating))
     }
 
-    const handleEvidenceChange = (subCriterionKey: string, value: string) => {
-        const assessment = assessments[subCriterionKey]
-        if (assessment) {
-            const newData = {
-                ...assessment,
-                evidence: value
-            }
-            setAssessments(prev => ({
-                ...prev,
-                [subCriterionKey]: newData
-            }))
-        }
+    // Exempel kan skrivas innan betyget är valt
+    const handleEvidenceChange = (subCriterionKey: string, categoryKey: string, value: string) => {
+        setAssessments(prev => withEvidence(prev, subCriterionKey, categoryKey, value))
     }
 
     const handleSave = async () => {
@@ -143,18 +125,26 @@ export default function SalaryCriteriaAssessmentClient({
             const assessmentArray = Object.entries(assessments)
                 .filter(([_, data]) => data.rating) // Endast de som har rating
                 .map(([sub_criterion_key, data]) => ({
-                    criterion_key: (data as any).category_key,
+                    criterion_key: data.category_key,
                     sub_criterion_key,
                     rating: data.rating,
                     evidence: data.evidence,
                     notes: data.notes
                 }))
 
+            // Exempel utan betyg kan inte sparas (API:t kräver betyg) - säg det i stället för att tappa texten tyst
+            const unratedWithEvidence = Object.entries(assessments)
+                .filter(([_, data]) => !data.rating && data.evidence.trim())
+                .map(([key]) => key)
+            const unratedNote = unratedWithEvidence.length > 0
+                ? ` Välj betyg för ${unratedWithEvidence.join(', ')} för att spara exemplen där.`
+                : ''
+
             if (assessmentArray.length === 0) {
                 toast({
                     variant: "destructive",
                     title: "Ingen bedömning gjord",
-                    description: "Du måste bedöma minst ett kriterium!"
+                    description: "Du måste bedöma minst ett kriterium!" + unratedNote
                 })
                 setSaving(false)
                 return
@@ -175,7 +165,7 @@ export default function SalaryCriteriaAssessmentClient({
             // Success toast
             toast({
                 title: "✓ Bedömning sparad!",
-                description: `${result.assessed_count} kriterier bedömda. Genomsnitt: ${result.average_rating.toFixed(2)} / 4.0`,
+                description: `${result.assessed_count} kriterier bedömda. Genomsnitt: ${result.average_rating.toFixed(2)} / 4.0.${unratedNote}`,
                 variant: "default"
             })
 
@@ -375,7 +365,7 @@ export default function SalaryCriteriaAssessmentClient({
                                                         <Textarea
                                                             id={`${sub.id}-evidence`}
                                                             value={assessment.evidence}
-                                                            onChange={(e) => handleEvidenceChange(sub.id, e.target.value)}
+                                                            onChange={(e) => handleEvidenceChange(sub.id, category.id, e.target.value)}
                                                             placeholder="Beskriv konkreta exempel från medarbetarens arbete..."
                                                             rows={3}
                                                             className={`mt-1 resize-none ${validationErrors[sub.id] ? 'border-red-500' : ''}`}
